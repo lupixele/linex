@@ -26,7 +26,8 @@ fun InstanceCard(
     onStop: (LinuxInstance) -> Unit,
     onClone: (LinuxInstance) -> Unit,
     onDelete: (LinuxInstance) -> Unit,
-    onEditSettings: (LinuxInstance) -> Unit
+    onEditSettings: (LinuxInstance) -> Unit,
+    onViewLogs: (LinuxInstance) -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -127,6 +128,9 @@ fun InstanceCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(onClick = { onViewLogs(instance) }) {
+                        Icon(Icons.Default.Article, contentDescription = "View Logs", tint = MaterialTheme.colorScheme.secondary)
+                    }
                     IconButton(onClick = { onEditSettings(instance) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.secondary)
                     }

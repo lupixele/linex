@@ -12,49 +12,77 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+data class LogEntry(
+    val timestamp: String,
+    val instanceId: String?, // null = global
+    val tag: String,
+    val message: String
+) {
+    override fun toString(): String {
+        val instPrefix = if (instanceId != null) "[Inst:$instanceId] " else ""
+        return "[$timestamp] $instPrefix[$tag] $message"
+    }
+}
+
 object AppLogger {
     private const val TAG = "LinexLogger"
-    private const val MAX_LOG_LINES = 2000
+    private const val MAX_LOG_LINES = 3000
 
-    private val _logs = MutableStateFlow<List<String>>(emptyList())
-    val logs: StateFlow<List<String>> = _logs
+    private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
+    val logs: StateFlow<List<LogEntry>> = _logs
 
-    private val logBuffer = mutableListOf<String>()
+    private val logBuffer = mutableListOf<LogEntry>()
     private val dateFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
 
     @Synchronized
-    fun log(tag: String, message: String) {
+    fun log(tag: String, message: String, instanceId: String? = null) {
         val timestamp = dateFormat.format(Date())
-        val line = "[$timestamp] [$tag] $message"
-        Log.i(tag, message)
-        logBuffer.add(line)
+        val entry = LogEntry(timestamp, instanceId, tag, message)
+        Log.i(tag, entry.toString())
+        logBuffer.add(entry)
         if (logBuffer.size > MAX_LOG_LINES) {
             logBuffer.removeAt(0)
         }
         _logs.value = logBuffer.toList()
     }
 
-    fun getLogsAsText(): String {
+    fun getLogsForInstance(instanceId: String?): List<LogEntry> {
         return synchronized(this) {
-            logBuffer.joinToString("\n")
+            if (instanceId == null) {
+                logBuffer.toList()
+            } else {
+                logBuffer.filter { it.instanceId == null || it.instanceId == instanceId }
+            }
         }
     }
 
-    fun clear() {
+    fun getLogsAsText(instanceId: String? = null): String {
+        return getLogsForInstance(instanceId).joinToString("\n") { it.toString() }
+    }
+
+    fun clear(instanceId: String? = null) {
         synchronized(this) {
-            logBuffer.clear()
-            _logs.value = emptyList()
+            if (instanceId == null) {
+                logBuffer.clear()
+            } else {
+                logBuffer.removeAll { it.instanceId == instanceId }
+            }
+            _logs.value = logBuffer.toList()
         }
     }
 
     /**
-     * Writes all captured logs to a public cache file and triggers Android's system share sheet
-     * so you can copy, save, or send the exact logfile anywhere.
+     * Exports logs via Android share sheet.
      */
-    fun shareLogs(context: Context) {
+    fun shareLogs(context: Context, instanceId: String? = null, instanceName: String? = null) {
         try {
-            val logFile = File(context.cacheDir, "linex_diagnostic_logs.txt")
-            logFile.writeText(getLogsAsText())
+            val fileName = if (instanceName != null) {
+                "linex_${instanceName.replace(" ", "_").lowercase()}_logs.txt"
+            } else {
+                "linex_all_logs.txt"
+            }
+            val logFile = File(context.cacheDir, fileName)
+            logFile.writeText(getLogsAsText(instanceId))
 
             val uri: Uri = FileProvider.getUriForFile(
                 context,
@@ -65,7 +93,7 @@ object AppLogger {
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra(Intent.EXTRA_SUBJECT, "Linex Diagnostic Logs")
+                putExtra(Intent.EXTRA_SUBJECT, "Linex Logs ${instanceName ?: "All"}")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }

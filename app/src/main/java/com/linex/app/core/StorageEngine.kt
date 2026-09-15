@@ -166,6 +166,7 @@ class StorageEngine(
                     while (reader.readLine().also { line = it } != null) {
                         val currentLine = line ?: continue
                         Log.i(TAG, "[Extract] $currentLine")
+                        AppLogger.log("Extract", currentLine, null)
                         val progressFraction = when {
                             currentLine.contains("Preparing target directory") -> 0.15f
                             currentLine.contains("Inspecting archive format") -> 0.25f

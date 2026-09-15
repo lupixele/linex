@@ -29,19 +29,29 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.linex.app.core.AppLogger
+import com.linex.app.data.LinuxInstance
 
 @Composable
 fun LogViewerDialog(
+    selectedInstance: LinuxInstance? = null,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
-    val logs by AppLogger.logs.collectAsState()
+    val allLogs by AppLogger.logs.collectAsState()
     val listState = rememberLazyListState()
 
-    LaunchedEffect(logs.size) {
-        if (logs.isNotEmpty()) {
-            listState.animateScrollToItem(logs.size - 1)
+    val filteredLogs = remember(allLogs, selectedInstance) {
+        if (selectedInstance == null) {
+            allLogs
+        } else {
+            allLogs.filter { it.instanceId == null || it.instanceId == selectedInstance.id }
+        }
+    }
+
+    LaunchedEffect(filteredLogs.size) {
+        if (filteredLogs.isNotEmpty()) {
+            listState.animateScrollToItem(filteredLogs.size - 1)
         }
     }
 
@@ -70,12 +80,12 @@ fun LogViewerDialog(
                 ) {
                     Column {
                         Text(
-                            text = "Diagnostic Logs",
+                            text = if (selectedInstance != null) "${selectedInstance.name} Logs" else "All Diagnostic Logs",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "${logs.size} log entries captured",
+                            text = "${filteredLogs.size} log entries captured",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary
                         )
@@ -98,9 +108,9 @@ fun LogViewerDialog(
                         .background(Color(0xFF0C0C0E))
                         .padding(8.dp)
                 ) {
-                    if (logs.isEmpty()) {
+                    if (filteredLogs.isEmpty()) {
                         Text(
-                            text = "No logs recorded yet. Launch or extract an instance to view live output.",
+                            text = "No logs recorded for this instance yet.\nLaunch or download an instance to view live output.",
                             color = Color.Gray,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
@@ -111,15 +121,16 @@ fun LogViewerDialog(
                             state = listState,
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(logs) { line ->
+                            items(filteredLogs) { entry ->
+                                val text = entry.toString()
                                 val color = when {
-                                    line.contains("ERROR", ignoreCase = true) || line.contains("failed", ignoreCase = true) -> Color(0xFFFF453A)
-                                    line.contains("Warning", ignoreCase = true) || line.contains("WARN", ignoreCase = true) -> Color(0xFFFF9F0A)
-                                    line.contains("SUCCESS", ignoreCase = true) || line.contains("complete", ignoreCase = true) -> Color(0xFF30D158)
+                                    text.contains("ERROR", ignoreCase = true) || text.contains("failed", ignoreCase = true) || text.contains("EXCEPTION", ignoreCase = true) -> Color(0xFFFF453A)
+                                    text.contains("Warning", ignoreCase = true) || text.contains("WARN", ignoreCase = true) -> Color(0xFFFF9F0A)
+                                    text.contains("SUCCESS", ignoreCase = true) || text.contains("complete", ignoreCase = true) -> Color(0xFF30D158)
                                     else -> Color(0xFFD1D1D6)
                                 }
                                 Text(
-                                    text = line,
+                                    text = text,
                                     color = color,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
@@ -139,7 +150,7 @@ fun LogViewerDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedButton(
-                        onClick = { AppLogger.clear() },
+                        onClick = { AppLogger.clear(selectedInstance?.id) },
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -150,9 +161,9 @@ fun LogViewerDialog(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = {
-                                val fullText = AppLogger.getLogsAsText()
+                                val fullText = AppLogger.getLogsAsText(selectedInstance?.id)
                                 clipboardManager.setText(AnnotatedString(fullText))
-                                Toast.makeText(context, "Copied ${logs.size} log lines to clipboard", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Copied ${filteredLogs.size} lines to clipboard", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(8.dp)
@@ -163,7 +174,7 @@ fun LogViewerDialog(
                         }
 
                         Button(
-                            onClick = { AppLogger.shareLogs(context) },
+                            onClick = { AppLogger.shareLogs(context, selectedInstance?.id, selectedInstance?.name) },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             shape = RoundedCornerShape(8.dp)
                         ) {

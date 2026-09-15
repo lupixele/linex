@@ -44,20 +44,26 @@ fun HubScreen(
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var showLogsDialog by remember { mutableStateOf(false) }
+    var selectedLogInstance by remember { mutableStateOf<LinuxInstance?>(null) }
     var downloadingInstance by remember { mutableStateOf<LinuxInstance?>(null) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var downloadStatus by remember { mutableStateOf("Preparing download...") }
     var downloadJob by remember { mutableStateOf<Job?>(null) }
 
     val handleLaunchOrResume: (LinuxInstance) -> Unit = { instance ->
+        AppLogger.log("HubScreen", "Launch tapped for instance: ${instance.name} (${instance.id})", instance.id)
         if (instance.state == ContainerState.SUSPENDED) {
+            AppLogger.log("HubScreen", "Instance is suspended. Resuming...", instance.id)
             onLaunchInstance(instance)
         } else {
             val isReady = engine.isInstanceInitialized(instance.id)
+            AppLogger.log("HubScreen", "Checking if instance initialized: $isReady", instance.id)
             if (isReady) {
+                AppLogger.log("HubScreen", "Instance is ready. Launching session...", instance.id)
                 onLaunchInstance(instance)
             } else {
                 // Instance requires rootfs download before first launch
+                AppLogger.log("HubScreen", "Instance not initialized. Starting download dialog for ${instance.distro.displayName}", instance.id)
                 downloadingInstance = instance
                 downloadProgress = 0f
                 downloadStatus = "Connecting to server..."
@@ -75,16 +81,20 @@ fun HubScreen(
 
                         // Verify instance is initialized before launching
                         val readyAfterExtract = engine.isInstanceInitialized(instance.id)
+                        AppLogger.log("HubScreen", "Extraction finished. isInstanceInitialized: $readyAfterExtract", instance.id)
                         downloadingInstance = null
                         if (readyAfterExtract) {
                             onLaunchInstance(instance)
                         } else {
+                            AppLogger.log("HubScreen", "ERROR: Rootfs extracted but initialization check failed for ${instance.name}", instance.id)
                             Log.e("HubScreen", "Rootfs extracted but initialization check failed for ${instance.name}")
                         }
                     } catch (e: CancellationException) {
+                        AppLogger.log("HubScreen", "Rootfs download cancelled for ${instance.name}", instance.id)
                         Log.i("HubScreen", "Rootfs download cancelled for ${instance.name}")
                         downloadingInstance = null
                     } catch (e: Exception) {
+                        AppLogger.log("HubScreen", "EXCEPTION during download/extract: ${e.message}", instance.id)
                         Log.e("HubScreen", "Failed to download/extract rootfs: ${e.message}", e)
                         downloadStatus = "Download error: ${e.message}"
                         downloadingInstance = null
@@ -183,7 +193,11 @@ fun HubScreen(
                             onStop = onStopInstance,
                             onClone = onCloneInstance,
                             onDelete = onDeleteInstance,
-                            onEditSettings = { /* Open config modal */ }
+                            onEditSettings = { /* Open config modal */ },
+                            onViewLogs = { selectedInst ->
+                                selectedLogInstance = selectedInst
+                                showLogsDialog = true
+                            }
                         )
                     }
                 }
@@ -192,7 +206,13 @@ fun HubScreen(
     }
 
     if (showLogsDialog) {
-        LogViewerDialog(onDismiss = { showLogsDialog = false })
+        LogViewerDialog(
+            selectedInstance = selectedLogInstance,
+            onDismiss = {
+                showLogsDialog = false
+                selectedLogInstance = null
+            }
+        )
     }
 
     if (showCreateDialog) {
