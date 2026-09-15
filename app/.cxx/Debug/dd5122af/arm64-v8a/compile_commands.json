@@ -1,7 +1,7 @@
 [
 {
   "directory": "P:/Magnanimity/Projects/LinuxDroid/app/.cxx/Debug/dd5122af/arm64-v8a",
-  "command": "P:\\Android\\Sdk\\ndk\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=aarch64-none-linux-android26 --sysroot=P:/Android/Sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/windows-x86_64/sysroot -Dlinuxdroid_engine_EXPORTS -IP:/Magnanimity/Projects/LinuxDroid/app/src/main/cpp -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -fno-limit-debug-info  -fPIC -o CMakeFiles\\linuxdroid_engine.dir\\engine_bridge.cpp.o -c P:\\Magnanimity\\Projects\\LinuxDroid\\app\\src\\main\\cpp\\engine_bridge.cpp",
+  "command": "P:\\Android\\Sdk\\ndk\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=aarch64-none-linux-android26 --sysroot=P:/Android/Sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/windows-x86_64/sysroot -Dlinex_engine_EXPORTS -IP:/Magnanimity/Projects/LinuxDroid/app/src/main/cpp -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -fno-limit-debug-info  -fPIC -o CMakeFiles\\linex_engine.dir\\engine_bridge.cpp.o -c P:\\Magnanimity\\Projects\\LinuxDroid\\app\\src\\main\\cpp\\engine_bridge.cpp",
   "file": "P:\\Magnanimity\\Projects\\LinuxDroid\\app\\src\\main\\cpp\\engine_bridge.cpp"
 }
 ]

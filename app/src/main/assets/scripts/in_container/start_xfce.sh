@@ -1,6 +1,6 @@
 #!/bin/sh
 # ==============================================================================
-# LinuxDroid XFCE4 Session Launcher
+# Linex XFCE4 Session Launcher
 # Starts XFCE4 with compositing and power-saving disabled (unneeded on mobile)
 # for maximum frame-rate and lowest memory usage.
 # ==============================================================================

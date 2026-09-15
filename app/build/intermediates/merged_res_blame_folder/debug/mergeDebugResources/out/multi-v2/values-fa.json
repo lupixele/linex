@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.linuxdroid.app-mergeDebugResources-39:/values-fa/values-fa.xml",
+            "outputFile": "com.linex.app-mergeDebugResources-39:/values-fa/values-fa.xml",
             "map": [
                 {
                     "source": "C:\\Users\\lupixele\\.gradle\\caches\\transforms-3\\62140ce68db9732eafd1a87fefdfcd5e\\transformed\\ui-release\\res\\values-fa\\values-fa.xml",

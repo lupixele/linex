@@ -1,6 +1,6 @@
 #!/bin/sh
 # ==============================================================================
-# LinuxDroid GNOME Flashback Session Launcher
+# Linex GNOME Flashback Session Launcher
 # Classic GNOME panel interface with Metacity window manager.
 # Low overhead, ideal for keyboard/mouse multi-window workflows.
 # ==============================================================================

@@ -1,9 +1,9 @@
-# SYSTEM_DESIGN.md — LinuxDroid (Autonomous Linux Container Manager for Android)
+# SYSTEM_DESIGN.md — Linex (Autonomous Linux Container Manager for Android)
 
 ## 1. System Overview & Problem Statement
 Existing solutions for running Linux on Android (e.g., Termux + PRoot + Termux-X11) require users to manually install packages, orchestrate background display daemons (`termux-x11 :1 -ac &`), configure environment variables (`DISPLAY=:1`), and manage multiple separate APKs.
 
-**LinuxDroid** is an all-in-one Android container management platform (similar to LDPlayer / BlueStacks on Windows, or UTM on macOS). It packages:
+**Linex** is an all-in-one Android container management platform (similar to LDPlayer / BlueStacks on Windows, or UTM on macOS). It packages:
 1. A Jetpack Compose GUI Instance Manager (Hub).
 2. Embedded rootless container engine (`libproot.so`).
 3. Embedded X11 display server rendered directly onto an Android `SurfaceView`.
@@ -18,7 +18,7 @@ Existing solutions for running Linux on Android (e.g., Termux + PRoot + Termux-X
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            LinuxDroid Android App                           │
+│                            Linex Android App                           │
 │                                                                             │
 │  ┌───────────────────────────────┐     ┌─────────────────────────────────┐  │
 │  │     Hub Screen (Compose)      │     │    Session Screen (Compose)     │  │
@@ -57,7 +57,7 @@ Existing solutions for running Linux on Android (e.g., Termux + PRoot + Termux-X
 
 ### 3.1 Instance Management & Multi-Container Isolation
 * **Storage Model:** Each instance is stored under the app's isolated internal storage:
-  `/data/user/0/com.linuxdroid.app/files/instances/{instance_id}/rootfs/`
+  `/data/user/0/com.linex.app/files/instances/{instance_id}/rootfs/`
 * **Metadata Store:** SQLite database managed via Room (`instances.db`) tracking:
   - `id`: UUID
   - `name`: Human-readable label (e.g., "Ubuntu Workstation")
@@ -70,7 +70,7 @@ Existing solutions for running Linux on Android (e.g., Termux + PRoot + Termux-X
   - `last_snapshot_path`: Absolute path to cached screenshot
 
 ### 3.2 Instant Pause & Resume (Zero-Cold-Start Engine)
-Android kernels do not permit unprivileged userland checkpointing via CRIU. LinuxDroid implements high-efficiency **Process Group Freezing**:
+Android kernels do not permit unprivileged userland checkpointing via CRIU. Linex implements high-efficiency **Process Group Freezing**:
 1. **Suspend Trigger:** When the user navigates away or taps "Suspend":
    - The native bridge queries the child process group ID (PGID) spawned by PRoot.
    - Issues `kill(-pgid, SIGSTOP)`.
@@ -132,7 +132,7 @@ Replaces clunky floating buttons that interfere with desktop windows.
 ## 4. Source Tree & Code Layout
 
 ```
-LinuxDroid/
+Linex/
 ├── SYSTEM_DESIGN.md
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -141,7 +141,7 @@ LinuxDroid/
 │   ├── src/
 │   │   └── main/
 │   │       ├── AndroidManifest.xml
-│   │       ├── java/com/linuxdroid/app/
+│   │       ├── java/com/linex/app/
 │   │       │   ├── MainActivity.kt
 │   │       │   ├── core/
 │   │       │   │   ├── ContainerManager.kt

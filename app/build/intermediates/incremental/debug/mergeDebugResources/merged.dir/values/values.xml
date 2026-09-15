@@ -97,7 +97,7 @@
     <item name="wrapped_composition_tag" type="id"/>
     <integer name="status_bar_notification_info_maxnum">999</integer>
     <string name="androidx_startup" translatable="false">androidx.startup</string>
-    <string name="app_name">LinuxDroid</string>
+    <string name="app_name">Linex</string>
     <string name="call_notification_answer_action">Answer</string>
     <string name="call_notification_answer_video_action">Video</string>
     <string name="call_notification_decline_action">Decline</string>
@@ -208,7 +208,7 @@
         <item name="android:textColor">?android:attr/textColorSecondary</item>
     </style>
     <style name="TextAppearance.Compat.Notification.Title" parent="@android:style/TextAppearance.StatusBar.EventContent.Title"/>
-    <style name="Theme.LinuxDroid" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.Linex" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">#101012</item>
         <item name="android:statusBarColor">#101012</item>
         <item name="android:navigationBarColor">#101012</item>

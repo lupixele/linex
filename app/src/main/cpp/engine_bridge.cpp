@@ -7,7 +7,7 @@
 #include <string.h>
 #include <android/log.h>
 
-#define TAG "LinuxDroid_NativeEngine"
+#define TAG "Linex_NativeEngine"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
@@ -20,7 +20,7 @@ extern "C" {
  * and SIGTERM (15) / SIGKILL (9) to shut down.
  */
 JNIEXPORT jboolean JNICALL
-Java_com_linuxdroid_app_core_ProcessController_nativeSendSignal(
+Java_com_linex_app_core_ProcessController_nativeSendSignal(
         JNIEnv *env,
         jobject thiz,
         jint pid_or_pgid,
@@ -43,7 +43,7 @@ Java_com_linuxdroid_app_core_ProcessController_nativeSendSignal(
  * Returns the process group ID for a given process ID.
  */
 JNIEXPORT jint JNICALL
-Java_com_linuxdroid_app_core_ProcessController_nativeGetProcessGroup(
+Java_com_linex_app_core_ProcessController_nativeGetProcessGroup(
         JNIEnv *env,
         jobject thiz,
         jint pid) {
@@ -59,7 +59,7 @@ Java_com_linuxdroid_app_core_ProcessController_nativeGetProcessGroup(
  * Sets process group ID for process management and child trapping.
  */
 JNIEXPORT jboolean JNICALL
-Java_com_linuxdroid_app_core_ProcessController_nativeSetPgid(
+Java_com_linex_app_core_ProcessController_nativeSetPgid(
         JNIEnv *env,
         jobject thiz,
         jint pid,
@@ -77,7 +77,7 @@ Java_com_linuxdroid_app_core_ProcessController_nativeSetPgid(
  * Verifies if a given process ID is still alive.
  */
 JNIEXPORT jboolean JNICALL
-Java_com_linuxdroid_app_core_ProcessController_nativeCheckProcessAlive(
+Java_com_linex_app_core_ProcessController_nativeCheckProcessAlive(
         JNIEnv *env,
         jobject thiz,
         jint pid) {
@@ -94,7 +94,7 @@ Java_com_linuxdroid_app_core_ProcessController_nativeCheckProcessAlive(
  * the requisite executable and POSIX sticky bits without relying on external sh.
  */
 JNIEXPORT jboolean JNICALL
-Java_com_linuxdroid_app_core_ProcessController_nativeSetPermissions(
+Java_com_linex_app_core_ProcessController_nativeSetPermissions(
         JNIEnv *env,
         jobject thiz,
         jstring path_str,
@@ -120,7 +120,7 @@ Java_com_linuxdroid_app_core_ProcessController_nativeSetPermissions(
  * Native symlink creation helper for rootfs and socket path linkage.
  */
 JNIEXPORT jboolean JNICALL
-Java_com_linuxdroid_app_core_ProcessController_nativeCreateSymlink(
+Java_com_linex_app_core_ProcessController_nativeCreateSymlink(
         JNIEnv *env,
         jobject thiz,
         jstring target_str,
@@ -151,7 +151,7 @@ Java_com_linuxdroid_app_core_ProcessController_nativeCreateSymlink(
  * Native input event stubs for X11SurfaceView
  */
 JNIEXPORT void JNICALL
-Java_com_linuxdroid_app_ui_session_X11SurfaceView_nativePointerMotion(
+Java_com_linex_app_ui_session_X11SurfaceView_nativePointerMotion(
         JNIEnv *env,
         jobject thiz,
         jfloat x,
@@ -161,7 +161,7 @@ Java_com_linuxdroid_app_ui_session_X11SurfaceView_nativePointerMotion(
 }
 
 JNIEXPORT void JNICALL
-Java_com_linuxdroid_app_ui_session_X11SurfaceView_nativePointerButton(
+Java_com_linex_app_ui_session_X11SurfaceView_nativePointerButton(
         JNIEnv *env,
         jobject thiz,
         jint button_index,
@@ -170,7 +170,7 @@ Java_com_linuxdroid_app_ui_session_X11SurfaceView_nativePointerButton(
 }
 
 JNIEXPORT void JNICALL
-Java_com_linuxdroid_app_ui_session_X11SurfaceView_nativePointerScroll(
+Java_com_linex_app_ui_session_X11SurfaceView_nativePointerScroll(
         JNIEnv *env,
         jobject thiz,
         jfloat distance_y) {
@@ -178,7 +178,7 @@ Java_com_linuxdroid_app_ui_session_X11SurfaceView_nativePointerScroll(
 }
 
 JNIEXPORT void JNICALL
-Java_com_linuxdroid_app_ui_session_X11SurfaceView_nativeKeyEvent(
+Java_com_linex_app_ui_session_X11SurfaceView_nativeKeyEvent(
         JNIEnv *env,
         jobject thiz,
         jint key_code,

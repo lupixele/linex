@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">LinuxDroid</string>
+    <string name="app_name">Linex</string>
     <string name="notification_channel_name">Linux Container Service</string>
     <string name="notification_channel_desc">Keeps the Linux container and display server active</string>
 </resources>

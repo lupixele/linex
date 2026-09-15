@@ -1,6 +1,6 @@
 1<?xml version="1.0" encoding="utf-8"?>
 2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-3    package="com.linuxdroid.app"
+3    package="com.linex.app"
 4    android:versionCode="1"
 5    android:versionName="1.0.0" >
 6
@@ -37,19 +37,19 @@
 23
 24    <permission
 24-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:22:5-24:47
-25        android:name="com.linuxdroid.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+25        android:name="com.linex.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
 25-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:23:9-81
 26        android:protectionLevel="signature" />
 26-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:24:9-44
 27
-28    <uses-permission android:name="com.linuxdroid.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+28    <uses-permission android:name="com.linex.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 28-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:26:5-97
 28-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:26:22-94
 29
 30    <application
 30-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:18:5-62:19
-31        android:name="com.linuxdroid.app.LinuxDroidApp"
-31-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:19:9-38
+31        android:name="com.linex.app.LinexApp"
+31-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:19:9-33
 32        android:allowBackup="true"
 32-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:20:9-35
 33        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
@@ -71,8 +71,8 @@
 41-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:24:9-54
 42        android:supportsRtl="true"
 42-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:25:9-35
-43        android:theme="@style/Theme.LinuxDroid" >
-43-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:26:9-48
+43        android:theme="@style/Theme.Linex" >
+43-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:26:9-43
 44
 45        <!-- Samsung DeX & Desktop Mode Multi-Window Support -->
 46        <meta-data
@@ -90,7 +90,7 @@
 52
 53        <activity
 53-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:40:9-50:20
-54            android:name="com.linuxdroid.app.MainActivity"
+54            android:name="com.linex.app.MainActivity"
 54-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:41:13-41
 55            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density"
 55-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:43:13-122
@@ -115,7 +115,7 @@
 66        <!-- Foreground Service for Container Engine & Process Freezing -->
 67        <service
 67-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:53:9-60:19
-68            android:name="com.linuxdroid.app.service.LinuxContainerService"
+68            android:name="com.linex.app.service.LinuxContainerService"
 68-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:54:13-58
 69            android:exported="false"
 69-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:55:13-37
@@ -133,7 +133,7 @@
 76-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:24:9-32:20
 77            android:name="androidx.startup.InitializationProvider"
 77-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:25:13-67
-78            android:authorities="com.linuxdroid.app.androidx-startup"
+78            android:authorities="com.linex.app.androidx-startup"
 78-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:26:13-68
 79            android:exported="false" >
 79-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:27:13-37

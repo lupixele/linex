@@ -1,4 +1,4 @@
-com.linuxdroid.app
+com.linex.app
 attr alpha
 attr font
 attr fontProviderAuthority
@@ -259,7 +259,7 @@ style TextAppearance_Compat_Notification_Info
 style TextAppearance_Compat_Notification_Line2
 style TextAppearance_Compat_Notification_Time
 style TextAppearance_Compat_Notification_Title
-style Theme_LinuxDroid
+style Theme_Linex
 style Widget_Compat_NotificationActionContainer
 style Widget_Compat_NotificationActionText
 styleable Capability queryPatterns shortcutMatchRequired

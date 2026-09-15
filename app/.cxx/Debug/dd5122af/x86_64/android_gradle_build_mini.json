@@ -17,10 +17,10 @@
     "{LIST_OF_TARGETS_TO_BUILD}"
   ],
   "libraries": {
-    "linuxdroid_engine::@6890427a1f51a3e7e1df": {
-      "artifactName": "linuxdroid_engine",
+    "linex_engine::@6890427a1f51a3e7e1df": {
+      "artifactName": "linex_engine",
       "abi": "x86_64",
-      "output": "P:\\Magnanimity\\Projects\\LinuxDroid\\app\\build\\intermediates\\cxx\\Debug\\dd5122af\\obj\\x86_64\\liblinuxdroid_engine.so",
+      "output": "P:\\Magnanimity\\Projects\\LinuxDroid\\app\\build\\intermediates\\cxx\\Debug\\dd5122af\\obj\\x86_64\\liblinex_engine.so",
       "runtimeFiles": []
     }
   }

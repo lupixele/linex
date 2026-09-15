@@ -1,6 +1,6 @@
 #!/bin/sh
 # ==============================================================================
-# LinuxDroid Container Entrypoint Launcher
+# Linex Container Entrypoint Launcher
 # Host-side entrypoint executed on Android to initialize runtime directories,
 # sanitize X11 sockets, and bootstrap the PRoot isolation layer.
 # ==============================================================================
@@ -20,16 +20,16 @@ if [ -z "$BOOTSTRAP_DIR" ]; then
 fi
 
 if [ -z "$ROOTFS_PATH" ] || [ -z "$TMP_PATH" ]; then
-    echo "[LinuxDroid:Entrypoint] ERROR: Missing required arguments."
+    echo "[Linex:Entrypoint] ERROR: Missing required arguments."
     echo "Usage: $0 <rootfs_path> <tmp_path> <start_command> [width] [height] [dpi] [extra_binds] [bootstrap_dir]"
     exit 1
 fi
 
-echo "[LinuxDroid:Entrypoint] Initializing container runtime environment..."
-echo "[LinuxDroid:Entrypoint] Rootfs: $ROOTFS_PATH"
-echo "[LinuxDroid:Entrypoint] Tmp: $TMP_PATH"
-echo "[LinuxDroid:Entrypoint] Display: ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT} @ ${DPI_SCALING} DPI"
-echo "[LinuxDroid:Entrypoint] Start command: $START_COMMAND"
+echo "[Linex:Entrypoint] Initializing container runtime environment..."
+echo "[Linex:Entrypoint] Rootfs: $ROOTFS_PATH"
+echo "[Linex:Entrypoint] Tmp: $TMP_PATH"
+echo "[Linex:Entrypoint] Display: ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT} @ ${DPI_SCALING} DPI"
+echo "[Linex:Entrypoint] Start command: $START_COMMAND"
 
 # 1. Sanitize & Prepare Host Runtime Directories
 mkdir -p "$TMP_PATH"
@@ -41,27 +41,27 @@ chmod 1777 "$TMP_PATH/.X11-unix" 2>/dev/null || true
 chmod 0700 "$TMP_PATH/runtime-root" 2>/dev/null || true
 
 # 2. Clean stale X11 locks from previous abnormal terminations
-echo "[LinuxDroid:Entrypoint] Purging stale X11 lock files..."
+echo "[Linex:Entrypoint] Purging stale X11 lock files..."
 rm -f "$TMP_PATH/.X0-lock" "$TMP_PATH/.X1-lock"
 rm -f "$TMP_PATH/.X11-unix/X0" "$TMP_PATH/.X11-unix/X1"
 
 # 3. Verify Rootfs Integrity
 if [ ! -d "$ROOTFS_PATH" ]; then
-    echo "[LinuxDroid:Entrypoint] ERROR: Rootfs directory does not exist: $ROOTFS_PATH"
+    echo "[Linex:Entrypoint] ERROR: Rootfs directory does not exist: $ROOTFS_PATH"
     exit 2
 fi
 
 if [ ! -f "$ROOTFS_PATH/bin/sh" ] && [ ! -f "$ROOTFS_PATH/usr/bin/sh" ]; then
-    echo "[LinuxDroid:Entrypoint] ERROR: No valid shell found inside rootfs!"
+    echo "[Linex:Entrypoint] ERROR: No valid shell found inside rootfs!"
     exit 3
 fi
 
 # 4. Check if first boot setup is required
-if [ ! -f "$ROOTFS_PATH/.linuxdroid_initialized" ]; then
-    echo "[LinuxDroid:Entrypoint] First-boot marker not found. Running first_boot_setup.sh..."
+if [ ! -f "$ROOTFS_PATH/.linex_initialized" ]; then
+    echo "[Linex:Entrypoint] First-boot marker not found. Running first_boot_setup.sh..."
     if [ -f "$BOOTSTRAP_DIR/first_boot_setup.sh" ]; then
         sh "$BOOTSTRAP_DIR/first_boot_setup.sh" "$ROOTFS_PATH" || {
-            echo "[LinuxDroid:Entrypoint] WARNING: First boot setup encountered non-fatal warnings."
+            echo "[Linex:Entrypoint] WARNING: First boot setup encountered non-fatal warnings."
         }
     fi
 fi
@@ -77,18 +77,18 @@ elif command -v proot >/dev/null 2>&1; then
 fi
 
 if [ -z "$PROOT_BIN" ]; then
-    echo "[LinuxDroid:Entrypoint] ERROR: PRoot executable (libproot.so) not located."
+    echo "[Linex:Entrypoint] ERROR: PRoot executable (libproot.so) not located."
     exit 4
 fi
 
-echo "[LinuxDroid:Entrypoint] PRoot binary resolved: $PROOT_BIN"
+echo "[Linex:Entrypoint] PRoot binary resolved: $PROOT_BIN"
 
 # 6. Initialize X11 Socket Environment
 DISPLAY_NUM="${DISPLAY_NUM:-0}"
 if [ -f "$BOOTSTRAP_DIR/x11_socket_setup.sh" ]; then
-    echo "[LinuxDroid:Entrypoint] Calling x11_socket_setup.sh on display :${DISPLAY_NUM}..."
+    echo "[Linex:Entrypoint] Calling x11_socket_setup.sh on display :${DISPLAY_NUM}..."
     sh "$BOOTSTRAP_DIR/x11_socket_setup.sh" "$TMP_PATH" "$DISPLAY_NUM" || {
-        echo "[LinuxDroid:Entrypoint] WARNING: x11_socket_setup.sh returned non-zero status"
+        echo "[Linex:Entrypoint] WARNING: x11_socket_setup.sh returned non-zero status"
     }
 fi
 

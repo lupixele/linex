@@ -1,6 +1,6 @@
 #!/bin/sh
 # ==============================================================================
-# LinuxDroid Phosh Mobile Touch Shell Launcher
+# Linex Phosh Mobile Touch Shell Launcher
 # Wayland/XWayland mobile environment adapted for touchscreens.
 # ==============================================================================
 
@@ -16,6 +16,6 @@ if command -v phosh >/dev/null 2>&1; then
 elif command -v phoc >/dev/null 2>&1; then
     exec phoc -E phosh
 else
-    echo "[LinuxDroid:Phosh] phosh binary not found, falling back to xterm..."
+    echo "[Linex:Phosh] phosh binary not found, falling back to xterm..."
     exec xterm
 fi

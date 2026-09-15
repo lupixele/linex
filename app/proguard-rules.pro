@@ -1,4 +1,4 @@
-# Proguard rules for LinuxDroid
+# Proguard rules for Linex
 # Standard Android + Jetpack Compose + JNI Native + Kotlinx Serialization / Data classes
 
 # JNI / Native method preservation
@@ -6,8 +6,8 @@
     native <methods>;
 }
 
-# Preserve native JNI callbacks and bindings in LinuxDroid
--keep class com.linuxdroid.app.core.** { *; }
+# Preserve native JNI callbacks and bindings in Linex
+-keep class com.linex.app.core.** { *; }
 
 # Jetpack Compose rules
 -keepclassmembers class * {

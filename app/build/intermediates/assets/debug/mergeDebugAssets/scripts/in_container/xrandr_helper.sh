@@ -1,6 +1,6 @@
 #!/bin/sh
 # ==============================================================================
-# LinuxDroid XRandR Dynamic Geometry Resizer
+# Linex XRandR Dynamic Geometry Resizer
 # Dynamically reconfigures X11 display resolution and DPI scaling on-the-fly
 # when Android orientation changes or Samsung DeX monitor connects/disconnects.
 # ==============================================================================
@@ -16,10 +16,10 @@ if [ -z "$WIDTH" ] || [ -z "$HEIGHT" ]; then
     exit 1
 fi
 
-echo "[LinuxDroid:XRandR] Requesting resolution update to ${WIDTH}x${HEIGHT} (DPI: ${DPI:-default})..."
+echo "[Linex:XRandR] Requesting resolution update to ${WIDTH}x${HEIGHT} (DPI: ${DPI:-default})..."
 
 if ! command -v xrandr >/dev/null 2>&1; then
-    echo "[LinuxDroid:XRandR] ERROR: xrandr utility not installed inside container."
+    echo "[Linex:XRandR] ERROR: xrandr utility not installed inside container."
     exit 2
 fi
 
@@ -29,7 +29,7 @@ if [ -z "$OUTPUT" ]; then
     OUTPUT="default"
 fi
 
-echo "[LinuxDroid:XRandR] Detected target display output: $OUTPUT"
+echo "[Linex:XRandR] Detected target display output: $OUTPUT"
 
 # Attempt standard switch first
 if ! xrandr --output "$OUTPUT" --mode "${WIDTH}x${HEIGHT}" 2>/dev/null; then
@@ -50,7 +50,7 @@ fi
 if [ -n "$DPI" ] && [ "$DPI" -gt 0 ] 2>/dev/null; then
     if command -v xrdb >/dev/null 2>&1; then
         echo "Xft.dpi: $DPI" | xrdb -merge 2>/dev/null || true
-        echo "[LinuxDroid:XRandR] Applied Xft.dpi: $DPI via xrdb"
+        echo "[Linex:XRandR] Applied Xft.dpi: $DPI via xrdb"
     fi
     
     # Update XFCE settings if available
@@ -59,4 +59,4 @@ if [ -n "$DPI" ] && [ "$DPI" -gt 0 ] 2>/dev/null; then
     fi
 fi
 
-echo "[LinuxDroid:XRandR] Display geometry update complete."
+echo "[Linex:XRandR] Display geometry update complete."

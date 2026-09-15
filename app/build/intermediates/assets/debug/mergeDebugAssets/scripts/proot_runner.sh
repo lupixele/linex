@@ -1,6 +1,6 @@
 #!/bin/sh
 # ==============================================================================
-# LinuxDroid PRoot Runner
+# Linex PRoot Runner
 # Assembles the full PRoot invocation with optimal mount points, SysV IPC,
 # link2symlink emulation, and isolated process sandboxing on Android.
 # ==============================================================================
@@ -21,9 +21,9 @@ DPI_SCALING="${DPI_SCALING:-120}"
 # Resolve original desktop start command
 ORIGINAL_START_CMD="${START_CMD:-${START_COMMAND:-startxfce4}}"
 export DESKTOP_START_CMD="$ORIGINAL_START_CMD"
-START_CMD="/linuxdroid/container_init.sh"
+START_CMD="/linex/container_init.sh"
 
-echo "[LinuxDroid:PRoot] Constructing PRoot isolation boundary..."
+echo "[Linex:PRoot] Constructing PRoot isolation boundary..."
 
 # Ensure internal container script directory exists and is executable
 IN_CONTAINER_DIR="$BOOTSTRAP_DIR/in_container"
@@ -39,7 +39,7 @@ elif [ ! -d "$CONFIG_DIR" ] && [ -d "$BOOTSTRAP_DIR/config" ]; then
     CONFIG_DIR="$BOOTSTRAP_DIR/config"
 fi
 
-# Ensure /linuxdroid/config exists inside the bind mount
+# Ensure /linex/config exists inside the bind mount
 if [ -d "$CONFIG_DIR" ]; then
     mkdir -p "$IN_CONTAINER_DIR/config"
     cp -r "$CONFIG_DIR"/* "$IN_CONTAINER_DIR/config/" 2>/dev/null || true
@@ -67,7 +67,7 @@ if [ ! -f "$HOSTS_FILE" ]; then
         cp -f "$CONFIG_DIR/hosts" "$HOSTS_FILE"
     else
         cat << 'EOF' > "$HOSTS_FILE"
-127.0.0.1   localhost localhost.localdomain linuxdroid
+127.0.0.1   localhost localhost.localdomain linex
 ::1         localhost ip6-localhost ip6-loopback
 EOF
     fi
@@ -96,8 +96,8 @@ PROOT_ARGS="$PROOT_ARGS -b $TMP_PATH:/tmp"
 PROOT_ARGS="$PROOT_ARGS -b $RESOLV_CONF:/etc/resolv.conf"
 PROOT_ARGS="$PROOT_ARGS -b $HOSTS_FILE:/etc/hosts"
 
-# 5. LinuxDroid Runtime In-Container Tools
-PROOT_ARGS="$PROOT_ARGS -b $IN_CONTAINER_DIR:/linuxdroid"
+# 5. Linex Runtime In-Container Tools
+PROOT_ARGS="$PROOT_ARGS -b $IN_CONTAINER_DIR:/linex"
 
 # 6. Android Shared Storage Mounts (if accessible)
 if [ -d "/sdcard" ] && [ -r "/sdcard" ]; then
@@ -136,7 +136,7 @@ export LINUXDROID_DPI="$DPI_SCALING"
 export LINUXDROID_START_COMMAND="$DESKTOP_START_CMD"
 export DESKTOP_START_CMD
 
-echo "[LinuxDroid:PRoot] Spawning container with init script: /linuxdroid/container_init.sh (desktop command: $DESKTOP_START_CMD)"
+echo "[Linex:PRoot] Spawning container with init script: /linex/container_init.sh (desktop command: $DESKTOP_START_CMD)"
 
 # Execute PRoot passing execution to the in-container supervisor
-exec "$PROOT_BIN" $PROOT_ARGS /linuxdroid/container_init.sh
+exec "$PROOT_BIN" $PROOT_ARGS /linex/container_init.sh

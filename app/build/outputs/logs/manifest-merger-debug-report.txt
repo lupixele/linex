@@ -120,9 +120,9 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\lupixele\.gradle\c
 	android:allowBackup
 		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:20:9-35
 	android:theme
-		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:26:9-48
+		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:26:9-43
 	android:name
-		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:19:9-38
+		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:19:9-33
 meta-data#com.samsung.android.keepalive.density
 ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:33:9-35:36
 	android:value
@@ -135,7 +135,7 @@ ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:3
 		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:38:13-33
 	android:name
 		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:37:13-73
-activity#com.linuxdroid.app.MainActivity
+activity#com.linex.app.MainActivity
 ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:40:9-50:20
 	android:windowSoftInputMode
 		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:45:13-55
@@ -157,7 +157,7 @@ category#android.intent.category.LAUNCHER
 ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:48:17-77
 	android:name
 		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:48:27-74
-service#com.linuxdroid.app.service.LinuxContainerService
+service#com.linex.app.service.LinuxContainerService
 ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:53:9-60:19
 	android:exported
 		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:55:13-37
@@ -289,7 +289,7 @@ ADDED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transfor
 		ADDED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:24:9-44
 	android:name
 		ADDED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:23:9-81
-permission#com.linuxdroid.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+permission#com.linex.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:22:5-24:47
 	android:protectionLevel
 		ADDED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:24:9-44
@@ -299,7 +299,7 @@ uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:26:5-97
 	android:name
 		ADDED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:26:22-94
-uses-permission#com.linuxdroid.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+uses-permission#com.linex.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
 ADDED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:26:5-97
 	android:name
 		ADDED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:26:22-94

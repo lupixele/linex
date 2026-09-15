@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LinuxDroid</string>
+    <string name="app_name">Linex</string>
     <string name="notification_channel_desc">Keeps the Linux container and display server active</string>
     <string name="notification_channel_name">Linux Container Service</string>
-    <style name="Theme.LinuxDroid" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.Linex" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">#101012</item>
         <item name="android:statusBarColor">#101012</item>
         <item name="android:navigationBarColor">#101012</item>

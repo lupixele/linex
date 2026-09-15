@@ -1,4 +1,4 @@
-# LinuxDroid (Linex) 🐧
+# Linex 🐧
 
 **All-in-One Autonomous Linux Container & Desktop Manager for Android.**
 
@@ -28,7 +28,7 @@ Run real Ubuntu and Debian desktop environments on your Android device right out
 ## 📥 Download & Installation
 
 1. Go to the [**Latest Releases**](https://github.com/lupixele/linex/releases/tag/v0.1.0-beta).
-2. Download **`linuxdroid-v0.1.0-beta.apk`**.
+2. Download **`linex-v0.1.0-beta.apk`**.
 3. Install the APK on your Android device (Android 8.0+ / ARM64 recommended).
 4. Launch the app, pick **Ubuntu Desktop (XFCE4)** or **Ubuntu Mobile (Phosh)**, and hit **Launch**.
 
@@ -38,7 +38,7 @@ Run real Ubuntu and Debian desktop environments on your Android device right out
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                 LinuxDroid All-in-One APK                   │
+│                 Linex All-in-One APK                   │
 │                                                             │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │             Container Manager UI (Compose)            │  │

@@ -6,12 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "com.linuxdroid.app"
+    namespace = "com.linex.app"
     compileSdk = 34
     ndkVersion = "26.1.10909125"
 
     defaultConfig {
-        applicationId = "com.linuxdroid.app"
+        applicationId = "com.linex.app"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

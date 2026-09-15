@@ -1,13 +1,13 @@
 #!/bin/sh
 # ==============================================================================
-# LinuxDroid In-Container Init & Supervisor Daemon
+# Linex In-Container Init & Supervisor Daemon
 # Runs inside the PRoot rootfs to initialize system services, IPC, D-Bus,
 # PulseAudio, and supervise the desktop environment process.
 # ==============================================================================
 
 set -e
 
-echo "[LinuxDroid:ContainerInit] In-container bootstrap commencing..."
+echo "[Linex:ContainerInit] In-container bootstrap commencing..."
 
 # 1. Base Environment Sanity
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
@@ -35,7 +35,7 @@ chmod 0700 "$XDG_RUNTIME_DIR"
 
 # 4. Generate Machine ID if missing
 if [ ! -f /etc/machine-id ] && [ ! -f /var/lib/dbus/machine-id ]; then
-    echo "[LinuxDroid:ContainerInit] Generating machine ID..."
+    echo "[Linex:ContainerInit] Generating machine ID..."
     if command -v dbus-uuidgen >/dev/null 2>&1; then
         dbus-uuidgen --ensure=/etc/machine-id 2>/dev/null || true
     else
@@ -48,13 +48,13 @@ fi
 # 5. D-Bus Session Daemon Setup
 DBUS_PID=""
 if command -v dbus-daemon >/dev/null 2>&1; then
-    echo "[LinuxDroid:ContainerInit] Initializing D-Bus Session Bus..."
+    echo "[Linex:ContainerInit] Initializing D-Bus Session Bus..."
     rm -f /tmp/dbus-session-socket
     dbus-daemon --session --fork --address="unix:path=/tmp/dbus-session-socket" --print-pid > /tmp/dbus.pid 2>/dev/null || true
     if [ -f /tmp/dbus.pid ]; then
         DBUS_PID="$(cat /tmp/dbus.pid)"
         export DBUS_SESSION_BUS_ADDRESS="unix:path=/tmp/dbus-session-socket"
-        echo "[LinuxDroid:ContainerInit] D-Bus started with PID $DBUS_PID"
+        echo "[Linex:ContainerInit] D-Bus started with PID $DBUS_PID"
     fi
 elif command -v dbus-launch >/dev/null 2>&1; then
     eval "$(dbus-launch --sh-syntax --exit-with-session)"
@@ -68,7 +68,7 @@ autospawn = no
 EOF
 
 # 7. Await X11 Display Server Socket
-echo "[LinuxDroid:ContainerInit] Verifying X11 display socket at /tmp/.X11-unix/X0..."
+echo "[Linex:ContainerInit] Verifying X11 display socket at /tmp/.X11-unix/X0..."
 WAIT_COUNT=0
 while [ ! -e "/tmp/.X11-unix/X0" ] && [ $WAIT_COUNT -lt 30 ]; do
     sleep 0.1
@@ -76,15 +76,15 @@ while [ ! -e "/tmp/.X11-unix/X0" ] && [ $WAIT_COUNT -lt 30 ]; do
 done
 
 if [ -e "/tmp/.X11-unix/X0" ]; then
-    echo "[LinuxDroid:ContainerInit] Connected to X11 socket successfully."
+    echo "[Linex:ContainerInit] Connected to X11 socket successfully."
 else
-    echo "[LinuxDroid:ContainerInit] WARNING: X11 socket not detected after 3s. Proceeding anyway..."
+    echo "[Linex:ContainerInit] WARNING: X11 socket not detected after 3s. Proceeding anyway..."
 fi
 
 # 8. Configure Screen Geometry & DPI via xrandr / xrdb
 if [ -n "$LINUXDROID_WIDTH" ] && [ -n "$LINUXDROID_HEIGHT" ]; then
     if command -v xrandr >/dev/null 2>&1; then
-        echo "[LinuxDroid:ContainerInit] Setting display geometry to ${LINUXDROID_WIDTH}x${LINUXDROID_HEIGHT}..."
+        echo "[Linex:ContainerInit] Setting display geometry to ${LINUXDROID_WIDTH}x${LINUXDROID_HEIGHT}..."
         xrandr --output default --mode "${LINUXDROID_WIDTH}x${LINUXDROID_HEIGHT}" 2>/dev/null || \
         xrandr -s "${LINUXDROID_WIDTH}x${LINUXDROID_HEIGHT}" 2>/dev/null || true
     fi
@@ -92,7 +92,7 @@ fi
 
 if [ -n "$LINUXDROID_DPI" ]; then
     if command -v xrdb >/dev/null 2>&1; then
-        echo "[LinuxDroid:ContainerInit] Setting Xft.dpi to $LINUXDROID_DPI..."
+        echo "[Linex:ContainerInit] Setting Xft.dpi to $LINUXDROID_DPI..."
         echo "Xft.dpi: $LINUXDROID_DPI" | xrdb -merge 2>/dev/null || true
     fi
 fi
@@ -101,52 +101,52 @@ fi
 SESSION_PID=""
 
 cleanup() {
-    echo "[LinuxDroid:ContainerInit] Clean shutdown signal intercepted. Gracefully terminating processes..."
+    echo "[Linex:ContainerInit] Clean shutdown signal intercepted. Gracefully terminating processes..."
     
     if [ -n "$SESSION_PID" ] && kill -0 "$SESSION_PID" 2>/dev/null; then
-        echo "[LinuxDroid:ContainerInit] Sending SIGTERM to desktop session (PID $SESSION_PID)..."
+        echo "[Linex:ContainerInit] Sending SIGTERM to desktop session (PID $SESSION_PID)..."
         kill -15 "$SESSION_PID" 2>/dev/null || true
         wait "$SESSION_PID" 2>/dev/null || true
     fi
 
     if [ -n "$DBUS_PID" ] && kill -0 "$DBUS_PID" 2>/dev/null; then
-        echo "[LinuxDroid:ContainerInit] Terminating D-Bus daemon (PID $DBUS_PID)..."
+        echo "[Linex:ContainerInit] Terminating D-Bus daemon (PID $DBUS_PID)..."
         kill -15 "$DBUS_PID" 2>/dev/null || true
     fi
 
-    echo "[LinuxDroid:ContainerInit] Flushing filesystem buffers..."
+    echo "[Linex:ContainerInit] Flushing filesystem buffers..."
     sync 2>/dev/null || true
     
     # Clean socket and locks
     rm -f /tmp/dbus-session-socket /tmp/dbus.pid
-    echo "[LinuxDroid:ContainerInit] Container shutdown sequence complete."
+    echo "[Linex:ContainerInit] Container shutdown sequence complete."
     exit 0
 }
 
 trap cleanup SIGTERM SIGINT SIGHUP
 
 # 10. Execute Target Desktop / User Command
-CMD="${DESKTOP_START_CMD:-${LINUXDROID_START_COMMAND:-/linuxdroid/start_xfce.sh}}"
+CMD="${DESKTOP_START_CMD:-${LINUXDROID_START_COMMAND:-/linex/start_xfce.sh}}"
 
 # If requested command is startxfce4, redirect to the container launcher wrapper
-if [ "$CMD" = "startxfce4" ] && [ -f "/linuxdroid/start_xfce.sh" ]; then
-    CMD="/linuxdroid/start_xfce.sh"
-elif [ "$CMD" = "gnome-session-flashback" ] && [ -f "/linuxdroid/start_gnome_flashback.sh" ]; then
-    CMD="/linuxdroid/start_gnome_flashback.sh"
-elif [ "$CMD" = "phosh" ] && [ -f "/linuxdroid/start_phosh.sh" ]; then
-    CMD="/linuxdroid/start_phosh.sh"
+if [ "$CMD" = "startxfce4" ] && [ -f "/linex/start_xfce.sh" ]; then
+    CMD="/linex/start_xfce.sh"
+elif [ "$CMD" = "gnome-session-flashback" ] && [ -f "/linex/start_gnome_flashback.sh" ]; then
+    CMD="/linex/start_gnome_flashback.sh"
+elif [ "$CMD" = "phosh" ] && [ -f "/linex/start_phosh.sh" ]; then
+    CMD="/linex/start_phosh.sh"
 fi
 
-echo "[LinuxDroid:ContainerInit] Launching primary desktop payload: $CMD"
+echo "[Linex:ContainerInit] Launching primary desktop payload: $CMD"
 
 # Launch in background and wait so signal traps remain active
 sh -c "$CMD" &
 SESSION_PID=$!
 
-echo "[LinuxDroid:ContainerInit] Session active under PID $SESSION_PID. Awaiting termination."
+echo "[Linex:ContainerInit] Session active under PID $SESSION_PID. Awaiting termination."
 
 wait "$SESSION_PID"
 EXIT_CODE=$?
 
-echo "[LinuxDroid:ContainerInit] Session process exited with code $EXIT_CODE."
+echo "[Linex:ContainerInit] Session process exited with code $EXIT_CODE."
 cleanup

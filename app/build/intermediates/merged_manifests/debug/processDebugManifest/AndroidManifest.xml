@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.linuxdroid.app"
+    package="com.linex.app"
     android:versionCode="1"
     android:versionName="1.0.0" >
 
@@ -22,13 +22,13 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <permission
-        android:name="com.linuxdroid.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+        android:name="com.linex.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
 
-    <uses-permission android:name="com.linuxdroid.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+    <uses-permission android:name="com.linex.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
-        android:name="com.linuxdroid.app.LinuxDroidApp"
+        android:name="com.linex.app.LinexApp"
         android:allowBackup="true"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:debuggable="true"
@@ -40,7 +40,7 @@
         android:requestLegacyExternalStorage="true"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.LinuxDroid" >
+        android:theme="@style/Theme.Linex" >
 
         <!-- Samsung DeX & Desktop Mode Multi-Window Support -->
         <meta-data
@@ -51,7 +51,7 @@
             android:value="true" />
 
         <activity
-            android:name="com.linuxdroid.app.MainActivity"
+            android:name="com.linex.app.MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density"
             android:exported="true"
             android:resizeableActivity="true"
@@ -65,7 +65,7 @@
 
         <!-- Foreground Service for Container Engine & Process Freezing -->
         <service
-            android:name="com.linuxdroid.app.service.LinuxContainerService"
+            android:name="com.linex.app.service.LinuxContainerService"
             android:exported="false"
             android:foregroundServiceType="specialUse" >
             <property
@@ -75,7 +75,7 @@
 
         <provider
             android:name="androidx.startup.InitializationProvider"
-            android:authorities="com.linuxdroid.app.androidx-startup"
+            android:authorities="com.linex.app.androidx-startup"
             android:exported="false" >
             <meta-data
                 android:name="androidx.emoji2.text.EmojiCompatInitializer"

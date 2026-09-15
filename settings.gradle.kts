@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LinuxDroid"
+rootProject.name = "Linex"
 include(":app")

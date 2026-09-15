@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.linuxdroid.app-mergeDebugResources-39:/values-sv/values-sv.xml",
+            "outputFile": "com.linex.app-mergeDebugResources-39:/values-sv/values-sv.xml",
             "map": [
                 {
                     "source": "C:\\Users\\lupixele\\.gradle\\caches\\transforms-3\\9ec71624d7a6362571fdb45cb577e3e2\\transformed\\foundation-release\\res\\values-sv\\values-sv.xml",
