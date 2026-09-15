@@ -11,18 +11,18 @@ enum class DistroType(
     val estimatedSizeMb: Int
 ) {
     UBUNTU_JAMMY(
-        displayName = "Ubuntu 22.04 LTS (Jammy)",
-        description = "Solid base with full apt ecosystem, Python 3.10+, and preconfigured userspace.",
-        rootfsDownloadUrl = "https://github.com/linuxdroid-containers/rootfs/releases/download/v1.0/ubuntu-jammy-arm64.tar.gz",
-        sha256 = "mock-sha256-ubuntu-jammy",
-        estimatedSizeMb = 350
+        displayName = "Ubuntu 22.04 LTS (Jammy XFCE4)",
+        description = "Full featured Ubuntu 22.04 LTS desktop with XFCE4, audio, and development tools pre-installed.",
+        rootfsDownloadUrl = "https://github.com/RandomCoderOrg/ubuntu-on-android/releases/download/v3/udroid-arm64-xfce4-V3MBB3.tar.gz",
+        sha256 = "d5290068b99740da5198a355b5152e0198fff126f0865f4c4634e509508a6da8",
+        estimatedSizeMb = 1919
     ),
     DEBIAN_BOOKWORM(
-        displayName = "Debian 12 (Bookworm)",
-        description = "Minimal, ultra-stable, rock-bottom RAM usage for low-spec devices.",
-        rootfsDownloadUrl = "https://github.com/linuxdroid-containers/rootfs/releases/download/v1.0/debian-bookworm-arm64.tar.gz",
-        sha256 = "mock-sha256-debian-bookworm",
-        estimatedSizeMb = 280
+        displayName = "Ubuntu 22.04 LTS (Jammy Minimal)",
+        description = "Ultra lightweight minimal Ubuntu 22.04 base. Fast download (172 MB), minimal storage footprint.",
+        rootfsDownloadUrl = "https://github.com/RandomCoderOrg/udroid-download/releases/download/V3R115/jammy-raw-arm64.tar.gz",
+        sha256 = "0ab96cbeebc5d8fc86a9baf7d1127f28ac7ea7a2ff862ac31fd7ac8768877b82",
+        estimatedSizeMb = 172
     )
 }
 

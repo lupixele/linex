@@ -1,44 +1,31 @@
 {
-  "version": 1,
+  "version": 2,
   "catalog": [
     {
-      "id": "ubuntu-jammy-arm64",
-      "name": "Ubuntu 22.04 LTS (Jammy)",
+      "id": "ubuntu-jammy-xfce4-arm64",
+      "name": "Ubuntu 22.04 LTS (Jammy XFCE4)",
       "distro": "ubuntu",
       "arch": "arm64-v8a",
-      "version": "22.04.4",
-      "downloadUrl": "https://github.com/linuxdroid-containers/rootfs/releases/download/v1.0/ubuntu-jammy-arm64.tar.gz",
-      "sha256": "4b92569e5d4bb334208a38a7c2936239103e5c9b7de280a562ef6c41b802613b",
-      "sizeBytes": 367001600,
-      "installedSizeBytes": 1288490188,
-      "defaultDesktop": "xfce4",
-      "recommendedRamMb": 2048
+      "version": "22.04 LTS",
+      "downloadUrl": "https://github.com/RandomCoderOrg/ubuntu-on-android/releases/download/v3/udroid-arm64-xfce4-V3MBB3.tar.gz",
+      "sha256": "d5290068b99740da5198a355b5152e0198fff126f0865f4c4634e509508a6da8",
+      "estimatedSizeMb": 1919,
+      "recommendedRamMb": 2048,
+      "defaultDesktop": "XFCE4",
+      "description": "Full featured Ubuntu 22.04 LTS desktop with XFCE4, audio, and development tools pre-installed."
     },
     {
-      "id": "debian-bookworm-arm64",
-      "name": "Debian 12 (Bookworm)",
-      "distro": "debian",
-      "arch": "arm64-v8a",
-      "version": "12.5",
-      "downloadUrl": "https://github.com/linuxdroid-containers/rootfs/releases/download/v1.0/debian-bookworm-arm64.tar.gz",
-      "sha256": "8d3e91a0c4f145ebaa378f844781432f81156828ceb57223b2e75e921d1d8a1f",
-      "sizeBytes": 293601280,
-      "installedSizeBytes": 943718400,
-      "defaultDesktop": "xfce4",
-      "recommendedRamMb": 1024
-    },
-    {
-      "id": "ubuntu-jammy-x86_64",
-      "name": "Ubuntu 22.04 LTS (Jammy x86_64)",
+      "id": "ubuntu-jammy-raw-arm64",
+      "name": "Ubuntu 22.04 LTS (Jammy Minimal)",
       "distro": "ubuntu",
-      "arch": "x86_64",
-      "version": "22.04.4",
-      "downloadUrl": "https://github.com/linuxdroid-containers/rootfs/releases/download/v1.0/ubuntu-jammy-x86_64.tar.gz",
-      "sha256": "3a7c64bb93f3c4e365cb9382f703562479e0a290a61a6c4a456bd84a7e93f324",
-      "sizeBytes": 387973120,
-      "installedSizeBytes": 1342177280,
-      "defaultDesktop": "xfce4",
-      "recommendedRamMb": 2048
+      "arch": "arm64-v8a",
+      "version": "22.04 LTS",
+      "downloadUrl": "https://github.com/RandomCoderOrg/udroid-download/releases/download/V3R115/jammy-raw-arm64.tar.gz",
+      "sha256": "0ab96cbeebc5d8fc86a9baf7d1127f28ac7ea7a2ff862ac31fd7ac8768877b82",
+      "estimatedSizeMb": 172,
+      "recommendedRamMb": 1024,
+      "defaultDesktop": "XFCE4",
+      "description": "Ultra lightweight minimal Ubuntu 22.04 base. Fast download, minimal storage footprint."
     }
   ]
 }
