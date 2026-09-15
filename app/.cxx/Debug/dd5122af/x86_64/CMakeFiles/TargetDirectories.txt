@@ -1,0 +1,3 @@
+P:/Magnanimity/Projects/LinuxDroid/app/.cxx/Debug/dd5122af/x86_64/CMakeFiles/linuxdroid_engine.dir
+P:/Magnanimity/Projects/LinuxDroid/app/.cxx/Debug/dd5122af/x86_64/CMakeFiles/edit_cache.dir
+P:/Magnanimity/Projects/LinuxDroid/app/.cxx/Debug/dd5122af/x86_64/CMakeFiles/rebuild_cache.dir

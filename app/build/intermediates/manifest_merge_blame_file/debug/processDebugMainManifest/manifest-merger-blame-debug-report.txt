@@ -1,0 +1,199 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.linuxdroid.app"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="26"
+9        android:targetSdkVersion="34" />
+10
+11    <!-- Foreground execution & sleep prevention during active Linux runs -->
+12    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+12-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:6:5-77
+12-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:6:22-74
+13    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+13-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:7:5-89
+13-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:7:22-86
+14    <uses-permission android:name="android.permission.WAKE_LOCK" />
+14-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:8:5-68
+14-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:8:22-65
+15    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+15-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:9:5-77
+15-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:9:22-74
+16
+17    <!-- Network access inside container -->
+18    <uses-permission android:name="android.permission.INTERNET" />
+18-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:12:5-67
+18-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:12:22-64
+19    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+19-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:13:5-79
+19-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:13:22-76
+20
+21    <!-- Audio playback support -->
+22    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+22-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:16:5-80
+22-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:16:22-77
+23
+24    <permission
+24-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:22:5-24:47
+25        android:name="com.linuxdroid.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+25-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:23:9-81
+26        android:protectionLevel="signature" />
+26-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:24:9-44
+27
+28    <uses-permission android:name="com.linuxdroid.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+28-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:26:5-97
+28-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:26:22-94
+29
+30    <application
+30-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:18:5-62:19
+31        android:name="com.linuxdroid.app.LinuxDroidApp"
+31-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:19:9-38
+32        android:allowBackup="true"
+32-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:20:9-35
+33        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+33-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:28:18-86
+34        android:debuggable="true"
+35        android:extractNativeLibs="true"
+35-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:29:9-41
+36        android:hardwareAccelerated="true"
+36-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:21:9-43
+37        android:icon="@mipmap/ic_launcher"
+37-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:22:9-43
+38        android:label="@string/app_name"
+38-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:23:9-41
+39        android:largeHeap="true"
+39-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:27:9-33
+40        android:requestLegacyExternalStorage="true"
+40-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:28:9-52
+41        android:roundIcon="@mipmap/ic_launcher_round"
+41-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:24:9-54
+42        android:supportsRtl="true"
+42-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:25:9-35
+43        android:theme="@style/Theme.LinuxDroid" >
+43-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:26:9-48
+44
+45        <!-- Samsung DeX & Desktop Mode Multi-Window Support -->
+46        <meta-data
+46-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:33:9-35:36
+47            android:name="com.samsung.android.keepalive.density"
+47-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:34:13-65
+48            android:value="true" />
+48-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:35:13-33
+49        <meta-data
+49-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:36:9-38:36
+50            android:name="com.sec.android.app.multiwindow.STICKY_WINDOW"
+50-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:37:13-73
+51            android:value="true" />
+51-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:38:13-33
+52
+53        <activity
+53-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:40:9-50:20
+54            android:name="com.linuxdroid.app.MainActivity"
+54-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:41:13-41
+55            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density"
+55-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:43:13-122
+56            android:exported="true"
+56-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:42:13-36
+57            android:resizeableActivity="true"
+57-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:44:13-46
+58            android:windowSoftInputMode="adjustResize" >
+58-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:45:13-55
+59            <intent-filter>
+59-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:46:13-49:29
+60                <action android:name="android.intent.action.MAIN" />
+60-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:47:17-69
+60-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:47:25-66
+61
+62                <category android:name="android.intent.category.LAUNCHER" />
+62-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:48:17-77
+62-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:48:27-74
+63            </intent-filter>
+64        </activity>
+65
+66        <!-- Foreground Service for Container Engine & Process Freezing -->
+67        <service
+67-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:53:9-60:19
+68            android:name="com.linuxdroid.app.service.LinuxContainerService"
+68-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:54:13-58
+69            android:exported="false"
+69-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:55:13-37
+70            android:foregroundServiceType="specialUse" >
+70-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:56:13-55
+71            <property
+71-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:57:13-59:106
+72                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+72-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:58:17-76
+73                android:value="Rootless Linux container virtualization and background process manager" />
+73-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:59:17-103
+74        </service>
+75
+76        <provider
+76-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:24:9-32:20
+77            android:name="androidx.startup.InitializationProvider"
+77-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:25:13-67
+78            android:authorities="com.linuxdroid.app.androidx-startup"
+78-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:26:13-68
+79            android:exported="false" >
+79-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:27:13-37
+80            <meta-data
+80-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:29:13-31:52
+81                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+81-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:30:17-75
+82                android:value="androidx.startup" />
+82-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:31:17-49
+83            <meta-data
+83-->[androidx.lifecycle:lifecycle-process:2.8.0] C:\Users\lupixele\.gradle\caches\transforms-3\f6a57c3aaab59f303ad5f056e914c69d\transformed\lifecycle-process-2.8.0\AndroidManifest.xml:29:13-31:52
+84                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+84-->[androidx.lifecycle:lifecycle-process:2.8.0] C:\Users\lupixele\.gradle\caches\transforms-3\f6a57c3aaab59f303ad5f056e914c69d\transformed\lifecycle-process-2.8.0\AndroidManifest.xml:30:17-78
+85                android:value="androidx.startup" />
+85-->[androidx.lifecycle:lifecycle-process:2.8.0] C:\Users\lupixele\.gradle\caches\transforms-3\f6a57c3aaab59f303ad5f056e914c69d\transformed\lifecycle-process-2.8.0\AndroidManifest.xml:31:17-49
+86            <meta-data
+86-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:29:13-31:52
+87                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+87-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:30:17-85
+88                android:value="androidx.startup" />
+88-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:31:17-49
+89        </provider>
+90
+91        <receiver
+91-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:34:9-52:20
+92            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+92-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:35:13-76
+93            android:directBootAware="false"
+93-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:36:13-44
+94            android:enabled="true"
+94-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:37:13-35
+95            android:exported="true"
+95-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:38:13-36
+96            android:permission="android.permission.DUMP" >
+96-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:39:13-57
+97            <intent-filter>
+97-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:40:13-42:29
+98                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+98-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:41:17-91
+98-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:41:25-88
+99            </intent-filter>
+100            <intent-filter>
+100-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:43:13-45:29
+101                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:44:17-85
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:44:25-82
+102            </intent-filter>
+103            <intent-filter>
+103-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:46:13-48:29
+104                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:47:17-88
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:47:25-85
+105            </intent-filter>
+106            <intent-filter>
+106-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:49:13-51:29
+107                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:50:17-95
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:50:25-92
+108            </intent-filter>
+109        </receiver>
+110    </application>
+111
+112</manifest>

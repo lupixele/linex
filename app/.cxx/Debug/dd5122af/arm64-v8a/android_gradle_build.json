@@ -1,0 +1,38 @@
+{
+  "buildFiles": [
+    "P:\\Magnanimity\\Projects\\LinuxDroid\\app\\src\\main\\cpp\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "P:\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "P:\\Magnanimity\\Projects\\LinuxDroid\\app\\.cxx\\Debug\\dd5122af\\arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "P:\\Android\\Sdk\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "P:\\Magnanimity\\Projects\\LinuxDroid\\app\\.cxx\\Debug\\dd5122af\\arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "linuxdroid_engine::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "linuxdroid_engine",
+      "output": "P:\\Magnanimity\\Projects\\LinuxDroid\\app\\build\\intermediates\\cxx\\Debug\\dd5122af\\obj\\arm64-v8a\\liblinuxdroid_engine.so",
+      "runtimeFiles": []
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "P:\\Android\\Sdk\\ndk\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe",
+      "cppCompilerExecutable": "P:\\Android\\Sdk\\ndk\\26.1.10909125\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}
