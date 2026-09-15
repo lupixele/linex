@@ -82,22 +82,23 @@ fun HubScreen(
                         // Verify instance is initialized before launching
                         val readyAfterExtract = engine.isInstanceInitialized(instance.id)
                         AppLogger.log("HubScreen", "Extraction finished. isInstanceInitialized: $readyAfterExtract", instance.id)
-                        downloadingInstance = null
                         if (readyAfterExtract) {
+                            downloadingInstance = null
                             onLaunchInstance(instance)
                         } else {
-                            AppLogger.log("HubScreen", "ERROR: Rootfs extracted but initialization check failed for ${instance.name}", instance.id)
-                            Log.e("HubScreen", "Rootfs extracted but initialization check failed for ${instance.name}")
+                            val err = "Rootfs extracted but initialization check failed for ${instance.name}. Check Diagnostic Logs."
+                            AppLogger.log("HubScreen", "ERROR: $err", instance.id)
+                            Log.e("HubScreen", err)
+                            downloadStatus = err
                         }
                     } catch (e: CancellationException) {
                         AppLogger.log("HubScreen", "Rootfs download cancelled for ${instance.name}", instance.id)
-                        Log.i("HubScreen", "Rootfs download cancelled for ${instance.name}")
                         downloadingInstance = null
                     } catch (e: Exception) {
-                        AppLogger.log("HubScreen", "EXCEPTION during download/extract: ${e.message}", instance.id)
-                        Log.e("HubScreen", "Failed to download/extract rootfs: ${e.message}", e)
-                        downloadStatus = "Download error: ${e.message}"
-                        downloadingInstance = null
+                        val errMsg = e.message ?: "Unknown error"
+                        AppLogger.log("HubScreen", "EXCEPTION during download/extract: $errMsg", instance.id)
+                        Log.e("HubScreen", "Failed to download/extract rootfs: $errMsg", e)
+                        downloadStatus = "Error: $errMsg (Tap Logs icon for details)"
                     }
                 }
             }

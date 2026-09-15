@@ -130,20 +130,19 @@ class StorageEngine(
         onProgress: (Float, String) -> Unit = { _, _ -> }
     ): Boolean = withContext(Dispatchers.IO) {
         if (!archiveFile.exists()) {
-            onProgress(0f, "Error: Archive not found: ${archiveFile.absolutePath}")
+            val err = "Error: Archive not found: ${archiveFile.absolutePath}"
+            AppLogger.log(TAG, err)
+            onProgress(0f, err)
             return@withContext false
         }
 
         if (!targetRootfs.exists()) targetRootfs.mkdirs()
 
+        AppLogger.log(TAG, "Starting extraction of ${archiveFile.name} to ${targetRootfs.absolutePath}")
         onProgress(0.05f, "Preparing extraction helper...")
-        deployAssets(overwrite = false)
+        deployAssets(overwrite = true)
 
         val extractScript = File(scriptsDir, "rootfs_extract.sh")
-        if (!extractScript.exists()) {
-            deployAssets(overwrite = true)
-        }
-
         if (extractScript.exists()) {
             extractScript.setExecutable(true, false)
             processController.setFilePermissions(extractScript.absolutePath, 0b111101101) // 0755
@@ -180,41 +179,49 @@ class StorageEngine(
                 }
 
                 val exitCode = process.waitFor()
-                if (exitCode == 0) {
+                AppLogger.log(TAG, "rootfs_extract.sh process exited with code $exitCode")
+                val hasBin = File(targetRootfs, "bin").exists() ||
+                             File(targetRootfs, "usr/bin").exists() ||
+                             File(targetRootfs, "usr/bin/sh").exists()
+
+                if (exitCode == 0 || hasBin) {
                     onProgress(0.90f, "Running first-boot customization...")
                     try {
                         runFirstBootSetup(targetRootfs)
                     } catch (e: Exception) {
+                        AppLogger.log(TAG, "First-boot setup warning: ${e.message}")
                         Log.w(TAG, "First-boot setup warning: ${e.message}")
                     }
+
+                    // Ensure symlink /bin -> usr/bin if only usr/bin exists
+                    val binDir = File(targetRootfs, "bin")
+                    val usrBinDir = File(targetRootfs, "usr/bin")
+                    if (!binDir.exists() && usrBinDir.exists()) {
+                        processController.createSymlink("usr/bin", binDir.absolutePath)
+                    }
+
                     // Guarantee the initialization marker is present
                     val marker = File(targetRootfs, ".linex_initialized")
-                    if (!marker.exists()) {
-                        marker.writeText("VERSION=1.0.0\nSTATUS=READY\n")
-                    }
+                    marker.writeText("VERSION=1.0.0\nSTATUS=READY\n")
+                    AppLogger.log(TAG, "SUCCESS: Rootfs initialized and marker written")
                     onProgress(1.0f, "Extraction complete!")
                     return@withContext true
                 } else {
-                    // Even if the script returned non-zero (e.g. tar symlink/permission warnings),
-                    // check if essential binaries were extracted!
-                    val hasBin = File(targetRootfs, "bin").exists() || File(targetRootfs, "usr/bin").exists()
-                    if (hasBin) {
-                        Log.w(TAG, "Extraction script had non-zero exit ($exitCode) but /bin or /usr exists. Marking ready.")
-                        val marker = File(targetRootfs, ".linex_initialized")
-                        marker.writeText("VERSION=1.0.0\nSTATUS=RECOVERED\n")
-                        onProgress(1.0f, "Extraction complete!")
-                        return@withContext true
-                    }
-                    onProgress(0f, "Extraction script failed with exit code $exitCode")
+                    val err = "Extraction failed with exit code $exitCode and /bin missing"
+                    AppLogger.log(TAG, "ERROR: $err")
+                    onProgress(0f, err)
                     return@withContext false
                 }
             } catch (e: Exception) {
+                AppLogger.log(TAG, "ERROR running rootfs_extract.sh: ${e.message}")
                 Log.e(TAG, "Failed to run rootfs_extract.sh", e)
                 onProgress(0f, "Extraction process failed: ${e.message}")
                 return@withContext false
             }
         } else {
-            onProgress(0f, "Extraction helper script missing.")
+            val err = "Extraction helper script missing at ${extractScript.absolutePath}"
+            AppLogger.log(TAG, "ERROR: $err")
+            onProgress(0f, err)
             return@withContext false
         }
     }

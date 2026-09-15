@@ -74,29 +74,13 @@ class ContainerManager(
         val tmpDir = storageEngine.getTmpDirectory(instance.id)
         val scriptsDir = storageEngine.scriptsDir
 
-        // Check if rootfs directory is empty or missing or uninitialized
-        val rootfsFiles = rootfsDir.listFiles()
-        val isRootfsMissingOrEmpty = !rootfsDir.exists() || rootfsFiles == null || rootfsFiles.isEmpty() || !storageEngine.isInstanceInitialized(instance.id)
-
-        if (isRootfsMissingOrEmpty) {
-            logWrapper("Rootfs uninitialized. Initiating download for ${instance.distro.displayName}...")
-            try {
-                var lastReportedPercent = -1
-                rootfsDownloader.download(instance.id, instance.distro.rootfsDownloadUrl).collect { progress ->
-                    val percent = (progress * 100).toInt()
-                    if (percent != lastReportedPercent && (percent % 10 == 0 || percent == 100)) {
-                        lastReportedPercent = percent
-                        logWrapper("Downloading rootfs: $percent%")
-                    }
-                }
-                logWrapper("Rootfs download and extraction completed successfully.")
-            } catch (e: Exception) {
-                val errMsg = "Failed to download rootfs: ${e.message}"
-                Log.e(TAG, errMsg, e)
-                logWrapper("ERROR: $errMsg")
-                updateState(instance.id, ContainerState.STOPPED)
-                return@withContext false
-            }
+        // Validate rootfs initialization before launching container
+        val isInitialized = storageEngine.isInstanceInitialized(instance.id)
+        if (!isInitialized) {
+            val errMsg = "Cannot launch container: instance ${instance.name} is not initialized. Please download rootfs first."
+            logWrapper("ERROR: $errMsg")
+            updateState(instance.id, ContainerState.STOPPED)
+            return@withContext false
         }
 
         // 2. Generate display geometry

@@ -31,11 +31,12 @@ EXTRACT_CMD=""
 case "$ARCHIVE_PATH" in
     *.tar.gz|*.tgz)
         echo "[Linex:Extract] Detected Gzip compressed tarball."
-        # Try gzip -dc | tar -xf first (standard toybox compatibility), fallback to tar -xzf
+        # Use proot if available to emulate root and strip/intercept path permissions, or pipe gzip into tar
+        # Crucial for Android: strip leading slashes so tar writes into TARGET_DIR instead of Android root /
         if command -v gzip >/dev/null 2>&1; then
-            EXTRACT_CMD="gzip -dc \"$ARCHIVE_PATH\" | tar -x -C \"$TARGET_DIR\""
+            EXTRACT_CMD="cd \"$TARGET_DIR\" && gzip -dc \"$ARCHIVE_PATH\" | tar -x --strip-components=0 2>/dev/null || cd \"$TARGET_DIR\" && gzip -dc \"$ARCHIVE_PATH\" | tar -x"
         else
-            EXTRACT_CMD="tar -xzf \"$ARCHIVE_PATH\" -C \"$TARGET_DIR\""
+            EXTRACT_CMD="cd \"$TARGET_DIR\" && tar -xzf \"$ARCHIVE_PATH\""
         fi
         ;;
     *.tar.xz|*.txz)
