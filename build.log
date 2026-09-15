@@ -1,26 +1,30 @@
+Starting a Gradle Daemon, 2 stopped Daemons could not be reused, use --status for details
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
 > Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :app:checkDebugAarMetadata UP-TO-DATE
 > Task :app:generateDebugResValues UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths UP-TO-DATE
-> Task :app:generateDebugResources UP-TO-DATE
-> Task :app:mergeDebugResources UP-TO-DATE
-> Task :app:packageDebugResources UP-TO-DATE
-> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
 > Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
 > Task :app:extractDeepLinksDebug UP-TO-DATE
-> Task :app:processDebugMainManifest UP-TO-DATE
-> Task :app:processDebugManifest UP-TO-DATE
-> Task :app:processDebugManifestForPackage UP-TO-DATE
-> Task :app:processDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources
+> Task :app:parseDebugLocalResources
+
+> Task :app:processDebugMainManifest
+P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:29:9-41 Warning:
+	android:extractNativeLibs should not be specified in this source AndroidManifest.xml file. See https://d.android.com/guide/topics/manifest/application-element#extractNativeLibs for more information.
+The AGP Upgrade Assistant can remove the attribute from the AndroidManifest.xml file and update the build file accordingly. See https://d.android.com/studio/build/agp-upgrade-assistant for more information.
+
+> Task :app:processDebugManifest
 > Task :app:javaPreCompileDebug UP-TO-DATE
 > Task :app:mergeDebugShaders UP-TO-DATE
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:mergeDebugAssets
-> Task :app:compressDebugAssets
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
 > Task :app:desugarDebugFileDependencies UP-TO-DATE
 > Task :app:checkDebugDuplicateClasses UP-TO-DATE
 > Task :app:mergeExtDexDebug UP-TO-DATE
@@ -35,17 +39,22 @@
 > Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:processDebugManifestForPackage
+> Task :app:processDebugResources
+
 > Task :app:compileDebugKotlin
+w: file:///P:/Magnanimity/Projects/LinuxDroid/app/src/main/java/com/linex/app/ui/hub/HubScreen.kt:119:57 '@property:Deprecated(...) val Icons.Filled.Article: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Article.
+
 > Task :app:compileDebugJavaWithJavac NO-SOURCE
 > Task :app:dexBuilderDebug
 > Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
-> Task :app:processDebugJavaRes UP-TO-DATE
-> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:processDebugJavaRes
 > Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugJavaResource
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect UP-TO-DATE
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 5s
-39 actionable tasks: 10 executed, 29 up-to-date
+BUILD SUCCESSFUL in 37s
+39 actionable tasks: 19 executed, 20 up-to-date
 BUILD_FINISHED

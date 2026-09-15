@@ -1,8 +1,8 @@
 1<?xml version="1.0" encoding="utf-8"?>
 2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
 3    package="com.linex.app"
-4    android:versionCode="1"
-5    android:versionName="1.0.0" >
+4    android:versionCode="3"
+5    android:versionName="0.2.1" >
 6
 7    <uses-sdk
 8        android:minSdkVersion="26"
@@ -47,7 +47,7 @@
 28-->[androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:26:22-94
 29
 30    <application
-30-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:18:5-62:19
+30-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:18:5-72:19
 31        android:name="com.linex.app.LinexApp"
 31-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:19:9-33
 32        android:allowBackup="true"
@@ -130,70 +130,86 @@
 74        </service>
 75
 76        <provider
-76-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:24:9-32:20
-77            android:name="androidx.startup.InitializationProvider"
-77-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:25:13-67
-78            android:authorities="com.linex.app.androidx-startup"
-78-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:26:13-68
-79            android:exported="false" >
-79-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:27:13-37
-80            <meta-data
-80-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:29:13-31:52
-81                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-81-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:30:17-75
-82                android:value="androidx.startup" />
-82-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:31:17-49
-83            <meta-data
-83-->[androidx.lifecycle:lifecycle-process:2.8.0] C:\Users\lupixele\.gradle\caches\transforms-3\f6a57c3aaab59f303ad5f056e914c69d\transformed\lifecycle-process-2.8.0\AndroidManifest.xml:29:13-31:52
-84                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-84-->[androidx.lifecycle:lifecycle-process:2.8.0] C:\Users\lupixele\.gradle\caches\transforms-3\f6a57c3aaab59f303ad5f056e914c69d\transformed\lifecycle-process-2.8.0\AndroidManifest.xml:30:17-78
-85                android:value="androidx.startup" />
-85-->[androidx.lifecycle:lifecycle-process:2.8.0] C:\Users\lupixele\.gradle\caches\transforms-3\f6a57c3aaab59f303ad5f056e914c69d\transformed\lifecycle-process-2.8.0\AndroidManifest.xml:31:17-49
-86            <meta-data
-86-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:29:13-31:52
-87                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-87-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:30:17-85
-88                android:value="androidx.startup" />
-88-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:31:17-49
-89        </provider>
-90
-91        <receiver
-91-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:34:9-52:20
-92            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-92-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:35:13-76
-93            android:directBootAware="false"
-93-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:36:13-44
-94            android:enabled="true"
-94-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:37:13-35
-95            android:exported="true"
-95-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:38:13-36
-96            android:permission="android.permission.DUMP" >
-96-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:39:13-57
-97            <intent-filter>
-97-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:40:13-42:29
-98                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-98-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:41:17-91
-98-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:41:25-88
-99            </intent-filter>
-100            <intent-filter>
-100-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:43:13-45:29
-101                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-101-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:44:17-85
-101-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:44:25-82
-102            </intent-filter>
-103            <intent-filter>
-103-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:46:13-48:29
-104                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-104-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:47:17-88
-104-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:47:25-85
-105            </intent-filter>
+77            android:name="androidx.core.content.FileProvider"
+77-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:63:13-62
+78            android:authorities="com.linex.app.fileprovider"
+78-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:64:13-64
+79            android:exported="false"
+79-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:65:13-37
+80            android:grantUriPermissions="true" >
+80-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:66:13-47
+81            <meta-data
+81-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:67:13-69:54
+82                android:name="android.support.FILE_PROVIDER_PATHS"
+82-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:68:17-67
+83                android:resource="@xml/file_paths" />
+83-->P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:69:17-51
+84        </provider>
+85        <provider
+85-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:24:9-32:20
+86            android:name="androidx.startup.InitializationProvider"
+86-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:25:13-67
+87            android:authorities="com.linex.app.androidx-startup"
+87-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:26:13-68
+88            android:exported="false" >
+88-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:27:13-37
+89            <meta-data
+89-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:29:13-31:52
+90                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+90-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:30:17-75
+91                android:value="androidx.startup" />
+91-->[androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:31:17-49
+92            <meta-data
+92-->[androidx.lifecycle:lifecycle-process:2.8.0] C:\Users\lupixele\.gradle\caches\transforms-3\f6a57c3aaab59f303ad5f056e914c69d\transformed\lifecycle-process-2.8.0\AndroidManifest.xml:29:13-31:52
+93                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+93-->[androidx.lifecycle:lifecycle-process:2.8.0] C:\Users\lupixele\.gradle\caches\transforms-3\f6a57c3aaab59f303ad5f056e914c69d\transformed\lifecycle-process-2.8.0\AndroidManifest.xml:30:17-78
+94                android:value="androidx.startup" />
+94-->[androidx.lifecycle:lifecycle-process:2.8.0] C:\Users\lupixele\.gradle\caches\transforms-3\f6a57c3aaab59f303ad5f056e914c69d\transformed\lifecycle-process-2.8.0\AndroidManifest.xml:31:17-49
+95            <meta-data
+95-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:29:13-31:52
+96                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+96-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:30:17-85
+97                android:value="androidx.startup" />
+97-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:31:17-49
+98        </provider>
+99
+100        <receiver
+100-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:34:9-52:20
+101            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:35:13-76
+102            android:directBootAware="false"
+102-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:36:13-44
+103            android:enabled="true"
+103-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:37:13-35
+104            android:exported="true"
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:38:13-36
+105            android:permission="android.permission.DUMP" >
+105-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:39:13-57
 106            <intent-filter>
-106-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:49:13-51:29
-107                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-107-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:50:17-95
-107-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:50:25-92
+106-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:40:13-42:29
+107                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:41:17-91
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:41:25-88
 108            </intent-filter>
-109        </receiver>
-110    </application>
-111
-112</manifest>
+109            <intent-filter>
+109-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:43:13-45:29
+110                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+110-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:44:17-85
+110-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:44:25-82
+111            </intent-filter>
+112            <intent-filter>
+112-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:46:13-48:29
+113                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+113-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:47:17-88
+113-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:47:25-85
+114            </intent-filter>
+115            <intent-filter>
+115-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:49:13-51:29
+116                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+116-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:50:17-95
+116-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\lupixele\.gradle\caches\transforms-3\f61c32e8c4e1b3eb8a8ab6b024a4985d\transformed\profileinstaller-1.3.1\AndroidManifest.xml:50:25-92
+117            </intent-filter>
+118        </receiver>
+119    </application>
+120
+121</manifest>

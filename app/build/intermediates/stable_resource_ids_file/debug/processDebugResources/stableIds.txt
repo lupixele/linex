@@ -1,3 +1,4 @@
+com.linex.app:xml/file_paths = 0x7f0c0000
 com.linex.app:styleable/FontFamily = 0x7f0b0002
 com.linex.app:styleable/GradientColorItem = 0x7f0b0005
 com.linex.app:styleable/ColorStateListItem = 0x7f0b0001

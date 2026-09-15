@@ -6,3 +6,4 @@ string app_name
 string notification_channel_desc
 string notification_channel_name
 style Theme.Linex
+xml file_paths

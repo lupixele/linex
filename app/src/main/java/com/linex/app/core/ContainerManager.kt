@@ -59,11 +59,15 @@ class ContainerManager(
      * Boots a Linux instance with full rootless isolation via Linex bootstrap scripts.
      */
     suspend fun launchInstance(instance: LinuxInstance, onLog: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
+        val logWrapper: (String) -> Unit = { msg ->
+            AppLogger.log("ContainerManager", msg)
+            onLog(msg)
+        }
         updateState(instance.id, ContainerState.STARTING)
         activeInstance = instance
 
         // 1. Ensure runtime assets (scripts and configs) are deployed
-        onLog("Validating runtime bootstrap scripts...")
+        logWrapper("Validating runtime bootstrap scripts...")
         storageEngine.deployAssets(overwrite = false)
 
         val rootfsDir = storageEngine.getRootfsDirectory(instance.id)
@@ -75,21 +79,21 @@ class ContainerManager(
         val isRootfsMissingOrEmpty = !rootfsDir.exists() || rootfsFiles == null || rootfsFiles.isEmpty() || !storageEngine.isInstanceInitialized(instance.id)
 
         if (isRootfsMissingOrEmpty) {
-            onLog("Rootfs uninitialized. Initiating download for ${instance.distro.displayName}...")
+            logWrapper("Rootfs uninitialized. Initiating download for ${instance.distro.displayName}...")
             try {
                 var lastReportedPercent = -1
                 rootfsDownloader.download(instance.id, instance.distro.rootfsDownloadUrl).collect { progress ->
                     val percent = (progress * 100).toInt()
                     if (percent != lastReportedPercent && (percent % 10 == 0 || percent == 100)) {
                         lastReportedPercent = percent
-                        onLog("Downloading rootfs: $percent%")
+                        logWrapper("Downloading rootfs: $percent%")
                     }
                 }
-                onLog("Rootfs download and extraction completed successfully.")
+                logWrapper("Rootfs download and extraction completed successfully.")
             } catch (e: Exception) {
                 val errMsg = "Failed to download rootfs: ${e.message}"
                 Log.e(TAG, errMsg, e)
-                onLog("ERROR: $errMsg")
+                logWrapper("ERROR: $errMsg")
                 updateState(instance.id, ContainerState.STOPPED)
                 return@withContext false
             }
@@ -98,14 +102,14 @@ class ContainerManager(
         // 2. Generate display geometry
         val (width, height) = calculateDisplayGeometry(instance)
         val dpi = instance.dpiScaling.toInt()
-        onLog("Geometry configured: ${width}x${height} @ ${dpi} DPI")
+        logWrapper("Geometry configured: ${width}x${height} @ ${dpi} DPI")
 
         // 3. Locate Entrypoint Script & PRoot Binary
         val entrypointScript = File(scriptsDir, "entrypoint.sh")
         if (!entrypointScript.exists()) {
             val err = "Missing entrypoint script at: ${entrypointScript.absolutePath}"
             Log.e(TAG, err)
-            onLog("ERROR: $err")
+            logWrapper("ERROR: $err")
             updateState(instance.id, ContainerState.STOPPED)
             return@withContext false
         }
@@ -122,7 +126,7 @@ class ContainerManager(
             if (it.exists()) it else File(instanceDir.parentFile, "runtime/scripts/x11_socket_setup.sh")
         }
         if (x11SetupScript.exists()) {
-            onLog("Initializing X11 socket environment...")
+            logWrapper("Initializing X11 socket environment...")
             x11SetupScript.setExecutable(true, false)
             try {
                 val setupPb = ProcessBuilder(shBinary, x11SetupScript.absolutePath, tmpDir.absolutePath, "0")
@@ -133,7 +137,7 @@ class ContainerManager(
                     while (reader.readLine().also { line = it } != null) {
                         line?.let {
                             Log.d(TAG, "[X11Setup] $it")
-                            onLog(it)
+                            logWrapper(it)
                         }
                     }
                 }
@@ -141,12 +145,12 @@ class ContainerManager(
                 Log.i(TAG, "x11_socket_setup.sh completed with exit code: $setupExit")
             } catch (e: Exception) {
                 Log.w(TAG, "x11_socket_setup.sh execution error", e)
-                onLog("Warning: X11 socket setup error: ${e.message}")
+                logWrapper("Warning: X11 socket setup error: ${e.message}")
             }
         }
 
         // 4. Construct entrypoint command
-        // entrypoint.sh <rootfs_path> <tmp_path> <start_command> [width] [height] [dpi] [extra_binds] [bootstrap_dir]
+        // entrypoint.sh <rootfs_path> <tmp_path> <start_command> <display_width> <display_height> <display_dpi> <extra_binds> <bootstrap_dir>
         val command = listOf(
             shBinary,
             entrypointScript.absolutePath,
@@ -161,7 +165,7 @@ class ContainerManager(
         )
 
         try {
-            onLog("Executing bootstrap sequence...")
+            logWrapper("Executing bootstrap sequence...")
             val pb = ProcessBuilder(command)
             pb.directory(scriptsDir)
 
@@ -184,7 +188,7 @@ class ContainerManager(
                 pidField.isAccessible = true
                 val pid = pidField.getInt(process)
                 processController.setActiveProcess(pid)
-                onLog("Container process initialized with PID $pid")
+                logWrapper("Container process initialized with PID $pid")
             } catch (e: Exception) {
                 Log.w(TAG, "Unable to extract process PID via reflection", e)
             }
@@ -198,7 +202,7 @@ class ContainerManager(
                         while (reader.readLine().also { line = it } != null) {
                             line?.let {
                                 Log.d(TAG, "[Guest] $it")
-                                onLog(it)
+                                logWrapper(it)
                             }
                         }
                     }
@@ -210,7 +214,7 @@ class ContainerManager(
                 try {
                     val exitCode = process.waitFor()
                     Log.w(TAG, "Container process exited with code $exitCode")
-                    onLog("Container exited (code $exitCode)")
+                    logWrapper("Container exited (code $exitCode)")
                     updateState(instance.id, ContainerState.STOPPED)
                 } catch (e: Exception) {
                     Log.d(TAG, "Process wait interrupted: ${e.message}")
@@ -221,7 +225,7 @@ class ContainerManager(
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to launch container", e)
-            onLog("Failed to launch container: ${e.message}")
+            logWrapper("Failed to launch container: ${e.message}")
             updateState(instance.id, ContainerState.STOPPED)
             false
         }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -42,6 +43,7 @@ fun HubScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var showCreateDialog by remember { mutableStateOf(false) }
+    var showLogsDialog by remember { mutableStateOf(false) }
     var downloadingInstance by remember { mutableStateOf<LinuxInstance?>(null) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var downloadStatus by remember { mutableStateOf("Preparing download...") }
@@ -112,6 +114,13 @@ fun HubScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showLogsDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Article,
+                            contentDescription = "Diagnostic Logs",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     Button(
                         onClick = { showCreateDialog = true },
                         colors = ButtonDefaults.buttonColors(
@@ -180,6 +189,10 @@ fun HubScreen(
                 }
             }
         }
+    }
+
+    if (showLogsDialog) {
+        LogViewerDialog(onDismiss = { showLogsDialog = false })
     }
 
     if (showCreateDialog) {

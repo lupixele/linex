@@ -1,9 +1,20 @@
 -- Merging decision tree log ---
+provider#androidx.core.content.FileProvider
+INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:62:9-70:20
+	android:grantUriPermissions
+		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:66:13-47
+	android:authorities
+		INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml
+		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:64:13-64
+	android:exported
+		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:65:13-37
+	android:name
+		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:63:13-62
 manifest
-ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:2:1-63:12
-INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:2:1-63:12
-INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:2:1-63:12
-INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:2:1-63:12
+ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:2:1-73:12
+INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:2:1-73:12
+INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:2:1-73:12
+INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:2:1-73:12
 MERGED from [androidx.compose.material3:material3-android:1.2.1] C:\Users\lupixele\.gradle\caches\transforms-3\cad2edd55261c8ef0347ff602ac1153a\transformed\material3-release\AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.activity:activity-compose:1.9.0] C:\Users\lupixele\.gradle\caches\transforms-3\aa6245538cd18b4003b1d0691cb895a9\transformed\activity-compose-1.9.0\AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.compose.material:material-icons-core-android:1.6.7] C:\Users\lupixele\.gradle\caches\transforms-3\eff56d99e51a35868c214c85ea4217ff\transformed\material-icons-core-release\AndroidManifest.xml:2:1-7:12
@@ -84,7 +95,7 @@ ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:1
 	android:name
 		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:16:22-77
 application
-ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:18:5-62:19
+ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:18:5-72:19
 MERGED from [androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:23:5-33:19
 MERGED from [androidx.emoji2:emoji2:1.3.0] C:\Users\lupixele\.gradle\caches\transforms-3\121d46b080d83e8b2e5a0b1cf65f4970\transformed\emoji2-1.3.0\AndroidManifest.xml:23:5-33:19
 MERGED from [androidx.core:core:1.13.1] C:\Users\lupixele\.gradle\caches\transforms-3\c650522978c765beeb1b732587cfd7c9\transformed\core-1.13.1\AndroidManifest.xml:28:5-89
@@ -171,6 +182,12 @@ ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:5
 		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:59:17-103
 	android:name
 		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:58:17-76
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:67:13-69:54
+	android:resource
+		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:69:17-51
+	android:name
+		ADDED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml:68:17-67
 uses-sdk
 INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from P:\Magnanimity\Projects\LinuxDroid\app\src\main\AndroidManifest.xml
