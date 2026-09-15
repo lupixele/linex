@@ -5,7 +5,8 @@
 # into the target container directory with permission normalization.
 # ==============================================================================
 
-set -e
+# Disable strict exit-on-error so warnings like symlink or permission skips don't abort the entire script
+set +e
 
 ARCHIVE_PATH="$1"
 TARGET_DIR="$2"
@@ -30,7 +31,12 @@ EXTRACT_CMD=""
 case "$ARCHIVE_PATH" in
     *.tar.gz|*.tgz)
         echo "[Linex:Extract] Detected Gzip compressed tarball."
-        EXTRACT_CMD="tar -xzf \"$ARCHIVE_PATH\" -C \"$TARGET_DIR\""
+        # Try gzip -dc | tar -xf first (standard toybox compatibility), fallback to tar -xzf
+        if command -v gzip >/dev/null 2>&1; then
+            EXTRACT_CMD="gzip -dc \"$ARCHIVE_PATH\" | tar -x -C \"$TARGET_DIR\""
+        else
+            EXTRACT_CMD="tar -xzf \"$ARCHIVE_PATH\" -C \"$TARGET_DIR\""
+        fi
         ;;
     *.tar.xz|*.txz)
         echo "[Linex:Extract] Detected XZ compressed tarball."

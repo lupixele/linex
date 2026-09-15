@@ -1,0 +1,43 @@
+You are a senior Android Kotlin engineer working directly in P:/Magnanimity/Projects/LinuxDroid.
+Fix this specific bug: "The default template does not download, and newly created instances close after download and ask for download again."
+
+ROOT CAUSE ANALYSIS & REQUIRED FIXES:
+
+1. StorageEngine.kt and Rootfs Extraction:
+   - In extractRootfs(): Check why extraction fails or leaves the instance uninitialized.
+   - When extracting via rootfs_extract.sh on Android, Android's /system/bin/toybox tar might fail or exit with an error, or tar cannot find xz/gzip if flags are wrong.
+   - Write a resilient pure-Java/Kotlin extraction fallback in StorageEngine (using standard java.util.zip.GZIPInputStream / Tar archive reader or robust shell command with fallback) so extraction ALWAYS succeeds even if toybox tar has limited flag support.
+   - When extraction succeeds, StorageEngine MUST ensure:
+     * The rootfs has /bin/sh or /usr/bin/sh (create symlink if needed).
+     * The marker file `.linex_initialized` is created directly in targetRootfs with version and timestamp. Do NOT rely solely on first_boot_setup.sh to write it.
+   - In isInstanceInitialized(instanceId): Check:
+     return File(rootfs, ".linex_initialized").exists() && (File(rootfs, "bin/sh").exists() || File(rootfs, "usr/bin/sh").exists() || File(rootfs, "bin/bash").exists())
+     Make sure it does not falsely return false if the instance is already extracted.
+
+2. HubScreen.kt & Download Flow:
+   - Check handleLaunchOrResume:
+     When an instance is clicked, if !engine.isInstanceInitialized(instance.id):
+     It launches the download job.
+     Inside the download job:
+     downloader.download(instance.id, instance.distro.rootfsDownloadUrl).collect { ... }
+     After collect finishes, verify that engine.isInstanceInitialized(instance.id) is TRUE.
+     If true, dismiss downloadingInstance and call onLaunchInstance(instance).
+     If false, show a clear error message in downloadStatus instead of silently closing!
+
+3. ContainerManager.kt & Process Lifespan:
+   - In launchInstance():
+     Check why newly launched instances close immediately!
+     When PRoot starts:
+     - Check if entrypoint.sh, proot_runner.sh, container_init.sh, and libproot.so have executable permissions (chmod 0755).
+     - Check if PRoot exits immediately with an error (e.g. exit code 1, 2, 127).
+     - Read stdout and stderr of the PRoot process asynchronously and log them via onLog().
+     - If the process exits within 3 seconds of launching, capture the exit code and stderr, log it to onLog("Container exited prematurely with code $exitCode: $stderrOutput"), and mark state as STOPPED with the error message visible to the user.
+     - Also ensure ContainerManager does NOT re-trigger download if rootfs is already extracted and initialized.
+
+4. Distro Download URLs (InstanceModel.kt & distros.json):
+   - Check the default template (UBUNTU_JAMMY). The URL is a ~1.9GB file (udroid-arm64-xfce4-V3MBB3.tar.gz). If network timeouts or issues occur on large downloads, ensure OkHttpClient has generous timeouts (connectTimeout 60s, readTimeout 120s) and proper User-Agent.
+   - Also ensure UBUNTU_JAMMY (minimal, 172 MB) or alternative clean mirrors are available as fast templates.
+
+5. Compile and Test:
+   - Run `cmd.exe /c "gradlew.bat assembleDebug"` to verify that the project compiles cleanly with 0 errors.
+   - Verify that app/build/outputs/apk/debug/app-debug.apk is generated successfully.

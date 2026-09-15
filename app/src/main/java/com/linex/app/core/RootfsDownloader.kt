@@ -131,12 +131,23 @@ class RootfsDownloader(
         }
 
         Log.i(TAG, "Download complete for $instanceId. Extracting archive to ${targetRootfs.absolutePath}...")
+        trySend(0.99f)
         val extractSuccess = storageEngine.extractRootfs(destFile, targetRootfs) { extractProgress, status ->
             Log.d(TAG, "Extract progress: ${(extractProgress * 100).toInt()}% - $status")
         }
 
         if (!extractSuccess) {
             throw IOException("Failed to extract rootfs archive for instance $instanceId")
+        }
+
+        // Delete downloaded archive after successful extraction to reclaim storage
+        try {
+            if (destFile.exists()) {
+                destFile.delete()
+                Log.i(TAG, "Deleted downloaded archive ${destFile.name} to free disk space")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to remove downloaded archive: ${e.message}")
         }
 
         send(1.0f)

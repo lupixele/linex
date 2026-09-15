@@ -75,7 +75,7 @@ class ContainerManager(
         val isRootfsMissingOrEmpty = !rootfsDir.exists() || rootfsFiles == null || rootfsFiles.isEmpty() || !storageEngine.isInstanceInitialized(instance.id)
 
         if (isRootfsMissingOrEmpty) {
-            onLog("Rootfs directory is empty or missing. Initiating download for ${instance.distro.displayName}...")
+            onLog("Rootfs uninitialized. Initiating download for ${instance.distro.displayName}...")
             try {
                 var lastReportedPercent = -1
                 rootfsDownloader.download(instance.id, instance.distro.rootfsDownloadUrl).collect { progress ->
@@ -189,7 +189,7 @@ class ContainerManager(
                 Log.w(TAG, "Unable to extract process PID via reflection", e)
             }
 
-            // Stream logs asynchronously
+            // Stream logs asynchronously and monitor if process exits prematurely
             logReadingJob?.cancel()
             logReadingJob = CoroutineScope(Dispatchers.IO).launch {
                 try {
@@ -204,6 +204,16 @@ class ContainerManager(
                     }
                 } catch (e: Exception) {
                     Log.d(TAG, "Container log stream closed: ${e.message}")
+                }
+
+                // Check process exit status
+                try {
+                    val exitCode = process.waitFor()
+                    Log.w(TAG, "Container process exited with code $exitCode")
+                    onLog("Container exited (code $exitCode)")
+                    updateState(instance.id, ContainerState.STOPPED)
+                } catch (e: Exception) {
+                    Log.d(TAG, "Process wait interrupted: ${e.message}")
                 }
             }
 

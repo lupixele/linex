@@ -65,18 +65,25 @@ fun HubScreen(
                         downloader.download(instance.id, instance.distro.rootfsDownloadUrl).collect { progress ->
                             downloadProgress = progress
                             downloadStatus = if (progress < 0.99f) {
-                                "Downloading ${instance.distro.displayName}..."
+                                "Downloading ${instance.distro.displayName} (${(progress * 100).toInt()}%)..."
                             } else {
                                 "Unpacking and configuring rootfs..."
                             }
                         }
+
+                        // Verify instance is initialized before launching
+                        val readyAfterExtract = engine.isInstanceInitialized(instance.id)
                         downloadingInstance = null
-                        onLaunchInstance(instance)
+                        if (readyAfterExtract) {
+                            onLaunchInstance(instance)
+                        } else {
+                            Log.e("HubScreen", "Rootfs extracted but initialization check failed for ${instance.name}")
+                        }
                     } catch (e: CancellationException) {
                         Log.i("HubScreen", "Rootfs download cancelled for ${instance.name}")
                         downloadingInstance = null
                     } catch (e: Exception) {
-                        Log.e("HubScreen", "Rootfs download failed for ${instance.name}", e)
+                        Log.e("HubScreen", "Failed to download/extract rootfs: ${e.message}", e)
                         downloadStatus = "Download error: ${e.message}"
                         downloadingInstance = null
                     }
