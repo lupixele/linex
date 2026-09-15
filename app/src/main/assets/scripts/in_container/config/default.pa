@@ -1,0 +1,18 @@
+# LinuxDroid PulseAudio Daemon Configuration
+# Bridges audio from container to Android AAudio/AudioTrack
+
+.fail
+
+# Load core modules
+load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1 port=4713
+load-module module-native-protocol-unix auth-anonymous=1 socket=/tmp/pulse-socket
+
+# Fallback null sink if hardware audio sink not connected
+load-module module-null-sink sink_name=AndroidSink sink_properties=device.description="LinuxDroid_Android_Audio"
+set-default-sink AndroidSink
+
+# Resampling and latency tuning for low-power mobile CPU
+set-sink-volume AndroidSink 65536
+set-sink-mute AndroidSink 0
+
+.nofail

@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.LinuxDroid" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#101012</item>
+        <item name="android:statusBarColor">#101012</item>
+        <item name="android:navigationBarColor">#101012</item>
+    </style>
+</resources>
