@@ -127,9 +127,18 @@ fun InstanceCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = { onViewLogs(instance) }) {
-                        Icon(Icons.Default.Article, contentDescription = "View Logs", tint = MaterialTheme.colorScheme.secondary)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalButton(
+                        onClick = { onViewLogs(instance) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Article, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Logs", style = MaterialTheme.typography.labelMedium)
                     }
                     IconButton(onClick = { onEditSettings(instance) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.secondary)

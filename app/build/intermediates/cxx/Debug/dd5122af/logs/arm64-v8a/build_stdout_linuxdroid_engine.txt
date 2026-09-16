@@ -1,2 +1,0 @@
-ninja: Entering directory `P:\Magnanimity\Projects\LinuxDroid\app\.cxx\Debug\dd5122af\arm64-v8a'
-ninja: no work to do.

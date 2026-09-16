@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.linex.app.BuildConfig
+import com.linex.app.core.AppLogger
 import com.linex.app.core.RootfsDownloader
 import com.linex.app.core.StorageEngine
 import com.linex.app.data.ContainerState

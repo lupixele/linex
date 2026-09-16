@@ -3,3 +3,6 @@
 172	263	8111849304858343	P:/Magnanimity/Projects/LinuxDroid/app/build/intermediates/cxx/Debug/dd5122af/obj/arm64-v8a/liblinuxdroid_engine.so	ef304ede79cdd219
 0	72	8111865444577993	CMakeFiles/linex_engine.dir/engine_bridge.cpp.o	ec079972aa240b82
 72	139	8111865445151047	P:/Magnanimity/Projects/LinuxDroid/app/build/intermediates/cxx/Debug/dd5122af/obj/arm64-v8a/liblinex_engine.so	d29459df9a30f171
+0	5	0	clean	cda9b8b3bb940a55
+3	305	8112631828926865	CMakeFiles/linex_engine.dir/engine_bridge.cpp.o	ec079972aa240b82
+306	459	8112631830451441	P:/Magnanimity/Projects/LinuxDroid/app/build/intermediates/cxx/Debug/dd5122af/obj/arm64-v8a/liblinex_engine.so	d29459df9a30f171

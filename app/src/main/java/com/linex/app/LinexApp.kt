@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.linex.app.core.AppLogger
 
 class LinexApp : Application() {
 

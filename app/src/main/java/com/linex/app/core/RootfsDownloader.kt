@@ -143,14 +143,14 @@ class RootfsDownloader(
         Log.i(TAG, "Starting rootfs download for instance $instanceId from $url")
         // Stream download progress (0.0 to 1.0)
         var lastEmitted = -1
-        download(url, destFile) { progress ->
+        download(url, destFile, { progress: Float ->
             val p = (progress * 100).toInt()
             if (p != lastEmitted && (p % 10 == 0 || p == 100)) {
                 lastEmitted = p
                 AppLogger.log(TAG, "Download progress: $p%", instanceId)
             }
             trySend(progress)
-        }
+        }, instanceId)
 
         AppLogger.log(TAG, "Download complete. Extracting archive to ${targetRootfs.absolutePath}...", instanceId)
         Log.i(TAG, "Download complete for $instanceId. Extracting archive to ${targetRootfs.absolutePath}...")
