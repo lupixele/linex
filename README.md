@@ -4,7 +4,7 @@
 
 Run real Ubuntu and Debian desktop environments on your Android device right out of the box — **no Termux, no external X11 APK, no command lines, and zero root required.**
 
-[![Release](https://img.shields.io/github/v/release/lupixele/linex?include_prereleases&label=beta)](https://github.com/lupixele/linex/releases/tag/v0.2.0-beta)
+[![Release](https://img.shields.io/github/v/release/lupixele/linex?include_prereleases&label=beta)](https://github.com/lupixele/linex/releases/tag/v0.2.4)
 [![Platform](https://img.shields.io/badge/platform-Android%208.0%2B%20(ARM64)-green.svg)](https://github.com/lupixele/linex)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 

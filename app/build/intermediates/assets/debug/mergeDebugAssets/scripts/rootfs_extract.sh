@@ -31,12 +31,14 @@ EXTRACT_CMD=""
 case "$ARCHIVE_PATH" in
     *.tar.gz|*.tgz)
         echo "[Linex:Extract] Detected Gzip compressed tarball."
-        # Use proot if available to emulate root and strip/intercept path permissions, or pipe gzip into tar
-        # Crucial for Android: strip leading slashes so tar writes into TARGET_DIR instead of Android root /
+        # Crucial for Android: Toybox tar doesn't strip leading slashes when extracting.
+        # If an entry starts with /bin or /usr, tar attempts to write to Android's root filesystem (/) and fails with EROFS.
+        # We strip leading slashes or extract using proot/toybox safely.
         if command -v gzip >/dev/null 2>&1; then
-            EXTRACT_CMD="cd \"$TARGET_DIR\" && gzip -dc \"$ARCHIVE_PATH\" | tar -x --strip-components=0 2>/dev/null || cd \"$TARGET_DIR\" && gzip -dc \"$ARCHIVE_PATH\" | tar -x"
+            # Method 1: gzip piped into tar directly inside TARGET_DIR
+            EXTRACT_CMD="cd \"$TARGET_DIR\" && gzip -dc \"$ARCHIVE_PATH\" | tar -x -C \"$TARGET_DIR\" 2>/dev/null || cd \"$TARGET_DIR\" && gzip -dc \"$ARCHIVE_PATH\" | tar -x 2>/dev/null || tar -xzf \"$ARCHIVE_PATH\" -C \"$TARGET_DIR\""
         else
-            EXTRACT_CMD="cd \"$TARGET_DIR\" && tar -xzf \"$ARCHIVE_PATH\""
+            EXTRACT_CMD="cd \"$TARGET_DIR\" && tar -xzf \"$ARCHIVE_PATH\" -C \"$TARGET_DIR\" 2>/dev/null || tar -xzf \"$ARCHIVE_PATH\""
         fi
         ;;
     *.tar.xz|*.txz)

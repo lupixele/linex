@@ -67,7 +67,17 @@ class InstanceRepository(private val context: Context) {
                     saveInstancesSync(defaults)
                     defaults
                 } else {
-                    json.decodeFromString<List<LinuxInstance>>(content)
+                    val saved = json.decodeFromString<List<LinuxInstance>>(content)
+                    // Synchronize latest distro URLs and metadata from code into persisted instances
+                    saved.map { inst ->
+                        // Re-align with current DistroType values in case URLs or specs updated
+                        val currentDistro = try {
+                            DistroType.valueOf(inst.distro.name)
+                        } catch (e: Exception) {
+                            inst.distro
+                        }
+                        inst.copy(distro = currentDistro)
+                    }
                 }
             }
         } catch (e: Exception) {

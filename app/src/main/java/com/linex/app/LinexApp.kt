@@ -9,6 +9,8 @@ class LinexApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppLogger.init(applicationContext)
+        AppLogger.log("LinexApp", "Linex Application initialized (Build v${BuildConfig.VERSION_NAME} code ${BuildConfig.VERSION_CODE})")
         createNotificationChannels()
     }
 

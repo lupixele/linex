@@ -117,11 +117,18 @@ fun HubScreen(
                             modifier = Modifier.size(26.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Linex",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Column {
+                            Text(
+                                text = "Linex",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "v${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
                     }
                 },
                 actions = {

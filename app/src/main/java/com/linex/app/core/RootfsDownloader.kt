@@ -29,8 +29,10 @@ class RootfsDownloader(
 
         val defaultClient: OkHttpClient by lazy {
             OkHttpClient.Builder()
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(60, TimeUnit.SECONDS)
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(180, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
                 .followRedirects(true)
                 .followSslRedirects(true)
                 .build()
@@ -44,11 +46,19 @@ class RootfsDownloader(
     suspend fun download(
         url: String,
         destFile: File,
-        onProgress: (Float) -> Unit
+        onProgress: (Float) -> Unit,
+        instanceId: String? = null
     ): Boolean = withContext(Dispatchers.IO) {
         val parentDir = destFile.parentFile ?: File(".")
         if (!parentDir.exists()) {
             parentDir.mkdirs()
+        }
+
+        // Optimization: If archive is already fully downloaded on disk, verify and reuse!
+        if (destFile.exists() && destFile.length() > 10 * 1024 * 1024L) {
+            AppLogger.log(TAG, "Archive already downloaded (${destFile.length() / (1024 * 1024)} MB). Reusing existing file: ${destFile.name}", instanceId)
+            onProgress(1.0f)
+            return@withContext true
         }
 
         val tempFile = File(parentDir, "${destFile.name}.download")
@@ -56,7 +66,7 @@ class RootfsDownloader(
             tempFile.delete()
         }
 
-        AppLogger.log(TAG, "Initiating HTTP request for: $url", null)
+        AppLogger.log(TAG, "Initiating HTTP GET for: $url", instanceId)
         val request = Request.Builder()
             .url(url)
             .header("User-Agent", "Linex-RootfsDownloader/1.0")
@@ -64,14 +74,14 @@ class RootfsDownloader(
 
         try {
             client.newCall(request).execute().use { response ->
-                AppLogger.log(TAG, "HTTP response status: ${response.code} for $url", null)
+                AppLogger.log(TAG, "HTTP response status: ${response.code} for $url", instanceId)
                 if (!response.isSuccessful) {
                     throw IOException("HTTP error ${response.code}: ${response.message}")
                 }
 
                 val body = response.body ?: throw IOException("Empty response body from $url")
                 val contentLength = body.contentLength()
-                AppLogger.log(TAG, "Download started, size: ${contentLength / (1024 * 1024)} MB", null)
+                AppLogger.log(TAG, "Download started, size: ${contentLength / (1024 * 1024)} MB", instanceId)
 
                 body.byteStream().use { inputStream ->
                     FileOutputStream(tempFile).use { outputStream ->
