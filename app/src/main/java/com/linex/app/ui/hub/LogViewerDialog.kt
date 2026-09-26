@@ -39,20 +39,34 @@ fun LogViewerDialog(
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val allLogs by AppLogger.logs.collectAsState()
+    val loading by AppLogger.loading.collectAsState()
+    val storageError by AppLogger.storageError.collectAsState()
+    var query by remember { mutableStateOf("") }
+    var followOutput by remember { mutableStateOf(true) }
+    var confirmClear by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
-    val filteredLogs = remember(allLogs, selectedInstance) {
-        if (selectedInstance == null) {
-            allLogs
-        } else {
-            allLogs.filter { it.instanceId == null || it.instanceId == selectedInstance.id }
+    val instanceLogs = remember(allLogs, selectedInstance?.id) {
+        allLogs.filter { selectedInstance == null || it.instanceId == selectedInstance.id }
+    }
+    val filteredLogs = remember(instanceLogs, query) {
+        instanceLogs.filter { query.isBlank() || it.toString().contains(query, ignoreCase = true) }
+    }
+
+    LaunchedEffect(filteredLogs.lastOrNull(), followOutput) {
+        if (followOutput && filteredLogs.isNotEmpty()) {
+            listState.scrollToItem(filteredLogs.size - 1)
         }
     }
 
-    LaunchedEffect(filteredLogs.size) {
-        if (filteredLogs.isNotEmpty()) {
-            listState.animateScrollToItem(filteredLogs.size - 1)
-        }
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear saved diagnostics?") },
+            text = { Text("This removes the saved output for ${selectedInstance?.name ?: "all instances"}. New output will still be recorded.") },
+            confirmButton = { TextButton(onClick = { AppLogger.clear(selectedInstance?.id); confirmClear = false }) { Text("Clear logs") } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } }
+        )
     }
 
     Dialog(
@@ -75,17 +89,17 @@ fun LogViewerDialog(
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text(
                             text = if (selectedInstance != null) "${selectedInstance.name} Logs" else "All Diagnostic Logs",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "${filteredLogs.size} log entries captured",
+                            text = if (loading) "Loading saved diagnostics…" else "${instanceLogs.size} entries · saved on this device",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary
                         )
@@ -96,6 +110,18 @@ fun LogViewerDialog(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Search diagnostics") },
+                    singleLine = true
+                )
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Follow live output", modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    Switch(checked = followOutput, onCheckedChange = { followOutput = it })
+                }
+                storageError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -110,7 +136,11 @@ fun LogViewerDialog(
                 ) {
                     if (filteredLogs.isEmpty()) {
                         Text(
-                            text = "No logs recorded for this instance yet.\nLaunch or download an instance to view live output.",
+                            text = when {
+                                loading -> "Loading saved diagnostics…"
+                                query.isNotBlank() -> "No entries match your search."
+                                else -> "No logs recorded for this instance yet.\nStart it to capture download, setup, and session output."
+                            },
                             color = Color.Gray,
                             fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
@@ -150,7 +180,10 @@ fun LogViewerDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedButton(
-                        onClick = { AppLogger.clear(selectedInstance?.id) },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        onClick = { confirmClear = true },
+                        enabled = instanceLogs.isNotEmpty() && !loading,
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -158,12 +191,15 @@ fun LogViewerDialog(
                         Text("Clear")
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(modifier = Modifier.weight(2f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Button(
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 4.dp),
+                            enabled = instanceLogs.isNotEmpty() && !loading,
                             onClick = {
                                 val fullText = AppLogger.getLogsAsText(selectedInstance?.id)
                                 clipboardManager.setText(AnnotatedString(fullText))
-                                Toast.makeText(context, "Copied ${filteredLogs.size} lines to clipboard", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Copied ${instanceLogs.size} entries", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             shape = RoundedCornerShape(8.dp)
@@ -174,13 +210,16 @@ fun LogViewerDialog(
                         }
 
                         Button(
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 4.dp),
+                            enabled = instanceLogs.isNotEmpty() && !loading,
                             onClick = { AppLogger.shareLogs(context, selectedInstance?.id, selectedInstance?.name) },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimary)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Export Logs", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
+                            Text("Export", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
