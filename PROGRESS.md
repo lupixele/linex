@@ -1,10 +1,10 @@
 # Linex progress
 
 ## Current State
-Local checkout: P:/Magnanimity/Projects/linex. Working branch: fix/instance-setup-and-diagnostics; baseline 171159a. Development version 0.2.6-dev (code 8) implements staged JVM rootfs extraction, validated cached-download reuse, persistent scoped logs, improved setup/error UI and functional settings/session state. Existing ready legacy installations remain accepted to avoid replacing user data merely for an old marker version.
+Local checkout: P:/Magnanimity/Projects/linex. Working branch: fix/rootfs-x11-symlink; baseline main 363e9b4 (published v0.2.6-dev). Development version 0.2.7-dev (code 9) fixes same-directory symlink target conversion in rootfs extraction. The user's device log confirms download/cache reuse works, but both extraction attempts stop at /usr/bin/X11. Streaming inspection confirms upstream archive entry 903 is /usr/bin/X11 -> .; relativize previously converted that target into an empty path.
 
 ## Verification
-17 JVM tests pass (archive safety/readiness/links, cache receipts, log persistence/isolation). Debug APK builds; lint has no errors (existing dependency/deprecation warnings remain). Shell syntax and packaged LF line endings are checked. No Android device or emulator is attached; PRoot startup, visual layouts and sharing are not hardware-verified.
+The new regression fails against the old conversion (expected '.', got empty). All 19 unit tests pass; debug APK assembly succeeded; lint reports 0 errors and 27 warnings. Windows cannot run actual symlink creation under this process's privileges, so new tests exercise the exact target conversion; archive, cache and logging tests remain. No Android device is attached; on-device extraction remains unverified.
 
 ## Next Steps
 1. Install app/build/outputs/apk/debug/app-debug.apk on ARM64 Android and test real-image extraction, cancellation/retry, force-stop/reopen logs, export, clone/delete and stop/restart.
@@ -22,3 +22,4 @@ Local checkout: P:/Magnanimity/Projects/linex. Working branch: fix/instance-setu
 
 ## Recent Decisions
 - [2026-09-26] Work directly in the user-specified linex checkout; replace unreliable Android tar extraction with bounded streaming JVM extraction; preserve old ready roots and scope diagnostics per instance.
+- [2026-09-26] Confirmed upstream archive entry /usr/bin/X11 -> . was converted to an empty symlink target. Preserve literal dot and report symlink target/type on failures; retain download cache and user instance data.

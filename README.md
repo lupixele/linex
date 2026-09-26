@@ -4,7 +4,9 @@ Android app for managing rootless Linux instances with PRoot. Package: `com.line
 
 ## Current development build
 
-`0.2.6-dev` repairs installation and diagnostics and improves instance management:
+`0.2.7-dev` fixes extraction of the Ubuntu archive's `/usr/bin/X11 -> .` symlink: the previous build converted its target to an empty path. Symlink failures now include the archive entry, target, and exception type. Install this update over the existing app and retry the same instance to reuse its completed download.
+
+The build also includes the installation, diagnostics, and instance-management improvements from `0.2.6-dev`:
 
 - Rootfs archives are streamed through a JVM tar reader, with gzip, xz and bzip2 detection. Installation is staged, paths and links are checked, and readiness requires the completed-install marker plus a usable shell.
 - Completed downloads carry a URL/length/SHA-256 receipt and remain available after extraction failure. Retry reuses a matching archive. A partial HTTP download is restarted, not resumed with Range requests.

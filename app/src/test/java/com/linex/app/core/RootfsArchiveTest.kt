@@ -11,6 +11,17 @@ import org.tukaani.xz.XZOutputStream
 import org.tukaani.xz.LZMA2Options
 
 class RootfsArchiveTest {
+    @Test fun preservesDotTargetForX11DirectorySymlink() {
+        val parent = java.nio.file.Paths.get("root", "usr", "bin").toAbsolutePath()
+        val target = parent.resolve(".").normalize()
+        assertEquals(".", RootfsArchive.relativeSymlinkTarget(parent, target).toString())
+    }
+
+    @Test fun preservesNormalRelativeSymlinkTargets() {
+        val parent = java.nio.file.Paths.get("root", "usr", "bin").toAbsolutePath()
+        assertEquals("dash", RootfsArchive.relativeSymlinkTarget(parent, parent.resolve("dash")).toString())
+    }
+
     @Test fun preservesLegacyInstalledRootfs() {
         val dir = Files.createTempDirectory("linex-legacy").toFile()
         try {

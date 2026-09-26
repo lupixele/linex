@@ -10,6 +10,11 @@ import java.nio.file.Path
 
 /** Android system tar lacks consistent compression support. Extract in process instead. */
 internal object RootfsArchive {
+    internal fun relativeSymlinkTarget(parent: Path, target: Path): Path {
+        val relative = parent.relativize(target)
+        return if (relative.toString().isEmpty()) parent.fileSystem.getPath(".") else relative
+    }
+
     private fun entryPath(root: Path, name: String): Path {
         if (name.contains('\\') || name.contains('\u0000')) throw IOException("Invalid archive path: $name")
         val relative = name.trimStart('/')
@@ -62,7 +67,15 @@ internal object RootfsArchive {
                             if (!target.startsWith(root)) throw IOException("Link escapes root: ${entry.name}")
                             checked(root, target)
                             Files.deleteIfExists(path)
-                            Files.createSymbolicLink(path, path.parent.relativize(target))
+                            // relativize returns an empty path for X11 -> its own
+                            // parent. POSIX symlink requires the literal "." instead.
+                            val linkTarget = relativeSymlinkTarget(path.parent, target)
+                            try {
+                                Files.createSymbolicLink(path, linkTarget)
+                            } catch (e: IOException) {
+                                throw IOException("Cannot create archive symlink '${entry.name}' -> '$link' " +
+                                    "(resolved target '$linkTarget'): ${e.javaClass.simpleName}: ${e.message}", e)
+                            }
                         }
                         entry.isLink -> hardLinks.add(path to entryPath(root, entry.linkName))
                         entry.isFile -> {
