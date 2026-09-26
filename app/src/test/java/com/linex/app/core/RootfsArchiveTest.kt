@@ -11,6 +11,25 @@ import org.tukaani.xz.XZOutputStream
 import org.tukaani.xz.LZMA2Options
 
 class RootfsArchiveTest {
+    @Test fun acceptsLiteralSystemdEscapesOnPosix() {
+        RootfsArchive.validateArchiveName("/usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice", "/")
+        RootfsArchive.validateArchiveName("../system-systemd\\x2dcryptsetup.slice", "/")
+    }
+
+    @Test fun rejectsBackslashSeparatorsOnWindows() {
+        assertThrows(java.io.IOException::class.java) {
+            RootfsArchive.validateArchiveName("..\\outside", "\\")
+        }
+    }
+
+    @Test fun rejectsNulOnEveryFilesystem() {
+        for (separator in listOf("/", "\\")) {
+            assertThrows(java.io.IOException::class.java) {
+                RootfsArchive.validateArchiveName("bad\u0000name", separator)
+            }
+        }
+    }
+
     @Test fun preservesDotTargetForX11DirectorySymlink() {
         val parent = java.nio.file.Paths.get("root", "usr", "bin").toAbsolutePath()
         val target = parent.resolve(".").normalize()

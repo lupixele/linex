@@ -10,13 +10,21 @@ import java.nio.file.Path
 
 /** Android system tar lacks consistent compression support. Extract in process instead. */
 internal object RootfsArchive {
+    internal fun validateArchiveName(name: String, separator: String) {
+        // Backslashes are literal filename characters on Android/Linux (including
+        // systemd's escaped unit names). Reject them only on non-POSIX hosts.
+        if (name.contains('\u0000') || (separator != "/" && name.contains('\\'))) {
+            throw IOException("Invalid archive path: $name")
+        }
+    }
+
     internal fun relativeSymlinkTarget(parent: Path, target: Path): Path {
         val relative = parent.relativize(target)
         return if (relative.toString().isEmpty()) parent.fileSystem.getPath(".") else relative
     }
 
     private fun entryPath(root: Path, name: String): Path {
-        if (name.contains('\\') || name.contains('\u0000')) throw IOException("Invalid archive path: $name")
+        validateArchiveName(name, root.fileSystem.separator)
         val relative = name.trimStart('/')
         if (relative.split('/').any { it == ".." }) throw IOException("Unsafe archive path: $name")
         val path = root.resolve(relative).normalize()
@@ -61,7 +69,7 @@ internal object RootfsArchive {
                         }
                         entry.isSymbolicLink -> {
                             val link = entry.linkName
-                            if (link.contains('\\') || link.contains('\u0000')) throw IOException("Invalid link: $link")
+                            validateArchiveName(link, root.fileSystem.separator)
                             val target = if (link.startsWith('/')) root.resolve(link.trimStart('/')).normalize()
                                 else path.parent.resolve(link).normalize()
                             if (!target.startsWith(root)) throw IOException("Link escapes root: ${entry.name}")

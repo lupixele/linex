@@ -4,7 +4,7 @@ Android app for managing rootless Linux instances with PRoot. Package: `com.line
 
 ## Current development build
 
-`0.2.7-dev` fixes extraction of the Ubuntu archive's `/usr/bin/X11 -> .` symlink: the previous build converted its target to an empty path. Symlink failures now include the archive entry, target, and exception type. Install this update over the existing app and retry the same instance to reuse its completed download.
+`0.2.8-dev` additionally fixes rejection of valid POSIX filenames and link targets containing literal backslashes, such as systemd unit names. Traversal and root containment checks remain enforced. `0.2.7-dev` fixed extraction of the Ubuntu archive's `/usr/bin/X11 -> .` symlink: the previous build converted its target to an empty path. Symlink failures now include the archive entry, target, and exception type. Install this update over the existing app and retry the same instance to reuse its completed download.
 
 The build also includes the installation, diagnostics, and instance-management improvements from `0.2.6-dev`:
 
