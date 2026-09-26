@@ -67,7 +67,7 @@ class X11SurfaceView @JvmOverloads constructor(
             canvas.drawColor(Color.parseColor("#18181B"))
             paint.color = Color.WHITE
             paint.textSize = 36f
-            canvas.drawText("Linux X11 Display Surface Active", 60f, 120f, paint)
+            canvas.drawText("Desktop renderer not connected", 60f, 120f, paint)
             holder.unlockCanvasAndPost(canvas)
         }
     }

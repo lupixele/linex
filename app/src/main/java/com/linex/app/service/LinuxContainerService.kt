@@ -42,7 +42,7 @@ class LinuxContainerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification = buildNotification("Linex Engine Active", "Linux container is running")
+        val notification = buildNotification("Linex engine", "Ready to manage your Linux sessions")
         startForeground(NOTIFICATION_ID, notification)
         wakeLock?.acquire(10 * 60 * 1000L /*10 mins default*/)
         return START_STICKY

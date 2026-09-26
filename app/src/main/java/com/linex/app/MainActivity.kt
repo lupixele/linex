@@ -9,194 +9,202 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.linex.app.core.StorageEngine
+import com.linex.app.core.AppLogger
 import com.linex.app.data.*
 import com.linex.app.service.LinuxContainerService
 import com.linex.app.ui.hub.HubScreen
 import com.linex.app.ui.session.SessionScreen
 import com.linex.app.ui.theme.LinexTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 class MainActivity : ComponentActivity() {
-
     private var containerService by mutableStateOf<LinuxContainerService?>(null)
-    private var isServiceBound by mutableStateOf(false)
-
+    private var isServiceBound = false
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        // Permission result handled
-    }
+    ) { }
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as LinuxContainerService.LocalBinder
-            containerService = binder.getService()
-            isServiceBound = true
+            containerService = (service as LinuxContainerService.LocalBinder).getService()
         }
-
         override fun onServiceDisconnected(name: ComponentName?) {
             containerService = null
-            isServiceBound = false
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Request POST_NOTIFICATIONS runtime permission on Android 13+ (API 33+)
         checkNotificationPermission()
-
-        // Bind Foreground Container Service
         val serviceIntent = Intent(this, LinuxContainerService::class.java)
-        startService(serviceIntent)
-        bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+        ContextCompat.startForegroundService(this, serviceIntent)
+        isServiceBound = bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
 
         setContent {
             LinexTheme {
-                val coroutineScope = rememberCoroutineScope()
-                val instanceRepository = remember { InstanceRepository(applicationContext) }
-                var instances by remember { mutableStateOf(instanceRepository.loadInstancesSync()) }
-                var activeSessionInstance by remember { mutableStateOf<LinuxInstance?>(null) }
-                var launchLogMessage by remember { mutableStateOf<String?>(null) }
-                val snackbarHostState = remember { SnackbarHostState() }
+                val scope = rememberCoroutineScope()
+                val repository = remember { InstanceRepository(applicationContext) }
+                val saveMutex = remember { Mutex() }
+                var instances by remember { mutableStateOf<List<LinuxInstance>>(emptyList()) }
+                var loaded by remember { mutableStateOf(false) }
+                var loadError by remember { mutableStateOf<String?>(null) }
+                var loadAttempt by remember { mutableIntStateOf(0) }
+                var sessionId by remember { mutableStateOf<String?>(null) }
+                var busyMessage by remember { mutableStateOf<String?>(null) }
+                val snackbar = remember { SnackbarHostState() }
+                val manager = containerService?.containerManager
+                val emptyStates = remember { MutableStateFlow<Map<String, ContainerState>>(emptyMap()) }
+                val states by (manager?.currentState ?: emptyStates).collectAsState()
+                val visibleInstances = instances.map { it.copy(state = states[it.id] ?: ContainerState.STOPPED) }
+                val session = visibleInstances.firstOrNull { it.id == sessionId }
 
-                fun persistInstances(updated: List<LinuxInstance>) {
-                    instances = updated
-                    coroutineScope.launch(Dispatchers.IO) {
-                        instanceRepository.saveInstances(updated)
-                    }
-                }
-
-                LaunchedEffect(launchLogMessage) {
-                    launchLogMessage?.let { msg ->
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        snackbarHostState.showSnackbar(msg)
-                    }
-                }
-
-                Box(modifier = Modifier.fillMaxSize()) {
-                    if (activeSessionInstance != null) {
-                        val currentInst = activeSessionInstance!!
-                        SessionScreen(
-                            instance = currentInst,
-                            onSuspend = {
-                                containerService?.containerManager?.suspendActiveInstance()
-                                persistInstances(instances.map {
-                                    if (it.id == currentInst.id) it.copy(state = ContainerState.SUSPENDED) else it
-                                })
-                                activeSessionInstance = null
-                            },
-                            onShutdown = {
-                                containerService?.containerManager?.stopActiveInstance()
-                                persistInstances(instances.map {
-                                    if (it.id == currentInst.id) it.copy(state = ContainerState.STOPPED) else it
-                                })
-                                activeSessionInstance = null
-                            },
-                            onRestart = {
-                                coroutineScope.launch {
-                                    containerService?.containerManager?.stopActiveInstance()
-                                    persistInstances(instances.map {
-                                        if (it.id == currentInst.id) it.copy(state = ContainerState.STARTING) else it
-                                    })
-                                    val success = containerService?.containerManager?.launchInstance(currentInst) { logLine ->
-                                        launchLogMessage = logLine
-                                    } ?: false
-                                    val finalState = if (success) ContainerState.RUNNING else ContainerState.STOPPED
-                                    persistInstances(instances.map {
-                                        if (it.id == currentInst.id) it.copy(state = finalState) else it
-                                    })
-                                }
+                fun message(text: String) { scope.launch { snackbar.showSnackbar(text) } }
+                fun persist(updated: List<LinuxInstance>) {
+                    instances = updated.map { it.copy(state = ContainerState.STOPPED) }
+                    val snapshot = instances
+                    scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                        try {
+                            withContext(kotlinx.coroutines.NonCancellable) {
+                                saveMutex.withLock { repository.saveInstances(snapshot) }
                             }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            snackbar.showSnackbar("Could not save instances: ${e.message}")
+                        }
+                    }
+                }
+                fun launch(instance: LinuxInstance, restart: Boolean = false) {
+                    val engine = manager
+                    if (engine == null) { message("Container engine is still connecting. Try again shortly."); return }
+                    scope.launch {
+                        val state = engine.getInstanceState(instance.id)
+                        if (state == ContainerState.RUNNING && !restart) { sessionId = instance.id; return@launch }
+                        val success = if (state == ContainerState.SUSPENDED && !restart) {
+                            engine.resumeActiveInstance()
+                        } else {
+                            engine.launchInstance(instance) { }
+                        }
+                        if (success) sessionId = instance.id
+                        else snackbar.showSnackbar("${instance.name} could not start. Open its Logs for details.")
+                    }
+                }
+
+                LaunchedEffect(loadAttempt) {
+                    loaded = false
+                    loadError = null
+                    try {
+                        instances = repository.loadInstances()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        loadError = "Could not load saved instances: ${e.message}"
+                    } finally { loaded = true }
+                }
+                LaunchedEffect(sessionId, states) {
+                    val id = sessionId
+                    if (id != null && states[id] == ContainerState.STOPPED) {
+                        sessionId = null
+                        snackbar.showSnackbar("Session ended. Open this instance's Logs for details.")
+                    }
+                }
+
+                Box(Modifier.fillMaxSize()) {
+                    if (!loaded) {
+                        CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    } else if (loadError != null) {
+                        Column(Modifier.align(Alignment.Center).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Text(loadError!!)
+                            Text("Your saved file has been preserved. Retry loading before making changes.")
+                            Button(onClick = { loadAttempt++ }) { Text("Retry loading") }
+                        }
+                    } else if (session != null) {
+                        SessionScreen(
+                            instance = session,
+                            onSuspend = {
+                                if (manager?.suspendActiveInstance() == true) sessionId = null
+                                else message("Could not pause the session. See instance logs.")
+                            },
+                            onShutdown = { manager?.stopActiveInstance(); sessionId = null },
+                            onRestart = {
+                                manager?.stopActiveInstance()
+                                sessionId = null
+                                launch(session, restart = true)
+                            },
+                            onDetach = { sessionId = null }
                         )
                     } else {
                         HubScreen(
-                            instances = instances,
+                            instances = visibleInstances,
                             storageEngine = containerService?.storageEngine,
-                            rootfsDownloader = containerService?.containerManager?.rootfsDownloader,
-                            onLaunchInstance = { inst ->
-                                coroutineScope.launch {
-                                    if (inst.state == ContainerState.SUSPENDED) {
-                                        containerService?.containerManager?.resumeActiveInstance()
-                                        persistInstances(instances.map {
-                                            if (it.id == inst.id) it.copy(state = ContainerState.RUNNING) else it
-                                        })
-                                        activeSessionInstance = inst.copy(state = ContainerState.RUNNING)
-                                    } else {
-                                        persistInstances(instances.map {
-                                            if (it.id == inst.id) it.copy(state = ContainerState.STARTING) else it
-                                        })
-                                        val success = containerService?.containerManager?.launchInstance(inst) { logLine ->
-                                            launchLogMessage = logLine
-                                        } ?: false
-                                        val finalState = if (success) ContainerState.RUNNING else ContainerState.STOPPED
-                                        persistInstances(instances.map {
-                                            if (it.id == inst.id) it.copy(state = finalState) else it
-                                        })
-                                        if (success) {
-                                            activeSessionInstance = inst.copy(state = ContainerState.RUNNING)
-                                        } else {
-                                            Toast.makeText(this@MainActivity, "Failed to launch ${inst.name}", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
+                            rootfsDownloader = manager?.rootfsDownloader,
+                            onLaunchInstance = { launch(it) },
+                            onSuspendInstance = {
+                                if (manager?.suspendActiveInstance() != true) message("Could not pause the session.")
+                            },
+                            onStopInstance = { manager?.stopActiveInstance() },
+                            onCloneInstance = { source ->
+                                val storage = containerService?.storageEngine
+                                if (storage != null && busyMessage == null) scope.launch {
+                                    val clone = source.copy(id = UUID.randomUUID().toString(), name = "${source.name} (Copy)", state = ContainerState.STOPPED)
+                                    busyMessage = "Copying ${source.name}…"
+                                    try {
+                                        storage.cloneInstance(source.id, clone.id) { }
+                                        persist(instances + clone)
+                                        AppLogger.log("Instances", "Copied from ${source.name}", clone.id)
+                                    } catch (e: CancellationException) { throw e
+                                    } catch (e: Exception) {
+                                        AppLogger.log("Instances", "Copy failed: ${e.message}", source.id)
+                                        message("Copy failed: ${e.message}")
+                                    } finally { busyMessage = null }
                                 }
                             },
-                            onSuspendInstance = { inst ->
-                                containerService?.containerManager?.suspendActiveInstance()
-                                persistInstances(instances.map {
-                                    if (it.id == inst.id) it.copy(state = ContainerState.SUSPENDED) else it
-                                })
-                            },
-                            onStopInstance = { inst ->
-                                containerService?.containerManager?.stopActiveInstance()
-                                persistInstances(instances.map {
-                                    if (it.id == inst.id) it.copy(state = ContainerState.STOPPED) else it
-                                })
-                            },
-                            onCloneInstance = { inst ->
-                                val newId = UUID.randomUUID().toString()
-                                val cloned = inst.copy(
-                                    id = newId,
-                                    name = "${inst.name} (Clone)",
-                                    state = ContainerState.STOPPED
-                                )
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    val engine = containerService?.storageEngine ?: StorageEngine(applicationContext)
-                                    engine.cloneInstance(inst.id, newId) {}
+                            onDeleteInstance = { instance ->
+                                val storage = containerService?.storageEngine
+                                if (storage != null && busyMessage == null) scope.launch {
+                                    busyMessage = "Deleting ${instance.name}…"
+                                    try {
+                                        storage.deleteInstance(instance.id)
+                                        persist(instances.filterNot { it.id == instance.id })
+                                    } catch (e: CancellationException) { throw e
+                                    } catch (e: Exception) {
+                                        AppLogger.log("Instances", "Delete failed: ${e.message}", instance.id)
+                                        message("Delete failed: ${e.message}")
+                                    } finally { busyMessage = null }
                                 }
-                                persistInstances(instances + cloned)
                             },
-                            onDeleteInstance = { inst ->
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    val engine = containerService?.storageEngine ?: StorageEngine(applicationContext)
-                                    engine.deleteInstance(inst.id)
-                                }
-                                persistInstances(instances.filter { it.id != inst.id })
-                            },
-                            onCreateInstance = { newInst ->
-                                persistInstances(instances + newInst)
-                            }
+                            onCreateInstance = { persist(instances + it) },
+                            onUpdateInstance = { updated -> persist(instances.map { if (it.id == updated.id) updated else it }) }
                         )
                     }
-
-                    SnackbarHost(
-                        hostState = snackbarHostState,
-                        modifier = Modifier.align(Alignment.BottomCenter)
+                    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+                }
+                busyMessage?.let { text ->
+                    AlertDialog(
+                        onDismissRequest = { },
+                        title = { Text(text) },
+                        text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            LinearProgressIndicator(Modifier.fillMaxWidth())
+                            Text("Keep Linex open until this finishes.")
+                        } },
+                        confirmButton = { }
                     )
                 }
             }
@@ -204,22 +212,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     override fun onDestroy() {
-        if (isServiceBound) {
-            unbindService(serviceConnection)
-            isServiceBound = false
-        }
+        if (isServiceBound) { unbindService(serviceConnection); isServiceBound = false }
         super.onDestroy()
     }
 }

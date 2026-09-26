@@ -26,22 +26,36 @@ class ProcessController {
     private var activePid: Int = -1
     private var activePgid: Int = -1
 
+    @Synchronized
     fun setActiveProcess(pid: Int, pgid: Int = -1) {
+        require(pid > 0 && resolvePgid(pid) == pid) { "Container did not create an isolated process group" }
         this.activePid = pid
-        this.activePgid = if (pgid > 0) pgid else resolvePgid(pid)
+        this.activePgid = pid
+    }
+
+    @Synchronized fun clearActiveProcess() {
+        activePid = -1
+        activePgid = -1
+    }
+
+    private fun signalTarget(): Int {
+        // This group was verified after the launcher completed setsid. Keep it while
+        // stopping so remaining children can be killed even if their leader exits.
+        check(activePid > 0 && activePgid == activePid) { "No isolated container process" }
+        return -activePgid
     }
 
     private fun resolvePgid(pid: Int): Int {
         if (pid <= 0) return -1
         return try {
             val resolved = nativeGetProcessGroup(pid)
-            if (resolved > 0) resolved else pid
+            if (resolved > 0) resolved else -1
         } catch (e: Throwable) {
-            pid
+            -1
         }
     }
 
-    fun isAlive(): Boolean {
+    @Synchronized fun isAlive(): Boolean {
         if (activePid <= 0) return false
         return try {
             nativeCheckProcessAlive(activePid)
@@ -54,9 +68,9 @@ class ProcessController {
      * Pauses the entire container process tree immediately.
      * Stops CPU consumption and preserves full RAM state.
      */
-    fun suspendContainer(): Boolean {
+    @Synchronized fun suspendContainer(): Boolean {
         if (activePgid <= 0 && activePid <= 0) return false
-        val target = if (activePgid > 0) -activePgid else activePid
+        val target = signalTarget()
         Log.i(TAG, "Suspending container process group: $target via SIGSTOP")
         return try {
             nativeSendSignal(target, 19) // 19 = SIGSTOP
@@ -69,9 +83,9 @@ class ProcessController {
     /**
      * Resumes the paused container instantly in <150ms.
      */
-    fun resumeContainer(): Boolean {
+    @Synchronized fun resumeContainer(): Boolean {
         if (activePgid <= 0 && activePid <= 0) return false
-        val target = if (activePgid > 0) -activePgid else activePid
+        val target = signalTarget()
         Log.i(TAG, "Resuming container process group: $target via SIGCONT")
         return try {
             nativeSendSignal(target, 18) // 18 = SIGCONT
@@ -84,9 +98,9 @@ class ProcessController {
     /**
      * Gracefully terminates user applications and syncs file buffers.
      */
-    fun shutdownContainer(): Boolean {
+    @Synchronized fun shutdownContainer(): Boolean {
         if (activePgid <= 0 && activePid <= 0) return false
-        val target = if (activePgid > 0) -activePgid else activePid
+        val target = signalTarget()
         Log.i(TAG, "Sending SIGTERM to container: $target")
         return try {
             nativeSendSignal(target, 15) // 15 = SIGTERM
@@ -99,9 +113,9 @@ class ProcessController {
     /**
      * Force-kills lingering processes.
      */
-    fun killForce(): Boolean {
+    @Synchronized fun killForce(): Boolean {
         if (activePgid <= 0 && activePid <= 0) return false
-        val target = if (activePgid > 0) -activePgid else activePid
+        val target = signalTarget()
         Log.i(TAG, "Force killing container process: $target via SIGKILL")
         return try {
             nativeSendSignal(target, 9) // 9 = SIGKILL

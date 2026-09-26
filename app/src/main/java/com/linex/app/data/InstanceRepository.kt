@@ -2,6 +2,7 @@ package com.linex.app.data
 
 import android.content.Context
 import android.util.Log
+import android.util.AtomicFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
@@ -61,7 +62,7 @@ class InstanceRepository(private val context: Context) {
                 saveInstancesSync(defaults)
                 defaults
             } else {
-                val content = file.readText()
+                val content = AtomicFile(file).openRead().bufferedReader().use { it.readText() }
                 if (content.isBlank()) {
                     val defaults = getDefaultInstances()
                     saveInstancesSync(defaults)
@@ -76,29 +77,29 @@ class InstanceRepository(private val context: Context) {
                         } catch (e: Exception) {
                             inst.distro
                         }
-                        inst.copy(distro = currentDistro)
+                        inst.copy(distro = currentDistro, state = ContainerState.STOPPED)
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load instances from ${file.absolutePath}, falling back to defaults", e)
-            val defaults = getDefaultInstances()
-            saveInstancesSync(defaults)
-            defaults
+            Log.e(TAG, "Failed to load instances from ${file.absolutePath}; preserving saved data", e)
+            throw e
         }
     }
 
+    @Synchronized
     fun saveInstancesSync(instances: List<LinuxInstance>) {
+        val atomicFile = AtomicFile(file)
+        var stream: java.io.FileOutputStream? = null
         try {
-            val content = json.encodeToString(instances)
-            val tempFile = File(context.filesDir, "$FILE_NAME.tmp")
-            tempFile.writeText(content)
-            if (!tempFile.renameTo(file)) {
-                file.writeText(content)
-                tempFile.delete()
-            }
+            val content = json.encodeToString(instances.map { it.copy(state = ContainerState.STOPPED) })
+            stream = atomicFile.startWrite()
+            stream.write(content.toByteArray(Charsets.UTF_8))
+            atomicFile.finishWrite(stream)
         } catch (e: Exception) {
+            atomicFile.failWrite(stream)
             Log.e(TAG, "Failed to save instances to ${file.absolutePath}", e)
+            throw e
         }
     }
 

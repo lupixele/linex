@@ -9,6 +9,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
@@ -26,9 +29,12 @@ class ContainerManager(
     private val _currentState = MutableStateFlow<Map<String, ContainerState>>(emptyMap())
     val currentState: StateFlow<Map<String, ContainerState>> = _currentState
 
-    private var activeInstance: LinuxInstance? = null
-    private var containerProcess: Process? = null
+    @Volatile private var activeInstance: LinuxInstance? = null
+    @Volatile private var containerProcess: Process? = null
+    @Volatile private var stopping = false
     private var logReadingJob: Job? = null
+    private val launchMutex = Mutex()
+    private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun getInstanceState(instanceId: String): ContainerState {
         return _currentState.value[instanceId] ?: ContainerState.STOPPED
@@ -58,97 +64,106 @@ class ContainerManager(
     /**
      * Boots a Linux instance with full rootless isolation via Linex bootstrap scripts.
      */
-    suspend fun launchInstance(instance: LinuxInstance, onLog: (String) -> Unit): Boolean = withContext(Dispatchers.IO) {
+    suspend fun launchInstance(instance: LinuxInstance, onLog: (String) -> Unit): Boolean = launchMutex.withLock { withContext(Dispatchers.IO) {
         val logWrapper: (String) -> Unit = { msg ->
-            AppLogger.log("ContainerManager", msg)
+            AppLogger.log("ContainerManager", msg, instance.id)
             onLog(msg)
         }
-        updateState(instance.id, ContainerState.STARTING)
-        activeInstance = instance
+        try {
+            if (containerProcess?.isAlive == true) {
+                logWrapper("Another session is active. Stop it before starting this instance.")
+                return@withContext false
+            }
+            updateState(instance.id, ContainerState.STARTING)
+            activeInstance = instance
 
-        // 1. Ensure runtime assets (scripts and configs) are deployed
-        logWrapper("Validating runtime bootstrap scripts...")
-        storageEngine.deployAssets(overwrite = false)
+            // 1. Ensure runtime assets (scripts and configs) are deployed
+            logWrapper("Validating runtime bootstrap scripts...")
+            if (!storageEngine.deployAssets(overwrite = true)) {
+                logWrapper("Unable to prepare runtime scripts. Open instance logs for details.")
+                updateState(instance.id, ContainerState.STOPPED)
+                return@withContext false
+            }
 
-        val rootfsDir = storageEngine.getRootfsDirectory(instance.id)
-        val tmpDir = storageEngine.getTmpDirectory(instance.id)
-        val scriptsDir = storageEngine.scriptsDir
+            val rootfsDir = storageEngine.getRootfsDirectory(instance.id)
+            val tmpDir = storageEngine.getTmpDirectory(instance.id)
+            val scriptsDir = storageEngine.scriptsDir
 
-        // Validate rootfs initialization before launching container
-        val isInitialized = storageEngine.isInstanceInitialized(instance.id)
-        if (!isInitialized) {
-            val errMsg = "Cannot launch container: instance ${instance.name} is not initialized. Please download rootfs first."
-            logWrapper("ERROR: $errMsg")
-            updateState(instance.id, ContainerState.STOPPED)
-            return@withContext false
-        }
+            // Validate rootfs initialization before launching container
+            val isInitialized = storageEngine.isInstanceInitialized(instance.id)
+            if (!isInitialized) {
+                val errMsg = "Cannot launch container: instance ${instance.name} is not initialized. Please download rootfs first."
+                logWrapper("ERROR: $errMsg")
+                updateState(instance.id, ContainerState.STOPPED)
+                return@withContext false
+            }
 
-        // 2. Generate display geometry
-        val (width, height) = calculateDisplayGeometry(instance)
-        val dpi = instance.dpiScaling.toInt()
-        logWrapper("Geometry configured: ${width}x${height} @ ${dpi} DPI")
+            // 2. Generate display geometry
+            val (width, height) = calculateDisplayGeometry(instance)
+            val dpi = instance.dpiScaling.toInt()
+            logWrapper("Geometry configured: ${width}x${height} @ ${dpi} DPI")
 
-        // 3. Locate Entrypoint Script & PRoot Binary
-        val entrypointScript = File(scriptsDir, "entrypoint.sh")
-        if (!entrypointScript.exists()) {
-            val err = "Missing entrypoint script at: ${entrypointScript.absolutePath}"
-            Log.e(TAG, err)
-            logWrapper("ERROR: $err")
-            updateState(instance.id, ContainerState.STOPPED)
-            return@withContext false
-        }
-        entrypointScript.setExecutable(true, false)
+            // 3. Locate Entrypoint Script & PRoot Binary
+            val entrypointScript = File(scriptsDir, "entrypoint.sh")
+            if (!entrypointScript.exists()) {
+                val err = "Missing entrypoint script at: ${entrypointScript.absolutePath}"
+                Log.e(TAG, err)
+                logWrapper("ERROR: $err")
+                updateState(instance.id, ContainerState.STOPPED)
+                return@withContext false
+            }
+            entrypointScript.setExecutable(true, false)
 
-        val prootBin = File(context.applicationInfo.nativeLibraryDir, "libproot.so").absolutePath
-        val startCommand = instance.desktop.startCommand
+            val prootBin = File(context.applicationInfo.nativeLibraryDir, "libproot.so").absolutePath
+            val startCommand = instance.desktop.startCommand
 
-        val shBinary = if (File("/system/bin/sh").exists()) "/system/bin/sh" else "sh"
+            val shBinary = if (File("/system/bin/sh").exists()) "/system/bin/sh" else "sh"
 
-        // 3.5. Execute X11 Socket Setup before starting PRoot
-        val instanceDir = storageEngine.getInstanceDirectory(instance.id)
-        val x11SetupScript = File(scriptsDir, "x11_socket_setup.sh").let {
-            if (it.exists()) it else File(instanceDir.parentFile, "runtime/scripts/x11_socket_setup.sh")
-        }
-        if (x11SetupScript.exists()) {
-            logWrapper("Initializing X11 socket environment...")
-            x11SetupScript.setExecutable(true, false)
-            try {
-                val setupPb = ProcessBuilder(shBinary, x11SetupScript.absolutePath, tmpDir.absolutePath, "0")
-                setupPb.redirectErrorStream(true)
-                val setupProcess = setupPb.start()
-                BufferedReader(InputStreamReader(setupProcess.inputStream)).use { reader ->
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        line?.let {
-                            Log.d(TAG, "[X11Setup] $it")
-                            logWrapper(it)
+            // 3.5. Execute X11 Socket Setup before starting PRoot
+            val instanceDir = storageEngine.getInstanceDirectory(instance.id)
+            val x11SetupScript = File(scriptsDir, "x11_socket_setup.sh").let {
+                if (it.exists()) it else File(instanceDir.parentFile, "runtime/scripts/x11_socket_setup.sh")
+            }
+            if (x11SetupScript.exists()) {
+                logWrapper("Initializing X11 socket environment...")
+                x11SetupScript.setExecutable(true, false)
+                try {
+                    val setupPb = ProcessBuilder(shBinary, x11SetupScript.absolutePath, tmpDir.absolutePath, "0")
+                    setupPb.redirectErrorStream(true)
+                    val setupProcess = setupPb.start()
+                    BufferedReader(InputStreamReader(setupProcess.inputStream)).use { reader ->
+                        var line: String?
+                        while (reader.readLine().also { line = it } != null) {
+                            line?.let {
+                                Log.d(TAG, "[X11Setup] $it")
+                                logWrapper(it)
+                            }
                         }
                     }
+                    val setupExit = setupProcess.waitFor()
+                    Log.i(TAG, "x11_socket_setup.sh completed with exit code: $setupExit")
+                } catch (e: Exception) {
+                    Log.w(TAG, "x11_socket_setup.sh execution error", e)
+                    logWrapper("Warning: X11 socket setup error: ${e.message}")
                 }
-                val setupExit = setupProcess.waitFor()
-                Log.i(TAG, "x11_socket_setup.sh completed with exit code: $setupExit")
-            } catch (e: Exception) {
-                Log.w(TAG, "x11_socket_setup.sh execution error", e)
-                logWrapper("Warning: X11 socket setup error: ${e.message}")
             }
-        }
 
-        // 4. Construct entrypoint command
-        // entrypoint.sh <rootfs_path> <tmp_path> <start_command> <display_width> <display_height> <display_dpi> <extra_binds> <bootstrap_dir>
-        val command = listOf(
-            shBinary,
-            entrypointScript.absolutePath,
-            rootfsDir.absolutePath,
-            tmpDir.absolutePath,
-            startCommand,
-            width.toString(),
-            height.toString(),
-            dpi.toString(),
-            "", // extra binds
-            scriptsDir.absolutePath
-        )
+            // 4. Construct entrypoint command
+            // entrypoint.sh <rootfs_path> <tmp_path> <start_command> <display_width> <display_height> <display_dpi> <extra_binds> <bootstrap_dir>
+            val command = listOf(
+                "/system/bin/toybox", "setsid",
+                shBinary,
+                entrypointScript.absolutePath,
+                rootfsDir.absolutePath,
+                tmpDir.absolutePath,
+                startCommand,
+                width.toString(),
+                height.toString(),
+                dpi.toString(),
+                "", // extra binds
+                scriptsDir.absolutePath
+            )
 
-        try {
             logWrapper("Executing bootstrap sequence...")
             val pb = ProcessBuilder(command)
             pb.directory(scriptsDir)
@@ -166,22 +181,21 @@ class ContainerManager(
             val process = pb.start()
             containerProcess = process
 
-            // Read PID via reflection
-            try {
-                val pidField = process.javaClass.getDeclaredField("pid")
-                pidField.isAccessible = true
-                val pid = pidField.getInt(process)
-                processController.setActiveProcess(pid)
-                logWrapper("Container process initialized with PID $pid")
-            } catch (e: Exception) {
-                Log.w(TAG, "Unable to extract process PID via reflection", e)
-            }
+            // Android's public Process API does not expose pid(). The controlled
+            // entrypoint announces its PID before any guest code can emit output.
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            val handshake = reader.readLine().orEmpty()
+            check(handshake.startsWith("__LINEX_PID__=")) { "Missing container process handshake: $handshake" }
+            val pid = handshake.substringAfter('=').toInt()
+            processController.setActiveProcess(pid)
+            logWrapper("Container process initialized with isolated group $pid")
 
             // Stream logs asynchronously and monitor if process exits prematurely
             logReadingJob?.cancel()
-            logReadingJob = CoroutineScope(Dispatchers.IO).launch {
+            updateState(instance.id, ContainerState.RUNNING)
+            logReadingJob = managerScope.launch {
                 try {
-                    BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
+                    reader.use { reader ->
                         var line: String?
                         while (reader.readLine().also { line = it } != null) {
                             line?.let {
@@ -199,21 +213,34 @@ class ContainerManager(
                     val exitCode = process.waitFor()
                     Log.w(TAG, "Container process exited with code $exitCode")
                     logWrapper("Container exited (code $exitCode)")
-                    updateState(instance.id, ContainerState.STOPPED)
+                    launchMutex.withLock {
+                        if (containerProcess === process && !stopping) {
+                            processController.killForce()
+                            containerProcess = null
+                            activeInstance = null
+                            processController.clearActiveProcess()
+                            updateState(instance.id, ContainerState.STOPPED)
+                        }
+                    }
                 } catch (e: Exception) {
                     Log.d(TAG, "Process wait interrupted: ${e.message}")
                 }
             }
 
-            updateState(instance.id, ContainerState.RUNNING)
-            true
+            // Catch bootstrap failures before presenting a running session.
+            delay(300)
+            process.isAlive
+        } catch (e: CancellationException) {
+            stopActiveInstance()
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to launch container", e)
             logWrapper("Failed to launch container: ${e.message}")
-            updateState(instance.id, ContainerState.STOPPED)
+            if (containerProcess != null) stopActiveInstance()
+            else { activeInstance = null; updateState(instance.id, ContainerState.STOPPED) }
             false
         }
-    }
+    } }
 
     /**
      * Dispatches dynamic resolution resize inside running container.
@@ -277,6 +304,7 @@ class ContainerManager(
      * Instantly suspends the active container using process freezing.
      */
     fun suspendActiveInstance(): Boolean {
+        if (stopping) return false
         val instance = activeInstance ?: return false
         val success = processController.suspendContainer()
         if (success) {
@@ -289,6 +317,7 @@ class ContainerManager(
      * Instantly unfreezes the paused container.
      */
     fun resumeActiveInstance(): Boolean {
+        if (stopping) return false
         val instance = activeInstance ?: return false
         val success = processController.resumeContainer()
         if (success) {
@@ -301,19 +330,40 @@ class ContainerManager(
      * Gracefully stops the container.
      */
     fun stopActiveInstance(): Boolean {
-        val instance = activeInstance ?: return false
-        processController.shutdownContainer()
-        logReadingJob?.cancel()
-        containerProcess?.destroy()
-        containerProcess = null
-        updateState(instance.id, ContainerState.STOPPED)
-        activeInstance = null
+        if (activeInstance == null || stopping) return false
+        stopping = true
+        // Acquire before returning when idle, so an immediate restart queues behind
+        // shutdown instead of sharing sockets/rootfs with the previous process.
+        managerScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            launchMutex.withLock {
+                withContext(Dispatchers.IO) {
+                    val instance = activeInstance
+                    val stoppedProcess = containerProcess
+                    try {
+                        processController.resumeContainer()
+                        processController.shutdownContainer()
+                        stoppedProcess?.destroy()
+                        delay(500)
+                        processController.killForce()
+                        if (stoppedProcess?.isAlive == true) stoppedProcess.destroyForcibly()
+                        stoppedProcess?.waitFor()
+                    } finally {
+                        containerProcess = null
+                        processController.clearActiveProcess()
+                        activeInstance = null
+                        stopping = false
+                        instance?.let {
+                            AppLogger.log(TAG, "Session stopped", it.id)
+                            updateState(it.id, ContainerState.STOPPED)
+                        }
+                    }
+                }
+            }
+        }
         return true
     }
 
     private fun updateState(id: String, state: ContainerState) {
-        val map = _currentState.value.toMutableMap()
-        map[id] = state
-        _currentState.value = map
+        _currentState.update { it + (id to state) }
     }
 }

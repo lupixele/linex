@@ -3,6 +3,8 @@ package com.linex.app.ui.session
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -27,7 +29,10 @@ fun BackGestureSidebar(
     onRestart: () -> Unit,
     onShutdown: () -> Unit,
     onToggleKeyboard: () -> Unit,
-    onToggleTouchMode: () -> Unit
+    onToggleTouchMode: () -> Unit,
+    displayConnected: Boolean = false,
+    onDetach: () -> Unit = {},
+    onViewLogs: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier
@@ -40,6 +45,8 @@ fun BackGestureSidebar(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .safeDrawingPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp)
         ) {
             // Header
@@ -48,7 +55,7 @@ fun BackGestureSidebar(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(Modifier.weight(1f)) {
                     Text(
                         text = instance.name,
                         style = MaterialTheme.typography.titleMedium,
@@ -86,7 +93,7 @@ fun BackGestureSidebar(
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Resume Desktop", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Text("Close controls", color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -123,7 +130,7 @@ fun BackGestureSidebar(
             ) {
                 Icon(Icons.Default.PowerSettingsNew, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Clean Shutdown")
+                Text("Stop instance")
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -141,6 +148,7 @@ fun BackGestureSidebar(
 
             OutlinedButton(
                 onClick = onToggleKeyboard,
+                enabled = displayConnected,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp)
             ) {
@@ -153,6 +161,7 @@ fun BackGestureSidebar(
 
             OutlinedButton(
                 onClick = onToggleTouchMode,
+                enabled = displayConnected,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp)
             ) {
@@ -163,7 +172,13 @@ fun BackGestureSidebar(
                 Text(label)
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            if (!displayConnected) {
+                Text("Input controls require a connected desktop display.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextButton(onClick = onViewLogs, modifier = Modifier.fillMaxWidth()) { Text("View instance logs") }
+            TextButton(onClick = onDetach, modifier = Modifier.fillMaxWidth()) { Text("Back to instances") }
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Footer Diagnostics
             Surface(
@@ -171,12 +186,9 @@ fun BackGestureSidebar(
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier.padding(10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Display: ${instance.resolutionMode.displayName}", style = MaterialTheme.typography.labelSmall)
-                    Text("State: RUNNING", style = MaterialTheme.typography.labelSmall, color = Color(0xFF30D158))
+                    Text("State: ${instance.state.name}", style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

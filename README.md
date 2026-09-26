@@ -1,103 +1,41 @@
-# Linex 🐧
+# Linex
 
-**All-in-One Autonomous Linux Container & Desktop Manager for Android.**
+Android app for managing rootless Linux instances with PRoot. Package: `com.linex.app`.
 
-Run real Ubuntu and Debian desktop environments on your Android device right out of the box — **no Termux, no external X11 APK, no command lines, and zero root required.**
+## Current development build
 
-[![Release](https://img.shields.io/github/v/release/lupixele/linex?include_prereleases&label=beta)](https://github.com/lupixele/linex/releases/tag/v0.2.4)
-[![Platform](https://img.shields.io/badge/platform-Android%208.0%2B%20(ARM64)-green.svg)](https://github.com/lupixele/linex)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+`0.2.6-dev` repairs installation and diagnostics and improves instance management:
 
----
+- Rootfs archives are streamed through a JVM tar reader, with gzip, xz and bzip2 detection. Installation is staged, paths and links are checked, and readiness requires the completed-install marker plus a usable shell.
+- Completed downloads carry a URL/length/SHA-256 receipt and remain available after extraction failure. Retry reuses a matching archive. A partial HTTP download is restarted, not resumed with Range requests.
+- Logs are isolated by instance, persisted locally, restored at startup, searchable, and exportable. Clear affects only the selected instance.
+- Instance cards expose Logs, setup errors, retry, settings, clone, and confirmed deletion. Live process state drives session controls.
 
-## ⚡ Highlights
+**This is not a complete Linux desktop app yet.** The embedded X11 surface and native input bridge are placeholders. The session screen now says this explicitly instead of displaying a false “display active” message. Bundled rootfs images and PRoot libraries target ARM64; other architectures cannot run them. The minimal image has no desktop packages. Desktop profiles in older saved instances do not guarantee the required packages exist.
 
-- 🚀 **Zero Terminal Setup:** Tap "Launch" and the app bootstraps PRoot, mounts filesystems, initializes display sockets, and starts the desktop.
-- 📺 **Embedded Display Engine:** Native X11 server engine (`libXlorie.so`) renders directly onto an Android `SurfaceView` without needing Termux-X11.
-- ⏸️ **Instant Pause & Resume:** Freeze container CPU usage to 0% with native POSIX `SIGSTOP`/`SIGCONT` process group signaling. Switch back in under 150ms with full state intact.
-- 🔙 **Back-Gesture Control Sheet:** No floating overlay buttons. Use Android's native back gesture to slide out session controls (Resume, Freeze, Reboot, Shutdown, Virtual Keyboard, Touch Mode).
-- 🖱️ **Hardware Peripherals:**
-  - **Mouse / Trackpad:** Automatic `requestPointerCapture()` locks the cursor, passing raw motion deltas and native right/middle clicks.
-  - **Keyboard:** Intercepts hardware keys (Super/Windows, Alt+Tab, Ctrl shortcuts) before Android consumes them.
-  - **Touchscreen:** Seamlessly switch between **Virtual Trackpad** (relative cursor motion) and **Direct Touch** (absolute coordinates).
-- 🖥️ **Samsung DeX & External Display Ready:** Automatically detects secondary screens and fires live `xrandr` geometry updates to fill standard 16:9 displays without black bars.
-- 📦 **Pre-Configured Environments:** Integrated download manager for full Ubuntu 22.04 LTS (Jammy XFCE4) and minimal base images.
+## Build and verify
 
----
+Requirements: JDK 17, Android SDK 34/build-tools 34.0.0, NDK 26.1.10909125, CMake 3.22.1. Set `sdk.dir` in local.properties to your SDK path.
 
-## 📥 Download & Installation
-
-1. Go to the [**Latest Releases**](https://github.com/lupixele/linex/releases/tag/v0.1.0-beta).
-2. Download **`linex-v0.1.0-beta.apk`**.
-3. Install the APK on your Android device (Android 8.0+ / ARM64 recommended).
-4. Launch the app, pick **Ubuntu Desktop (XFCE4)** or **Ubuntu Mobile (Phosh)**, and hit **Launch**.
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                 Linex All-in-One APK                   │
-│                                                             │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │             Container Manager UI (Compose)            │  │
-│  │  - Multi-instance management (Create, Clone, Delete)  │  │
-│  │  - Resolution profiles (Native, 1080p, 720p, DeX)     │  │
-│  │  - Real-time rootfs download pipeline with progress   │  │
-│  │  - Back-Gesture Session Navigation Sheet              │  │
-│  └──────────────────────────┬────────────────────────────┘  │
-│                             │ JNI Signals & Bridge          │
-│  ┌──────────────────────────▼────────────────────────────┐  │
-│  │             Embedded Engine Subsystems                │  │
-│  │  1. PRoot 5.1.x (libproot.so + libtalloc.so)          │  │
-│  │     - Simulates rootfs/chroot without Android root    │  │
-│  │  2. Embedded X Server Surface (libXlorie.so)          │  │
-│  │     - Hardware-accelerated X11 rendering via JNI      │  │
-│  │  3. Input Engine                                      │  │
-│  │     - Pointer capture & raw scancode translator       │  │
-│  │  4. Process Controller (SIGSTOP / SIGCONT)            │  │
-│  │     - Instant freeze / unfreeze container engine      │  │
-│  └──────────────────────────┬────────────────────────────┘  │
-│                             │ mounts & boots                │
-│  ┌──────────────────────────▼────────────────────────────┐  │
-│  │ Container Storage (/data/data/.../instances/<id>/)    │  │
-│  │  - rootfs/ (Ubuntu 22.04 LTS Jammy)                   │  │
-│  │  - tmp/    (UNIX domain sockets: .X11-unix, etc.)     │  │
-│  └───────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+```powershell
+.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --no-daemon
+.\gradlew.bat --stop
 ```
 
-For the complete design document, see [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md).
+APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
----
+Unit tests cover archive safety/readiness and persistent log isolation. Hardware validation still needs an ARM64 Android device: install APK, download an image, interrupt/retry setup, reopen logs after force-stop, export logs, and exercise instance management. A successful build is not proof that PRoot or desktop rendering works on a device.
 
-## 🛠️ Building from Source
+## Diagnostics and storage
 
-### Prerequisites
-- **JDK 17+** (e.g., Microsoft OpenJDK 17)
-- **Android SDK** with `platforms;android-34`, `build-tools;34.0.0`, `cmake;3.22.1`, and `ndk;26.1.10909125`
+Each instance uses `files/instances/<id>/rootfs`. During setup, extraction writes `rootfs.installing` before replacing the target; failed setup retains the downloaded archive. Existing files are not cleared at the start of extraction.
 
-### Build Steps
-```bash
-# Clone the repository
-git clone https://github.com/lupixele/linex.git
-cd linex
+Diagnostics use `files/logs/instance_<id>.log`, a serial background writer, up to 1,000 live entries per instance, and bounded disk journals. Abrupt process termination can lose output still waiting in the write queue. Export shares a text snapshot through Android FileProvider.
 
-# Configure your SDK directory in local.properties
-echo "sdk.dir=/path/to/your/android/sdk" > local.properties
+## Upstream projects
 
-# Build debug APK
-./gradlew assembleDebug
-```
-The output APK will be generated at:
-`app/build/outputs/apk/debug/app-debug.apk`
+- [PRoot](https://github.com/termux/proot)
+- [Termux-X11](https://github.com/termux/termux-x11)
+- [Udroid](https://github.com/RandomCoderOrg/fs-manager-udroid)
 
----
-
-## 📜 License & Credits
-
-- PRoot engine adapted from [Termux PRoot](https://github.com/termux/proot).
-- Embedded X11 rendering adapted from [Termux-X11](https://github.com/termux/termux-x11).
-- Distro packaging inspired by [Udroid](https://github.com/RandomCoderOrg/fs-manager-udroid).
-- Licensed under the [MIT License](LICENSE).
+The older SYSTEM_DESIGN.md describes intended architecture; it is not a verified feature inventory.

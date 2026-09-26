@@ -1,6 +1,5 @@
 package com.linex.app.ui.hub
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,14 +26,14 @@ import java.util.UUID
 @Composable
 fun CreateInstanceDialog(
     onDismiss: () -> Unit,
-    onCreate: (LinuxInstance) -> Unit
+    onCreate: (LinuxInstance) -> Unit,
+    existingInstance: LinuxInstance? = null
 ) {
-    var name by remember { mutableStateOf("My Ubuntu Workstation") }
-    var selectedDistro by remember { mutableStateOf(DistroType.UBUNTU_JAMMY) }
-    var selectedDesktop by remember { mutableStateOf(DesktopEnvironment.XFCE4) }
-    var selectedResolution by remember { mutableStateOf(DisplayResolutionMode.NATIVE_PHONE) }
-    var dpiScaling by remember { mutableFloatStateOf(120f) }
-    var ramAllocationMb by remember { mutableFloatStateOf(2048f) }
+    var name by remember { mutableStateOf(existingInstance?.name ?: "My Ubuntu Workstation") }
+    var selectedDistro by remember { mutableStateOf(existingInstance?.distro ?: DistroType.UBUNTU_JAMMY) }
+    val selectedDesktop = existingInstance?.desktop ?: DesktopEnvironment.XFCE4
+    var selectedResolution by remember { mutableStateOf(existingInstance?.resolutionMode ?: DisplayResolutionMode.NATIVE_PHONE) }
+    var dpiScaling by remember { mutableFloatStateOf(existingInstance?.dpiScaling?.toFloat() ?: 120f) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -59,9 +58,9 @@ fun CreateInstanceDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text(
-                            text = "Create New Instance",
+                            text = if (existingInstance == null) "New Linux instance" else "Instance settings",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -90,62 +89,38 @@ fun CreateInstanceDialog(
                     // Instance Name
                     OutlinedTextField(
                         value = name,
-                        onValueChange = { name = it },
+                        onValueChange = { name = it.take(80) },
                         label = { Text("Instance Name") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(10.dp)
                     )
 
-                    // Desktop Environment Presets
-                    Text(
-                        text = "Desktop Environment",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    DesktopEnvironment.values().forEach { desktop ->
-                        val isSelected = desktop == selectedDesktop
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
-                                .border(
-                                    1.dp,
-                                    if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-                                    RoundedCornerShape(10.dp)
-                                )
-                                .clickable { selectedDesktop = desktop }
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = desktop.displayName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    if (desktop.isTouchOptimized) {
-                                        Text(
-                                            text = "TOUCH-FIRST",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = desktop.subtitle,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
+                    Text("System image", style = MaterialTheme.typography.titleSmall)
+                    DistroType.values().forEach { distro ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                            RadioButton(
+                                selected = selectedDistro == distro,
+                                enabled = existingInstance == null,
+                                onClick = { selectedDistro = distro }
+                            )
+                            Column(Modifier.weight(1f).padding(top = 12.dp)) {
+                                Text(distro.displayName, style = MaterialTheme.typography.bodyMedium)
+                                Text("Download: about ${distro.estimatedSizeMb} MB", style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
+                    Text(
+                        if (selectedDistro == DistroType.UBUNTU_JAMMY)
+                            "Includes XFCE. Desktop display integration is still in development."
+                        else "Minimal base image. A desktop is not included; install one before using a desktop session.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text("Desktop preset: ${selectedDesktop.displayName}", style = MaterialTheme.typography.bodyMedium)
+                    Text("New instances use XFCE. Additional desktop presets are not yet supported.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                     // Resolution Profile
                     Text(
@@ -154,7 +129,7 @@ fun CreateInstanceDialog(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    DisplayResolutionMode.values().forEach { mode ->
+                    DisplayResolutionMode.values().filter { it != DisplayResolutionMode.CUSTOM || existingInstance?.resolutionMode == it }.forEach { mode ->
                         val isSelected = mode == selectedResolution
                         Row(
                             modifier = Modifier
@@ -179,7 +154,7 @@ fun CreateInstanceDialog(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Interface Scaling (DPI)", style = MaterialTheme.typography.bodyMedium)
+                            Text("Interface scaling", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                             Text("${dpiScaling.toInt()} DPI", fontWeight = FontWeight.Bold)
                         }
                         Slider(
@@ -190,22 +165,7 @@ fun CreateInstanceDialog(
                         )
                     }
 
-                    // RAM Allocation Slider
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("RAM Memory Limit", style = MaterialTheme.typography.bodyMedium)
-                            Text("${(ramAllocationMb / 1024).toInt()} GB", fontWeight = FontWeight.Bold)
-                        }
-                        Slider(
-                            value = ramAllocationMb,
-                            onValueChange = { ramAllocationMb = it },
-                            valueRange = 1024f..6144f,
-                            steps = 4
-                        )
-                    }
+
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
@@ -222,15 +182,19 @@ fun CreateInstanceDialog(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Button(
+                        enabled = name.isNotBlank(),
                         onClick = {
-                            val newInstance = LinuxInstance(
+                            val base = existingInstance ?: LinuxInstance(
                                 id = UUID.randomUUID().toString(),
-                                name = name.ifBlank { "Linux Workstation" },
+                                name = name.trim(),
                                 distro = selectedDistro,
                                 desktop = selectedDesktop,
+                                resolutionMode = selectedResolution
+                            )
+                            val newInstance = base.copy(
+                                name = name.trim(),
                                 resolutionMode = selectedResolution,
-                                dpiScaling = dpiScaling.toInt(),
-                                ramAllocatedMb = ramAllocationMb.toInt()
+                                dpiScaling = dpiScaling.toInt()
                             )
                             onCreate(newInstance)
                         },
@@ -240,7 +204,7 @@ fun CreateInstanceDialog(
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Create Instance", fontWeight = FontWeight.Bold)
+                        Text(if (existingInstance == null) "Create" else "Save changes", fontWeight = FontWeight.Bold)
                     }
                 }
             }

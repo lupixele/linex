@@ -1,23 +1,21 @@
 package com.linex.app.ui.hub
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.linex.app.data.ContainerState
 import com.linex.app.data.LinuxInstance
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun InstanceCard(
     instance: LinuxInstance,
@@ -27,165 +25,85 @@ fun InstanceCard(
     onClone: (LinuxInstance) -> Unit,
     onDelete: (LinuxInstance) -> Unit,
     onEditSettings: (LinuxInstance) -> Unit,
-    onViewLogs: (LinuxInstance) -> Unit = {}
+    onViewLogs: (LinuxInstance) -> Unit = {},
+    setupError: String? = null,
+    busy: Boolean = false
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val stopped = instance.state == ContainerState.STOPPED
+    val starting = instance.state == ContainerState.STARTING
+    val status = when {
+        busy -> "Setting up"
+        setupError != null -> "Setup needs attention"
+        starting -> "Starting"
+        instance.state == ContainerState.RUNNING -> "Running"
+        instance.state == ContainerState.SUSPENDED -> "Suspended"
+        else -> "Stopped"
+    }
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            // Header Row: Name + Status Badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = if (instance.desktop.isTouchOptimized) Icons.Default.PhoneAndroid else Icons.Default.Computer,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = instance.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "${instance.distro.displayName} • ${instance.desktop.displayName}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(instance.name, style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(4.dp))
+                    Text(instance.distro.displayName, style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Box {
+                    IconButton(onClick = { menuExpanded = true }, enabled = !busy) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Actions for ${instance.name}")
                     }
-                }
-
-                // State Badge
-                val (badgeColor, statusText) = when (instance.state) {
-                    ContainerState.RUNNING -> Pair(Color(0xFF30D158), "RUNNING")
-                    ContainerState.SUSPENDED -> Pair(Color(0xFFFF9F0A), "SUSPENDED")
-                    ContainerState.STARTING -> Pair(Color(0xFF64D2FF), "BOOTING")
-                    ContainerState.STOPPED -> Pair(Color(0xFF8E8E93), "STOPPED")
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = badgeColor.copy(alpha = 0.15f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, badgeColor.copy(alpha = 0.4f))
-                ) {
-                    Text(
-                        text = statusText,
-                        color = badgeColor,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(text = { Text("Edit settings") }, enabled = stopped,
+                            onClick = { menuExpanded = false; onEditSettings(instance) },
+                            leadingIcon = { Icon(Icons.Default.Settings, null) })
+                        DropdownMenuItem(text = { Text("Clone instance") }, enabled = stopped,
+                            onClick = { menuExpanded = false; onClone(instance) },
+                            leadingIcon = { Icon(Icons.Default.ContentCopy, null) })
+                        DropdownMenuItem(text = { Text("Delete instance") }, enabled = stopped,
+                            onClick = { menuExpanded = false; onDelete(instance) },
+                            leadingIcon = { Icon(Icons.Default.DeleteOutline, null) })
+                    }
                 }
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Specs Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Display", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                    Text(instance.resolutionMode.displayName, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                }
-                Column {
-                    Text("Scaling", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                    Text("${instance.dpiScaling} DPI", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                }
-                Column {
-                    Text("Memory", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
-                    Text("${instance.ramAllocatedMb} MB", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-                }
+            Text(status, style = MaterialTheme.typography.labelLarge,
+                color = if (setupError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            Text("${instance.desktop.displayName}\n${instance.resolutionMode.displayName} · ${instance.dpiScaling} DPI",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (setupError != null) {
+                Text(setupError, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                Text("Open this instance’s logs for details, then retry setup.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilledTonalButton(
-                        onClick = { onViewLogs(instance) },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.Article, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Logs", style = MaterialTheme.typography.labelMedium)
-                    }
-                    IconButton(onClick = { onEditSettings(instance) }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = MaterialTheme.colorScheme.secondary)
-                    }
-                    IconButton(onClick = { onClone(instance) }) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Clone", tint = MaterialTheme.colorScheme.secondary)
-                    }
-                    IconButton(onClick = { onDelete(instance) }) {
-                        Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                    }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Button(onClick = { onLaunchOrResume(instance) }, enabled = !busy && !starting) {
+                    Icon(Icons.Default.PlayArrow, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(when {
+                        busy -> "Setting up…"
+                        starting -> "Starting…"
+                        setupError != null -> "Retry setup"
+                        instance.state == ContainerState.RUNNING -> "Open session"
+                        instance.state == ContainerState.SUSPENDED -> "Resume"
+                        else -> "Launch"
+                    })
                 }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (instance.state == ContainerState.RUNNING) {
-                        OutlinedButton(
-                            onClick = { onSuspend(instance) },
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.Pause, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Freeze")
-                        }
-                        Button(
-                            onClick = { onStop(instance) },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Stop")
-                        }
-                    } else {
-                        Button(
-                            onClick = { onLaunchOrResume(instance) },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            val btnText = if (instance.state == ContainerState.SUSPENDED) "Resume" else "Launch"
-                            val icon = if (instance.state == ContainerState.SUSPENDED) Icons.Default.PlayArrow else Icons.Default.RocketLaunch
-                            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(btnText, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                OutlinedButton(onClick = { onViewLogs(instance) }) {
+                    Icon(Icons.Default.Article, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Logs")
+                }
+                if (instance.state == ContainerState.RUNNING) {
+                    TextButton(onClick = { onSuspend(instance) }) { Text("Suspend") }
+                }
+                if (instance.state == ContainerState.RUNNING || instance.state == ContainerState.SUSPENDED) {
+                    TextButton(onClick = { onStop(instance) }) { Text("Stop") }
                 }
             }
         }
