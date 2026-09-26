@@ -22,5 +22,10 @@ fi
 export XDG_CURRENT_DESKTOP="XFCE"
 export DESKTOP_SESSION="xfce"
 
+if ! command -v xfce4-session >/dev/null 2>&1; then
+    echo "[Linex:XFCE] ERROR: xfce4-session is missing. Install XFCE in this instance or choose an installed desktop command."
+    exit 127
+fi
+
 # Execute xfce4-session
 exec xfce4-session

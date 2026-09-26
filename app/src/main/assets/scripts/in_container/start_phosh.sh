@@ -16,6 +16,6 @@ if command -v phosh >/dev/null 2>&1; then
 elif command -v phoc >/dev/null 2>&1; then
     exec phoc -E phosh
 else
-    echo "[Linex:Phosh] phosh binary not found, falling back to xterm..."
-    exec xterm
+    echo "[Linex:Phosh] ERROR: phosh is missing. Install a desktop in this instance or choose an installed desktop command."
+    exit 127
 fi

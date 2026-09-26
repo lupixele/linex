@@ -32,6 +32,9 @@ class ContainerManager(
     @Volatile private var activeInstance: LinuxInstance? = null
     @Volatile private var containerProcess: Process? = null
     @Volatile private var stopping = false
+    @Volatile private var displayEndpoint: DisplayEndpoint? = null
+    fun getDisplayEndpoint(instanceId: String): DisplayEndpoint? =
+        if (activeInstance?.id == instanceId) displayEndpoint else null
     private var logReadingJob: Job? = null
     private val launchMutex = Mutex()
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -74,6 +77,10 @@ class ContainerManager(
                 logWrapper("Another session is active. Stop it before starting this instance.")
                 return@withContext false
             }
+            if (instance.desktop == com.linex.app.data.DesktopEnvironment.UBUNTU_TOUCH_PHOSH) {
+                logWrapper("Phosh requires a Wayland compositor. Choose XFCE for the embedded X11 desktop.")
+                return@withContext false
+            }
             updateState(instance.id, ContainerState.STARTING)
             activeInstance = instance
 
@@ -87,6 +94,18 @@ class ContainerManager(
 
             val rootfsDir = storageEngine.getRootfsDirectory(instance.id)
             val tmpDir = storageEngine.getTmpDirectory(instance.id)
+            // Use new credentials and a loopback port for each launch. The guest
+            // converts the private secret to TigerVNC's password file format.
+            val random = java.security.SecureRandom()
+            val alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+            val password = CharArray(8) { alphabet[random.nextInt(alphabet.length)] }.concatToString()
+            val port = java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")).use { it.localPort }
+            val secret = File(tmpDir, "linex-vnc.secret")
+            java.nio.file.Files.deleteIfExists(secret.toPath())
+            java.nio.file.Files.deleteIfExists(File(tmpDir, "linex-vnc.passwd").toPath())
+            secret.writeText(password + "\n")
+            android.system.Os.chmod(secret.absolutePath, 0x180)
+            displayEndpoint = DisplayEndpoint(port, password)
             val scriptsDir = storageEngine.scriptsDir
 
             // Validate rootfs initialization before launching container
@@ -100,6 +119,9 @@ class ContainerManager(
 
             // 2. Generate display geometry
             val (width, height) = calculateDisplayGeometry(instance)
+            require(width in 1..4096 && height in 1..4096 && width.toLong() * height <= 8_000_000) {
+                "Choose a display size up to 4096 pixels per side and 8 megapixels total"
+            }
             val dpi = instance.dpiScaling.toInt()
             logWrapper("Geometry configured: ${width}x${height} @ ${dpi} DPI")
 
@@ -176,6 +198,8 @@ class ContainerManager(
             env["TERM"] = "xterm-256color"
             env["HOME"] = "/root"
             env["SHELL"] = "/bin/bash"
+            env["LINEX_EMBEDDED_DISPLAY"] = "1"
+            env["LINEX_VNC_PORT"] = port.toString()
             pb.redirectErrorStream(true)
 
             val process = pb.start()
@@ -218,6 +242,7 @@ class ContainerManager(
                             processController.killForce()
                             containerProcess = null
                             activeInstance = null
+                            displayEndpoint = null
                             processController.clearActiveProcess()
                             updateState(instance.id, ContainerState.STOPPED)
                         }
@@ -237,7 +262,7 @@ class ContainerManager(
             Log.e(TAG, "Failed to launch container", e)
             logWrapper("Failed to launch container: ${e.message}")
             if (containerProcess != null) stopActiveInstance()
-            else { activeInstance = null; updateState(instance.id, ContainerState.STOPPED) }
+            else { activeInstance = null; displayEndpoint = null; updateState(instance.id, ContainerState.STOPPED) }
             false
         }
     } }
@@ -351,6 +376,7 @@ class ContainerManager(
                         containerProcess = null
                         processController.clearActiveProcess()
                         activeInstance = null
+                        displayEndpoint = null
                         stopping = false
                         instance?.let {
                             AppLogger.log(TAG, "Session stopped", it.id)

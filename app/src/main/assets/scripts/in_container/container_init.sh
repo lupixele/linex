@@ -23,6 +23,51 @@ export PULSE_SERVER="${PULSE_SERVER:-tcp:127.0.0.1:4713}"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/runtime-root}"
 export TMPDIR="/tmp"
 
+# 9. Signal Handling & Clean Shutdown Traps
+SESSION_PID=""
+VNC_PID=""
+DBUS_PID=""
+
+cleanup() {
+    # Preserve the desktop/startup result even if a cleanup command fails.
+    SHUTDOWN_STATUS="$1"
+    trap - 0
+    trap '' TERM INT HUP
+    set +e
+    echo "[Linex:ContainerInit] Gracefully terminating processes..."
+
+    if [ -n "$SESSION_PID" ] && kill -0 "$SESSION_PID" 2>/dev/null; then
+        echo "[Linex:ContainerInit] Sending SIGTERM to desktop session (PID $SESSION_PID)..."
+        kill -15 "$SESSION_PID" 2>/dev/null || true
+        wait "$SESSION_PID" 2>/dev/null || true
+    fi
+
+    if [ -n "$VNC_PID" ] && kill -0 "$VNC_PID" 2>/dev/null; then
+        echo "[Linex:ContainerInit] Stopping embedded display server..."
+        kill -15 "$VNC_PID" 2>/dev/null || true
+        wait "$VNC_PID" 2>/dev/null || true
+    fi
+
+    if [ -n "$DBUS_PID" ] && kill -0 "$DBUS_PID" 2>/dev/null; then
+        echo "[Linex:ContainerInit] Terminating D-Bus daemon (PID $DBUS_PID)..."
+        kill -15 "$DBUS_PID" 2>/dev/null || true
+    fi
+
+    echo "[Linex:ContainerInit] Flushing filesystem buffers..."
+    sync 2>/dev/null || true
+
+    # Clean socket and locks
+    rm -f /tmp/dbus-session-socket /tmp/dbus.pid /tmp/linex-vnc.secret /tmp/linex-vnc.passwd
+    echo "[Linex:ContainerInit] Container shutdown sequence complete."
+    exit "$SHUTDOWN_STATUS"
+}
+
+# POSIX sh (including dash) requires signal names without the SIG prefix.
+trap 'cleanup "$?"' 0
+trap 'exit 143' TERM
+trap 'exit 130' INT
+trap 'exit 129' HUP
+
 # 2. Setup POSIX Shared Memory (/dev/shm)
 mkdir -p /tmp/shm
 chmod 1777 /tmp/shm
@@ -68,6 +113,11 @@ default-server = tcp:127.0.0.1:4713
 autospawn = no
 EOF
 
+# 7. Start the app's local display, or wait for an externally managed X server.
+if [ "${LINEX_EMBEDDED_DISPLAY:-0}" = "1" ]; then
+    . /linex/start_embedded_display.sh
+    start_embedded_display
+else
 # 7. Await X11 Display Server Socket
 echo "[Linex:ContainerInit] Verifying X11 display socket at /tmp/.X11-unix/X0..."
 WAIT_COUNT=0
@@ -80,6 +130,8 @@ if [ -e "/tmp/.X11-unix/X0" ]; then
     echo "[Linex:ContainerInit] Connected to X11 socket successfully."
 else
     echo "[Linex:ContainerInit] WARNING: X11 socket not detected after 3s. Proceeding anyway..."
+fi
+
 fi
 
 # 8. Configure Screen Geometry & DPI via xrandr / xrdb
@@ -97,34 +149,6 @@ if [ -n "$LINUXDROID_DPI" ]; then
         echo "Xft.dpi: $LINUXDROID_DPI" | xrdb -merge 2>/dev/null || true
     fi
 fi
-
-# 9. Signal Handling & Clean Shutdown Traps
-SESSION_PID=""
-
-cleanup() {
-    echo "[Linex:ContainerInit] Clean shutdown signal intercepted. Gracefully terminating processes..."
-    
-    if [ -n "$SESSION_PID" ] && kill -0 "$SESSION_PID" 2>/dev/null; then
-        echo "[Linex:ContainerInit] Sending SIGTERM to desktop session (PID $SESSION_PID)..."
-        kill -15 "$SESSION_PID" 2>/dev/null || true
-        wait "$SESSION_PID" 2>/dev/null || true
-    fi
-
-    if [ -n "$DBUS_PID" ] && kill -0 "$DBUS_PID" 2>/dev/null; then
-        echo "[Linex:ContainerInit] Terminating D-Bus daemon (PID $DBUS_PID)..."
-        kill -15 "$DBUS_PID" 2>/dev/null || true
-    fi
-
-    echo "[Linex:ContainerInit] Flushing filesystem buffers..."
-    sync 2>/dev/null || true
-    
-    # Clean socket and locks
-    rm -f /tmp/dbus-session-socket /tmp/dbus.pid
-    echo "[Linex:ContainerInit] Container shutdown sequence complete."
-    exit 0
-}
-
-trap cleanup SIGTERM SIGINT SIGHUP
 
 # 10. Execute Target Desktop / User Command
 CMD="${DESKTOP_START_CMD:-${LINUXDROID_START_COMMAND:-/linex/start_xfce.sh}}"
@@ -146,8 +170,10 @@ SESSION_PID=$!
 
 echo "[Linex:ContainerInit] Session active under PID $SESSION_PID. Awaiting termination."
 
-wait "$SESSION_PID"
-EXIT_CODE=$?
+# A failing wait must not trigger set -e before its status is captured.
+EXIT_CODE=0
+wait "$SESSION_PID" || EXIT_CODE=$?
+SESSION_PID=""
 
 echo "[Linex:ContainerInit] Session process exited with code $EXIT_CODE."
-cleanup
+exit "$EXIT_CODE"
