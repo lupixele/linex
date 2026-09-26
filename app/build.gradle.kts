@@ -14,8 +14,8 @@ android {
         applicationId = "com.linex.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "0.2.5"
+        versionCode = 8
+        versionName = "0.2.6-dev"
 
         ndk {
             abiFilters.addAll(setOf("arm64-v8a", "x86_64"))
@@ -99,5 +99,8 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.okhttp)
+    implementation("org.apache.commons:commons-compress:1.28.0")
+    implementation("org.tukaani:xz:1.10")
+    testImplementation("junit:junit:4.13.2")
     implementation(libs.kotlinx.serialization.json)
 }

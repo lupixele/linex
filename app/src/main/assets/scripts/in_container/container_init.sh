@@ -1,4 +1,5 @@
 #!/bin/sh
+unset LD_LIBRARY_PATH LD_PRELOAD
 # ==============================================================================
 # Linex In-Container Init & Supervisor Daemon
 # Runs inside the PRoot rootfs to initialize system services, IPC, D-Bus,

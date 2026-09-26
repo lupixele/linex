@@ -7,6 +7,9 @@
 
 set -e
 
+# Read once by the host before any guest-controlled output; setsid already ran.
+echo "__LINEX_PID__=$$"
+
 ROOTFS_PATH="$1"
 TMP_PATH="$2"
 START_COMMAND="$3"
@@ -51,7 +54,7 @@ if [ ! -d "$ROOTFS_PATH" ]; then
     exit 2
 fi
 
-if [ ! -f "$ROOTFS_PATH/bin/sh" ] && [ ! -f "$ROOTFS_PATH/usr/bin/sh" ]; then
+if [ ! -f "$ROOTFS_PATH/bin/sh" ] && [ ! -L "$ROOTFS_PATH/bin/sh" ] && [ ! -f "$ROOTFS_PATH/usr/bin/sh" ] && [ ! -L "$ROOTFS_PATH/usr/bin/sh" ]; then
     echo "[Linex:Entrypoint] ERROR: No valid shell found inside rootfs!"
     exit 3
 fi

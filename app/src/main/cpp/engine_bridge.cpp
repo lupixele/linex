@@ -25,6 +25,12 @@ Java_com_linex_app_core_ProcessController_nativeSendSignal(
         jobject thiz,
         jint pid_or_pgid,
         jint sig) {
+    // A inherited process group can contain the Android app itself.
+    if (pid_or_pgid == 0 || pid_or_pgid == -1 || pid_or_pgid == getpid()
+            || (pid_or_pgid < 0 && -pid_or_pgid == getpgrp())) {
+        LOGE("Refusing signal to the application or its process group");
+        return JNI_FALSE;
+    }
     
     LOGI("nativeSendSignal: Dispatching signal %d to target %d", sig, pid_or_pgid);
     

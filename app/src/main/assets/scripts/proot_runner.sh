@@ -139,4 +139,13 @@ export DESKTOP_START_CMD
 echo "[Linex:PRoot] Spawning container with init script: /linex/container_init.sh (desktop command: $DESKTOP_START_CMD)"
 
 # Execute PRoot passing execution to the in-container supervisor
+# The bundled Termux executable requests libtalloc.so.2, while Android extracts
+# JNI libraries under unversioned .so names. Resolve that SONAME explicitly.
+: "${APP_LIB_DIR:?APP_LIB_DIR is required}"
+HOST_LIB_DIR="$TMP_PATH/host-libs"
+/system/bin/mkdir -p "$HOST_LIB_DIR"
+/system/bin/ln -sf "$APP_LIB_DIR/libtalloc.so" "$HOST_LIB_DIR/libtalloc.so.2"
+export LD_LIBRARY_PATH="$HOST_LIB_DIR:$APP_LIB_DIR"
+export PROOT_LOADER="$APP_LIB_DIR/libloader.so"
+export PROOT_LOADER_32="$APP_LIB_DIR/libloader32.so"
 exec "$PROOT_BIN" $PROOT_ARGS /linex/container_init.sh

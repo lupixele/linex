@@ -1,10 +1,9 @@
 package com.linex.app.core
 
 import android.content.Context
-import android.os.Build
 import android.util.Log
-import com.linex.app.data.DistroType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.*
 
@@ -34,11 +33,17 @@ class StorageEngine(
         get() = File(runtimeDir, "config").apply { if (!exists()) mkdirs() }
 
     fun getInstanceDirectory(instanceId: String): File {
+        require(instanceId.matches(Regex("[A-Za-z0-9_-]+"))) { "Invalid instance ID" }
         return File(baseInstancesDir, instanceId).apply { if (!exists()) mkdirs() }
     }
 
     fun getRootfsDirectory(instanceId: String): File {
-        return File(getInstanceDirectory(instanceId), "rootfs").apply { if (!exists()) mkdirs() }
+        val root = File(getInstanceDirectory(instanceId), "rootfs")
+        val previous = File(root.parentFile, "rootfs.previous")
+        if (!root.exists() && previous.isDirectory) {
+            java.nio.file.Files.move(previous.toPath(), root.toPath())
+        }
+        return root
     }
 
     fun getTmpDirectory(instanceId: String): File {
@@ -104,192 +109,141 @@ class StorageEngine(
                             processController.setFilePermissions(targetFile.absolutePath, 0b111101101) // 0755
                         }
                     } catch (e: Exception) {
-                        Log.w(TAG, "Failed to copy asset file $subAssetPath to ${targetFile.absolutePath}", e)
+                        throw IOException("Failed to copy asset $subAssetPath", e)
                     }
                 }
             }
         }
     }
 
-    /**
-     * Checks if an instance has already completed rootfs extraction and first boot setup.
-     */
-    fun isInstanceInitialized(instanceId: String): Boolean {
-        val rootfs = getRootfsDirectory(instanceId)
-        val marker = File(rootfs, ".linex_initialized")
-        val hasSh = File(rootfs, "bin/sh").exists() || File(rootfs, "usr/bin/sh").exists() || File(rootfs, "bin/bash").exists()
-        return marker.exists() || hasSh
-    }
+    /** A marker and a usable shell are both required; partial extraction is never ready. */
+    fun isInstanceInitialized(instanceId: String): Boolean =
+        RootfsArchive.isReady(getRootfsDirectory(instanceId))
 
-    /**
-     * Extracts an archive (.tar, .tar.gz, .tar.xz) into the instance's rootfs folder.
-     */
     suspend fun extractRootfs(
         archiveFile: File,
         targetRootfs: File,
         onProgress: (Float, String) -> Unit = { _, _ -> }
     ): Boolean = withContext(Dispatchers.IO) {
-        if (!archiveFile.exists()) {
-            val err = "Error: Archive not found: ${archiveFile.absolutePath}"
-            AppLogger.log(TAG, err)
-            onProgress(0f, err)
-            return@withContext false
+        val instanceId = targetRootfs.parentFile?.name
+        val stage = File(targetRootfs.parentFile, "rootfs.installing")
+        val previous = File(targetRootfs.parentFile, "rootfs.previous")
+        fun report(progress: Float, message: String) {
+            AppLogger.log(TAG, message, instanceId)
+            onProgress(progress, message)
         }
-
-        if (!targetRootfs.exists()) targetRootfs.mkdirs()
-
-        AppLogger.log(TAG, "Starting extraction of ${archiveFile.name} to ${targetRootfs.absolutePath}")
-        onProgress(0.05f, "Preparing extraction helper...")
-        deployAssets(overwrite = true)
-
-        val extractScript = File(scriptsDir, "rootfs_extract.sh")
-        if (extractScript.exists()) {
-            extractScript.setExecutable(true, false)
-            processController.setFilePermissions(extractScript.absolutePath, 0b111101101) // 0755
-            onProgress(0.10f, "Executing rootfs_extract.sh...")
-
-            try {
-                val shBinary = if (File("/system/bin/sh").exists()) "/system/bin/sh" else "sh"
-                val pb = ProcessBuilder(
-                    shBinary,
-                    extractScript.absolutePath,
-                    archiveFile.absolutePath,
-                    targetRootfs.absolutePath
-                )
-                pb.directory(scriptsDir)
-                pb.redirectErrorStream(true)
-                val process = pb.start()
-
-                BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        val currentLine = line ?: continue
-                        Log.i(TAG, "[Extract] $currentLine")
-                        AppLogger.log("Extract", currentLine, null)
-                        val progressFraction = when {
-                            currentLine.contains("Preparing target directory") -> 0.15f
-                            currentLine.contains("Inspecting archive format") -> 0.25f
-                            currentLine.contains("Detected Gzip compressed") -> 0.35f
-                            currentLine.contains("Executing extraction") -> 0.50f
-                            currentLine.contains("Rootfs successfully extracted") -> 0.85f
-                            else -> 0.50f
-                        }
-                        onProgress(progressFraction, currentLine)
-                    }
-                }
-
-                val exitCode = process.waitFor()
-                AppLogger.log(TAG, "rootfs_extract.sh process exited with code $exitCode")
-                val hasBin = File(targetRootfs, "bin").exists() ||
-                             File(targetRootfs, "usr/bin").exists() ||
-                             File(targetRootfs, "usr/bin/sh").exists()
-
-                if (exitCode == 0 || hasBin) {
-                    onProgress(0.90f, "Running first-boot customization...")
-                    try {
-                        runFirstBootSetup(targetRootfs)
-                    } catch (e: Exception) {
-                        AppLogger.log(TAG, "First-boot setup warning: ${e.message}")
-                        Log.w(TAG, "First-boot setup warning: ${e.message}")
-                    }
-
-                    // Ensure symlink /bin -> usr/bin if only usr/bin exists
-                    val binDir = File(targetRootfs, "bin")
-                    val usrBinDir = File(targetRootfs, "usr/bin")
-                    if (!binDir.exists() && usrBinDir.exists()) {
-                        processController.createSymlink("usr/bin", binDir.absolutePath)
-                    }
-
-                    // Guarantee the initialization marker is present
-                    val marker = File(targetRootfs, ".linex_initialized")
-                    marker.writeText("VERSION=1.0.0\nSTATUS=READY\n")
-                    AppLogger.log(TAG, "SUCCESS: Rootfs initialized and marker written")
-                    onProgress(1.0f, "Extraction complete!")
-                    return@withContext true
-                } else {
-                    val err = "Extraction failed with exit code $exitCode and /bin missing"
-                    AppLogger.log(TAG, "ERROR: $err")
-                    onProgress(0f, err)
-                    return@withContext false
-                }
-            } catch (e: Exception) {
-                AppLogger.log(TAG, "ERROR running rootfs_extract.sh: ${e.message}")
-                Log.e(TAG, "Failed to run rootfs_extract.sh", e)
-                onProgress(0f, "Extraction process failed: ${e.message}")
-                return@withContext false
+        try {
+            if (!archiveFile.isFile) throw IOException("Downloaded archive is missing")
+            if (!targetRootfs.exists() && previous.exists()) {
+                java.nio.file.Files.move(previous.toPath(), targetRootfs.toPath())
             }
-        } else {
-            val err = "Extraction helper script missing at ${extractScript.absolutePath}"
-            AppLogger.log(TAG, "ERROR: $err")
-            onProgress(0f, err)
-            return@withContext false
+            removeTree(stage)
+            report(0.05f, "Unpacking archive; completed download is kept for retry")
+            val coroutineContext = kotlinx.coroutines.currentCoroutineContext()
+            RootfsArchive.extract(archiveFile, stage,
+                checkCancelled = { coroutineContext.ensureActive() },
+                permissions = { file, mode -> android.system.Os.chmod(file.absolutePath, mode and 0x1ff) },
+                progress = { count -> report(0.65f, "Unpacked $count entries") })
+            if (!RootfsArchive.hasShell(stage)) throw IOException("Archive has no usable Linux shell")
+            report(0.85f, "Configuring network and shell")
+            if (!runFirstBootSetup(stage)) throw IOException("First-boot configuration failed")
+            coroutineContext.ensureActive()
+            val marker = File(stage, ".linex_initialized")
+            java.nio.file.Files.deleteIfExists(marker.toPath())
+            marker.writeText("VERSION=2\nSTATUS=READY\n")
+            removeTree(previous)
+            if (targetRootfs.exists()) java.nio.file.Files.move(targetRootfs.toPath(), previous.toPath())
+            try {
+                java.nio.file.Files.move(stage.toPath(), targetRootfs.toPath())
+            } catch (e: Exception) {
+                if (previous.exists()) java.nio.file.Files.move(previous.toPath(), targetRootfs.toPath())
+                throw e
+            }
+            // Cleanup failure must not turn an already committed installation into a failed setup.
+            try { removeTree(previous) } catch (e: IOException) {
+                report(0.99f, "Installed; old partial files could not be cleaned: ${e.message}")
+            }
+            report(1f, "Root filesystem ready")
+            true
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            report(0f, "Setup cancelled; downloaded archive retained")
+            throw e
+        } catch (e: Exception) {
+            report(0f, "Extraction failed: ${e.message}. Download retained for retry.")
+            throw IOException("Root filesystem setup failed: ${e.message}", e)
         }
     }
 
-    /**
-     * Executes first_boot_setup.sh on a freshly unpacked rootfs.
-     */
+    /** Apply bootstrap files without depending on Android shell tools or following host symlinks. */
     suspend fun runFirstBootSetup(rootfsDir: File): Boolean = withContext(Dispatchers.IO) {
-        val setupScript = File(scriptsDir, "first_boot_setup.sh")
-        if (!setupScript.exists()) {
-            Log.w(TAG, "first_boot_setup.sh not found at ${setupScript.absolutePath}")
-            return@withContext false
+        val root = rootfsDir.canonicalFile.toPath()
+        fun directory(name: String): File {
+            val file = File(rootfsDir, name)
+            if (!file.canonicalFile.toPath().startsWith(root)) throw IOException("Unsafe bootstrap directory: $name")
+            java.nio.file.Files.createDirectories(file.toPath())
+            return file
         }
+        fun write(name: String, text: String) {
+            val file = File(rootfsDir, name)
+            directory(file.parentFile!!.relativeTo(rootfsDir).path)
+            // resolv.conf often points at systemd's absent /run state; replace the link itself.
+            java.nio.file.Files.deleteIfExists(file.toPath())
+            file.writeText(text)
+        }
+        listOf("tmp", "dev/shm", "proc", "sys", "root", "sdcard", "etc/profile.d").forEach(::directory)
+        android.system.Os.chmod(File(rootfsDir, "tmp").absolutePath, 0x3ff)
+        write("etc/resolv.conf", "nameserver 1.1.1.1\nnameserver 8.8.8.8\noptions timeout:2 attempts:3\n")
+        write("etc/hosts", "127.0.0.1 localhost linex\n::1 localhost ip6-localhost\n")
+        write("etc/apt/apt.conf.d/99linex", "APT::Sandbox::User \"root\";\nAcquire::Languages \"none\";\n")
+        write("etc/dpkg/dpkg.cfg.d/01_linex_nodoc", "path-exclude /usr/share/doc/*\npath-include /usr/share/doc/*/copyright\npath-exclude /usr/share/man/*\n")
+        write("etc/profile.d/linex.sh", "export TERM=xterm-256color\nexport PULSE_SERVER=tcp:127.0.0.1:4713\n")
+        write("etc/asound.conf", "pcm.!default { type pulse fallback \"sysdefault\" }\nctl.!default { type pulse }\n")
+        true
+    }
 
-        setupScript.setExecutable(true, false)
-        processController.setFilePermissions(setupScript.absolutePath, 0b111101101)
-        try {
-            val shBinary = if (File("/system/bin/sh").exists()) "/system/bin/sh" else "sh"
-            val pb = ProcessBuilder(shBinary, setupScript.absolutePath, rootfsDir.absolutePath)
-            pb.directory(scriptsDir)
-            pb.redirectErrorStream(true)
-            val process = pb.start()
-            BufferedReader(InputStreamReader(process.inputStream)).use { reader ->
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    Log.i(TAG, "[FirstBoot] $line")
-                }
+    private fun removeTree(dir: File) {
+        val path = dir.toPath()
+        if (!java.nio.file.Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return
+        java.nio.file.Files.walkFileTree(path, object : java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
+            override fun visitFile(file: java.nio.file.Path, attrs: java.nio.file.attribute.BasicFileAttributes): java.nio.file.FileVisitResult {
+                java.nio.file.Files.delete(file)
+                return java.nio.file.FileVisitResult.CONTINUE
             }
-            val code = process.waitFor()
-            code == 0
-        } catch (e: Exception) {
-            Log.e(TAG, "first_boot_setup execution error", e)
-            false
-        }
+            override fun postVisitDirectory(dir: java.nio.file.Path, error: IOException?): java.nio.file.FileVisitResult {
+                if (error != null) throw error
+                java.nio.file.Files.delete(dir)
+                return java.nio.file.FileVisitResult.CONTINUE
+            }
+        })
     }
 
     suspend fun cloneInstance(sourceId: String, newId: String, onProgress: (Float) -> Unit) = withContext(Dispatchers.IO) {
-        val src = getInstanceDirectory(sourceId)
-        val dst = getInstanceDirectory(newId)
-        if (dst.exists()) dst.deleteRecursively()
-        dst.mkdirs()
-
-        copyDirectoryWithProgress(src, dst, onProgress)
+        require(sourceId != newId) { "Source and destination must differ" }
+        val source = getInstanceDirectory(sourceId).toPath()
+        val destination = getInstanceDirectory(newId).toPath()
+        require(destination.toFile().listFiles().isNullOrEmpty()) { "Clone destination is not empty" }
+        val coroutineContext = kotlinx.coroutines.currentCoroutineContext()
+        try {
+            java.nio.file.Files.walkFileTree(source, object : java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
+                override fun preVisitDirectory(dir: java.nio.file.Path, attrs: java.nio.file.attribute.BasicFileAttributes): java.nio.file.FileVisitResult {
+                    coroutineContext.ensureActive()
+                    java.nio.file.Files.createDirectories(destination.resolve(source.relativize(dir)))
+                    return java.nio.file.FileVisitResult.CONTINUE
+                }
+                override fun visitFile(file: java.nio.file.Path, attrs: java.nio.file.attribute.BasicFileAttributes): java.nio.file.FileVisitResult {
+                    coroutineContext.ensureActive()
+                    java.nio.file.Files.copy(file, destination.resolve(source.relativize(file)), java.nio.file.LinkOption.NOFOLLOW_LINKS, java.nio.file.StandardCopyOption.COPY_ATTRIBUTES)
+                    return java.nio.file.FileVisitResult.CONTINUE
+                }
+            })
+            onProgress(1f)
+        } catch (e: Exception) {
+            try { removeTree(destination.toFile()) } catch (_: IOException) { }
+            throw e
+        }
     }
 
     suspend fun deleteInstance(instanceId: String) = withContext(Dispatchers.IO) {
-        val dir = getInstanceDirectory(instanceId)
-        if (dir.exists()) {
-            dir.deleteRecursively()
-        }
-    }
-
-    private fun copyDirectoryWithProgress(source: File, target: File, onProgress: (Float) -> Unit) {
-        val files = source.walkTopDown().toList()
-        val total = files.size
-        var current = 0
-        for (file in files) {
-            val relative = file.relativeTo(source)
-            val destFile = File(target, relative.path)
-            if (file.isDirectory) {
-                destFile.mkdirs()
-            } else {
-                file.copyTo(destFile, overwrite = true)
-            }
-            current++
-            if (current % 50 == 0 || current == total) {
-                onProgress(current.toFloat() / total.toFloat())
-            }
-        }
+        removeTree(getInstanceDirectory(instanceId))
     }
 }
