@@ -137,15 +137,19 @@ class StorageEngine(
             if (!targetRootfs.exists() && previous.exists()) {
                 java.nio.file.Files.move(previous.toPath(), targetRootfs.toPath())
             }
+            report(-1f, "Removing incomplete extraction from the previous attempt")
             removeTree(stage)
-            report(0.05f, "Unpacking archive; completed download is kept for retry")
+            report(0f, "Unpacking archive; completed download is kept for retry")
             val coroutineContext = kotlinx.coroutines.currentCoroutineContext()
             RootfsArchive.extract(archiveFile, stage,
                 checkCancelled = { coroutineContext.ensureActive() },
                 permissions = { file, mode -> android.system.Os.chmod(file.absolutePath, mode and 0x1ff) },
-                progress = { count -> report(0.65f, "Unpacked $count entries") })
+                onArchiveProgress = { state ->
+                    val fraction = if (state.totalBytes > 0) (state.bytesRead.toFloat() / state.totalBytes).coerceIn(0f, 0.99f) else -1f
+                    report(fraction, "${state.phase}: ${state.entries} entries; ${state.bytesRead / 1048576} / ${state.totalBytes / 1048576} MiB archive read")
+                })
             if (!RootfsArchive.hasShell(stage)) throw IOException("Archive has no usable Linux shell")
-            report(0.85f, "Configuring network and shell")
+            report(-1f, "Configuring network and shell")
             if (!runFirstBootSetup(stage)) throw IOException("First-boot configuration failed")
             coroutineContext.ensureActive()
             val marker = File(stage, ".linex_initialized")

@@ -1,10 +1,10 @@
 # Linex progress
 
 ## Current State
-Local checkout: P:/Magnanimity/Projects/linex. Published main/v0.2.7-dev at 41c655b. Working version 0.2.8-dev (code 10) fixes POSIX backslash validation for archive filenames and link targets. The updated device log confirms X11 extraction now succeeds, then fails after 19,000 entries on system-systemd\x2dcryptsetup.slice. This is a valid literal POSIX filename, previously rejected by Windows-oriented validation. Backslashes remain rejected on non-POSIX filesystems; traversal and canonical containment checks remain unchanged.
+Local checkout: P:/Magnanimity/Projects/linex. Working version 0.2.9-dev (code 11) adds live archive-read percentage, entry count, elapsed/inactivity indicators, and setup screen wake. Removed duplicate per-file canonicalization and repeated same-parent creation, while preserving containment checks and invalidating the parent cache on symlink changes. Input buffering increased to 128 KiB. Detailed progress now reaches the UI instead of being discarded.
 
 ## Verification
-The exact systemd filename regression fails with the old validation. All 22 unit tests pass; APK assembly and lint succeed; APK signature verifies. Windows tests cover explicit POSIX/Windows validation rules; actual Android extraction remains unverified because no device is connected and WSL is unavailable.
+Updated device log from 0.2.8 reached 359,000 entries in 12m10s with no error and ongoing progress. New tests cover byte-counter bounds/monotonicity and no false completion on corrupt archives. Initial counter test caught mark/reset double-counting; fixed by counting below the buffer. All 24 unit tests pass; debug build/lint succeed and APK signature verifies. No device speedup or complete extraction claimed; Android device unavailable.
 ## Next Steps
 1. Install app/build/outputs/apk/debug/app-debug.apk on ARM64 Android and test real-image extraction, cancellation/retry, force-stop/reopen logs, export, clone/delete and stop/restart.
 2. Implement actual embedded X11 server lifecycle, Surface attachment and input bridge; current UI explicitly discloses the missing renderer.
@@ -23,3 +23,4 @@ The exact systemd filename regression fails with the old validation. All 22 unit
 - [2026-09-26] Work directly in the user-specified linex checkout; replace unreliable Android tar extraction with bounded streaming JVM extraction; preserve old ready roots and scope diagnostics per instance.
 - [2026-09-26] Confirmed upstream archive entry /usr/bin/X11 -> . was converted to an empty symlink target. Preserve literal dot and report symlink target/type on failures; retain download cache and user instance data.
 - [2026-09-26] Updated device log confirms X11 fix works. Preserve literal backslashes in POSIX archive filenames and link targets; do not decode systemd escapes or weaken root containment.
+- [2026-09-26] Device log reached 359,000 entries in 12m10s without error. Added archive-byte/stage progress, elapsed/inactivity UI, active-setup screen wake, and removed duplicate canonical checks/repeated parent creation. No Android speedup claimed without measurement.

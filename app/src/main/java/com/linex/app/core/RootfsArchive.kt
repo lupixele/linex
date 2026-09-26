@@ -10,6 +10,8 @@ import java.nio.file.Path
 
 /** Android system tar lacks consistent compression support. Extract in process instead. */
 internal object RootfsArchive {
+    data class Progress(val entries: Int, val bytesRead: Long, val totalBytes: Long, val phase: String)
+
     internal fun validateArchiveName(name: String, separator: String) {
         // Backslashes are literal filename characters on Android/Linux (including
         // systemd's escaped unit names). Reject them only on non-POSIX hosts.
@@ -38,12 +40,30 @@ internal object RootfsArchive {
     }
 
     fun extract(archive: File, destination: File, checkCancelled: () -> Unit = {},
-                permissions: (File, Int) -> Unit = { _, _ -> }, progress: (Int) -> Unit = {}) {
+                permissions: (File, Int) -> Unit = { _, _ -> }, progress: (Int) -> Unit = {},
+                onArchiveProgress: (Progress) -> Unit = {}) {
         destination.mkdirs()
         val root = destination.canonicalFile.toPath()
         val hardLinks = mutableListOf<Pair<Path, Path>>()
         var entries = 0
-        archive.inputStream().buffered().use { raw ->
+        var lastParent: Path? = null
+        var bytesRead = 0L
+        var lastReport = 0L
+        fun report(phase: String = "Extracting", force: Boolean = false) {
+            val now = System.nanoTime()
+            if (force || now - lastReport >= 1_000_000_000L) {
+                onArchiveProgress(Progress(entries, bytesRead, archive.length(), phase))
+                lastReport = now
+            }
+        }
+        report(force = true)
+        val counted = object : java.io.FilterInputStream(archive.inputStream()) {
+            override fun read(): Int = `in`.read().also { if (it >= 0) bytesRead++ }
+            override fun read(b: ByteArray, off: Int, len: Int): Int =
+                `in`.read(b, off, len).also { if (it > 0) bytesRead += it }
+            override fun skip(n: Long): Long = `in`.skip(n).also { bytesRead += it }
+        }
+        counted.buffered(128 * 1024).use { raw ->
             raw.mark(16)
             val signature = ByteArray(6)
             val count = raw.read(signature)
@@ -61,7 +81,10 @@ internal object RootfsArchive {
                     if (!tar.canReadEntryData(entry)) throw IOException("Unsupported archive entry: ${entry.name}")
                     val path = checked(root, entryPath(root, entry.name))
                     if (path == root) continue
-                    Files.createDirectories(checked(root, path.parent))
+                    if (path.parent != lastParent) {
+                        Files.createDirectories(checked(root, path.parent))
+                        lastParent = path.parent
+                    }
                     when {
                         entry.isDirectory -> {
                             Files.createDirectories(path)
@@ -80,6 +103,7 @@ internal object RootfsArchive {
                             val linkTarget = relativeSymlinkTarget(path.parent, target)
                             try {
                                 Files.createSymbolicLink(path, linkTarget)
+                                lastParent = null // A changed alias invalidates cached parent creation.
                             } catch (e: IOException) {
                                 throw IOException("Cannot create archive symlink '${entry.name}' -> '$link' " +
                                     "(resolved target '$linkTarget'): ${e.javaClass.simpleName}: ${e.message}", e)
@@ -88,12 +112,14 @@ internal object RootfsArchive {
                         entry.isLink -> hardLinks.add(path to entryPath(root, entry.linkName))
                         entry.isFile -> {
                             if (Files.isSymbolicLink(path)) Files.delete(path)
-                            Files.newOutputStream(checked(root, path)).use { output ->
+                            // Already checked above; parent creation cannot introduce a symlink.
+                            Files.newOutputStream(path).use { output ->
                                 while (true) {
                                     checkCancelled()
                                     val read = tar.read(buffer)
                                     if (read < 0) break
                                     output.write(buffer, 0, read)
+                                    report()
                                 }
                             }
                             permissions(path.toFile(), entry.mode or 0x180)
@@ -102,18 +128,23 @@ internal object RootfsArchive {
                         else -> throw IOException("Unsupported entry: ${entry.name}")
                     }
                     entries++
+                    report()
                     if (entries % 500 == 0) progress(entries)
                 }
                 // Read compressor trailer too, so CRC/truncation errors fail the installation.
-                while (stream.read(buffer) != -1) checkCancelled()
+                report("Verifying archive", true)
+                while (stream.read(buffer) != -1) { checkCancelled(); report("Verifying archive") }
             }
         }
         while (hardLinks.isNotEmpty()) {
+            report("Resolving hard links", true)
             checkCancelled()
             val before = hardLinks.size
             val iterator = hardLinks.iterator()
             while (iterator.hasNext()) {
                 val (path, target) = iterator.next()
+                checkCancelled()
+                report("Resolving hard links")
                 if (Files.isRegularFile(checked(root, target), NOFOLLOW_LINKS)) {
                     checked(root, path.parent)
                     Files.deleteIfExists(path)
@@ -130,6 +161,7 @@ internal object RootfsArchive {
         }
         if (entries == 0) throw IOException("Archive contains no rootfs files")
         progress(entries)
+        report("Archive extracted", true)
     }
 
     fun hasShell(root: File): Boolean = listOf("bin/sh", "usr/bin/sh", "bin/bash", "usr/bin/bash").any {

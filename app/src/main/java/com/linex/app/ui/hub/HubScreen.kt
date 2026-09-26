@@ -1,6 +1,7 @@
 package com.linex.app.ui.hub
 
 import android.util.Log
+import android.os.SystemClock
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.linex.app.BuildConfig
@@ -63,7 +65,18 @@ fun HubScreen(
     var downloadingInstance by remember { mutableStateOf<LinuxInstance?>(null) }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var downloadStatus by remember { mutableStateOf("Preparing download...") }
+    var downloadStage by remember { mutableStateOf("Preparing setup") }
+    var setupStartedAt by remember { mutableLongStateOf(0L) }
+    var lastProgressAt by remember { mutableLongStateOf(0L) }
     var downloadJob by remember { mutableStateOf<Job?>(null) }
+
+    val view = LocalView.current
+    val setupRunning = downloadingInstance?.let { setupErrors[it.id] == null } == true
+    DisposableEffect(view, setupRunning) {
+        val previouslyKeptAwake = view.keepScreenOn
+        if (setupRunning) view.keepScreenOn = true
+        onDispose { if (setupRunning) view.keepScreenOn = previouslyKeptAwake }
+    }
 
     val handleLaunchOrResume: (LinuxInstance) -> Unit = { instance ->
         AppLogger.log("HubScreen", "Launch tapped for instance: ${instance.name} (${instance.id})", instance.id)
@@ -85,18 +98,18 @@ fun HubScreen(
                 downloadingInstance = instance
                 setupErrors.remove(instance.id)
                 downloadProgress = -1f
-                downloadStatus = "Connecting to server..."
+                downloadStatus = "Checking for a completed download…"
+                downloadStage = "Checking download"
+                setupStartedAt = SystemClock.elapsedRealtime()
+                lastProgressAt = setupStartedAt
                 downloadJob?.cancel()
                 downloadJob = coroutineScope.launch {
                     try {
-                        downloader.download(instance.id, instance.distro.rootfsDownloadUrl).collect { progress ->
-                            downloadProgress = progress
-                            downloadStatus = when {
-                                progress < 0f -> "Downloading archive…"
-                                progress < 0.90f -> "Downloading archive (${(progress / 0.89f * 100).toInt().coerceIn(0, 100)}%)…"
-                                progress < 1f -> "Unpacking and configuring Linux…"
-                                else -> "Verifying installation…"
-                            }
+                        downloader.downloadWithProgress(instance.id, instance.distro.rootfsDownloadUrl).collect { progress ->
+                            downloadProgress = progress.fraction
+                            downloadStatus = progress.message
+                            downloadStage = progress.stage
+                            lastProgressAt = SystemClock.elapsedRealtime()
                         }
 
                         // Verify instance is initialized before launching
@@ -245,7 +258,10 @@ fun HubScreen(
     downloadingInstance?.let { instance ->
         DownloadProgressDialog(
             instance = instance,
-            progress = if (downloadProgress in 0f..0.89f) downloadProgress / 0.89f * 0.98f else -1f,
+            progress = downloadProgress,
+            stage = downloadStage,
+            startedAtMillis = setupStartedAt,
+            lastProgressAtMillis = lastProgressAt,
             error = setupErrors[instance.id],
             onViewLogs = { selectedLogInstance = instance; showLogsDialog = true },
             onRetry = { handleLaunchOrResume(instance) },

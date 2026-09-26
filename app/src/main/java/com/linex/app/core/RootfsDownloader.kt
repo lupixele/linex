@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
@@ -20,6 +21,8 @@ import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+
+data class SetupProgress(val fraction: Float, val message: String, val stage: String)
 
 class RootfsDownloader(private val storageEngine: StorageEngine, private val client: OkHttpClient = defaultClient) {
     companion object {
@@ -104,34 +107,47 @@ class RootfsDownloader(private val storageEngine: StorageEngine, private val cli
     }
 
     /** Download occupies 0..0.89; unpack/configuration 0.90..0.99; only a ready rootfs emits 1. */
-    fun download(instanceId: String, url: String): Flow<Float> = channelFlow {
+    fun download(instanceId: String, url: String): Flow<Float> = downloadWithProgress(instanceId, url).map {
+        when (it.stage) {
+            "Ready" -> 1f
+            "Downloading" -> if (it.fraction < 0) -1f else it.fraction * 0.89f
+            else -> if (it.fraction < 0) -1f else 0.90f + it.fraction * 0.09f
+        }
+    }
+
+    fun downloadWithProgress(instanceId: String, url: String): Flow<SetupProgress> = channelFlow {
       installationLocks.getOrPut(storageEngine.getInstanceDirectory(instanceId).absolutePath) { Mutex() }.withLock {
         if (!android.os.Build.SUPPORTED_ABIS.contains("arm64-v8a")) {
             throw IOException("These Linux images require an ARM64 Android device. No download was started.")
         }
         if (storageEngine.isInstanceInitialized(instanceId)) {
             AppLogger.log(TAG, "Instance is already installed", instanceId)
-            send(1f)
+            send(SetupProgress(1f, "Root filesystem ready", "Ready"))
             return@withLock
         }
         val archive = File(storageEngine.getInstanceDirectory(instanceId), "rootfs.tar.gz")
+        send(SetupProgress(-1f, "Checking the saved archive before reuse", "Checking download"))
         var checkpoint = -1
+        var lastUiPercent = Int.MIN_VALUE
         download(url, archive, { progress ->
             val percent = (progress * 100).toInt()
             if (percent >= 0 && percent / 10 != checkpoint) {
                 checkpoint = percent / 10
                 AppLogger.log(TAG, "Download $percent%", instanceId)
             }
-            trySend(if (progress < 0) -1f else progress * 0.89f)
+            if (percent != lastUiPercent) {
+                trySend(SetupProgress(progress, "Downloading Linux archive", "Downloading"))
+                lastUiPercent = percent
+            }
         }, instanceId)
-        send(0.90f)
-        storageEngine.extractRootfs(archive, storageEngine.getRootfsDirectory(instanceId)) { progress, _ ->
-            trySend(0.90f + progress * 0.09f)
+        send(SetupProgress(-1f, "Preparing extraction", "Extracting"))
+        storageEngine.extractRootfs(archive, storageEngine.getRootfsDirectory(instanceId)) { progress, message ->
+            trySend(SetupProgress(progress, message, "Extracting"))
         }
         if (!storageEngine.isInstanceInitialized(instanceId)) throw IOException("Setup finished without a valid root filesystem")
         if (archive.delete()) File(archive.path + ".complete").delete()
         AppLogger.log(TAG, "Installation complete; ready to start", instanceId)
-        send(1f)
+        send(SetupProgress(1f, "Root filesystem ready", "Ready"))
       }
     }.flowOn(Dispatchers.IO)
 

@@ -11,6 +11,35 @@ import org.tukaani.xz.XZOutputStream
 import org.tukaani.xz.LZMA2Options
 
 class RootfsArchiveTest {
+    @Test fun reportsArchiveBytesAndFinishesAfterExtraction() {
+        val dir = Files.createTempDirectory("linex-progress").toFile()
+        try {
+            val input = archive(dir, listOf("usr/bin/sh" to "shell", "usr/bin/other" to "data"))
+            val updates = mutableListOf<RootfsArchive.Progress>()
+            RootfsArchive.extract(input, File(dir, "root"), onArchiveProgress = { updates.add(it) })
+            assertEquals("Extracting", updates.first().phase)
+            assertEquals("Archive extracted", updates.last().phase)
+            assertEquals(2, updates.last().entries)
+            assertTrue(updates.last().bytesRead > 0)
+            assertTrue(updates.all { it.totalBytes == input.length() && it.bytesRead <= it.totalBytes })
+            assertTrue(updates.zipWithNext().all { (a, b) -> a.bytesRead <= b.bytesRead })
+            assertEquals("data", File(dir, "root/usr/bin/other").readText())
+        } finally { dir.deleteRecursively() }
+    }
+
+    @Test fun corruptArchiveNeverReportsExtracted() {
+        val dir = Files.createTempDirectory("linex-progress-fail").toFile()
+        try {
+            val input = archive(dir, listOf("usr/bin/sh" to "shell"))
+            input.writeBytes(input.readBytes().let { it.copyOf(it.size / 2) })
+            val updates = mutableListOf<RootfsArchive.Progress>()
+            assertThrows(java.io.IOException::class.java) {
+                RootfsArchive.extract(input, File(dir, "root"), onArchiveProgress = { updates.add(it) })
+            }
+            assertFalse(updates.any { it.phase == "Archive extracted" })
+        } finally { dir.deleteRecursively() }
+    }
+
     @Test fun acceptsLiteralSystemdEscapesOnPosix() {
         RootfsArchive.validateArchiveName("/usr/lib/systemd/system/system-systemd\\x2dcryptsetup.slice", "/")
         RootfsArchive.validateArchiveName("../system-systemd\\x2dcryptsetup.slice", "/")
