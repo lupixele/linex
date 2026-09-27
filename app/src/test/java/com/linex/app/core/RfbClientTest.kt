@@ -12,6 +12,35 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class RfbClientTest {
+    @Test fun emptyUpdatesArePacedWithoutPublishingFrames() {
+        ServerSocket(0).use { server ->
+            val error = AtomicReference<Throwable>()
+            val client = RfbClient(server.localPort, "password", { _, _, _ -> fail("Empty updates must not allocate a frame") }, {})
+            val worker = thread { try { client.run() } catch (t: Throwable) { error.set(t) } }
+            try {
+                server.accept().use { socket ->
+                    val (input, output) = handshake(socket)
+                    input.readFully(ByteArray(42))
+                    // An immediately responding server must not create a busy polling loop.
+                    output.writeByte(0); output.writeByte(0); output.writeShort(0)
+                    input.readFully(ByteArray(10))
+                    val start = System.nanoTime()
+                    repeat(3) {
+                        output.writeByte(0); output.writeByte(0); output.writeShort(0)
+                        input.readFully(ByteArray(10))
+                    }
+                    assertTrue("Updates were requested faster than the 15 fps budget",
+                        System.nanoTime() - start >= TimeUnit.MILLISECONDS.toNanos(150))
+                    client.close()
+                }
+            } finally {
+                client.close(); worker.join(2000)
+            }
+            assertFalse(worker.isAlive)
+            assertNull(error.get())
+        }
+    }
+
     @Test fun authenticationMatchesIndependentDesVector() {
         // Independently calculated with .NET DES ECB and manually reversed ASCII password bytes.
         val expected = "b866924125c8eebb9debc1db61c538e2".chunked(2).map { it.toInt(16).toByte() }.toByteArray()

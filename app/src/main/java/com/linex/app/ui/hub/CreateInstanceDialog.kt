@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -21,6 +23,7 @@ import com.linex.app.data.DesktopEnvironment
 import com.linex.app.data.DisplayResolutionMode
 import com.linex.app.data.DistroType
 import com.linex.app.data.LinuxInstance
+import com.linex.app.data.CustomResolution
 import java.util.UUID
 
 @Composable
@@ -34,6 +37,10 @@ fun CreateInstanceDialog(
     val selectedDesktop = existingInstance?.desktop ?: DesktopEnvironment.XFCE4
     var selectedResolution by remember { mutableStateOf(existingInstance?.resolutionMode ?: DisplayResolutionMode.NATIVE_PHONE) }
     var dpiScaling by remember { mutableFloatStateOf(existingInstance?.dpiScaling?.toFloat() ?: 120f) }
+    var customWidth by remember { mutableStateOf((existingInstance?.customWidth ?: 1920).toString()) }
+    var customHeight by remember { mutableStateOf((existingInstance?.customHeight ?: 1080).toString()) }
+    val resolutionError = if (selectedResolution == DisplayResolutionMode.CUSTOM)
+        CustomResolution.error(customWidth, customHeight) else null
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -129,7 +136,7 @@ fun CreateInstanceDialog(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    DisplayResolutionMode.values().filter { it != DisplayResolutionMode.CUSTOM || existingInstance?.resolutionMode == it }.forEach { mode ->
+                    DisplayResolutionMode.values().forEach { mode ->
                         val isSelected = mode == selectedResolution
                         Row(
                             modifier = Modifier
@@ -147,6 +154,32 @@ fun CreateInstanceDialog(
                             Text(text = mode.displayName, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
+
+                    if (selectedResolution == DisplayResolutionMode.CUSTOM) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            OutlinedTextField(
+                                value = customWidth,
+                                onValueChange = { customWidth = it.take(10) },
+                                label = { Text("Width (px)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true, isError = resolutionError != null,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = customHeight,
+                                onValueChange = { customHeight = it.take(10) },
+                                label = { Text("Height (px)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true, isError = resolutionError != null,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Text(resolutionError ?: "Up to 4096 pixels per side and 8 million pixels total.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (resolutionError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("Resolution changes apply on the next session start. Match your screen's aspect ratio to avoid black borders.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                     // DPI Scaling Slider
                     Column {
@@ -182,7 +215,7 @@ fun CreateInstanceDialog(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Button(
-                        enabled = name.isNotBlank(),
+                        enabled = name.isNotBlank() && resolutionError == null,
                         onClick = {
                             val base = existingInstance ?: LinuxInstance(
                                 id = UUID.randomUUID().toString(),
@@ -194,6 +227,8 @@ fun CreateInstanceDialog(
                             val newInstance = base.copy(
                                 name = name.trim(),
                                 resolutionMode = selectedResolution,
+                                customWidth = if (selectedResolution == DisplayResolutionMode.CUSTOM) customWidth.toInt() else base.customWidth,
+                                customHeight = if (selectedResolution == DisplayResolutionMode.CUSTOM) customHeight.toInt() else base.customHeight,
                                 dpiScaling = dpiScaling.toInt()
                             )
                             onCreate(newInstance)

@@ -94,6 +94,7 @@ class ContainerManager(
 
             val rootfsDir = storageEngine.getRootfsDirectory(instance.id)
             val tmpDir = storageEngine.getTmpDirectory(instance.id)
+            refreshGuestDns(tmpDir, logWrapper)
             // Use new credentials and a loopback port for each launch. The guest
             // converts the private secret to TigerVNC's password file format.
             val random = java.security.SecureRandom()
@@ -237,6 +238,11 @@ class ContainerManager(
                     val exitCode = process.waitFor()
                     Log.w(TAG, "Container process exited with code $exitCode")
                     logWrapper("Container exited (code $exitCode)")
+                    if (exitCode == 137 && !stopping) {
+                        val memory = android.app.ActivityManager.MemoryInfo()
+                        (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memory)
+                        logWrapper("Guest was forcibly killed (137/SIGKILL); cause is not identified. Android available memory=${memory.availMem / 1048576} MiB, lowMemory=${memory.lowMemory}. Device logcat is needed to distinguish memory/process-policy kills.")
+                    }
                     launchMutex.withLock {
                         if (containerProcess === process && !stopping) {
                             processController.killForce()
@@ -391,5 +397,29 @@ class ContainerManager(
 
     private fun updateState(id: String, state: ContainerState) {
         _currentState.update { it + (id to state) }
+    }
+
+    private fun refreshGuestDns(tmpDir: File, log: (String) -> Unit) {
+        try {
+            val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+            val network = connectivity.activeNetwork
+            val properties = network?.let(connectivity::getLinkProperties)
+            if (android.os.Build.VERSION.SDK_INT >= 28 && properties?.isPrivateDnsActive == true) {
+                log("Android Private DNS is active; guest libc does not inherit encrypted Android DNS. Keeping existing guest resolver configuration; networking requires device verification.")
+                return
+            }
+            val config = GuestDns.configuration(properties?.dnsServers.orEmpty())
+            val resolver = File(tmpDir, "resolv.conf")
+            val temporary = java.nio.file.Files.createTempFile(tmpDir.toPath(), "resolv-", ".tmp")
+            try {
+                java.nio.file.Files.write(temporary, config.toByteArray())
+                java.nio.file.Files.move(temporary, resolver.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            } finally {
+                java.nio.file.Files.deleteIfExists(temporary)
+            }
+            log("Guest DNS refreshed from the active Android network. Restart the instance after switching networks.")
+        } catch (e: Exception) {
+            log("Could not refresh guest DNS: ${e.message}. Existing resolver configuration retained.")
+        }
     }
 }

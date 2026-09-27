@@ -92,7 +92,13 @@ PROOT_ARGS="$PROOT_ARGS -b /proc"
 PROOT_ARGS="$PROOT_ARGS -b /sys"
 
 # 4. IPC, Temp, and Sockets
+# Android's /dev is not writable by the app. Provide POSIX shared memory
+# through a nested bind rather than trying to create /dev/shm inside the guest.
+SHM_DIR="$TMP_PATH/shm"
+mkdir -p "$SHM_DIR"
+chmod 1777 "$SHM_DIR"
 PROOT_ARGS="$PROOT_ARGS -b $TMP_PATH:/tmp"
+PROOT_ARGS="$PROOT_ARGS -b $SHM_DIR:/dev/shm"
 PROOT_ARGS="$PROOT_ARGS -b $RESOLV_CONF:/etc/resolv.conf"
 PROOT_ARGS="$PROOT_ARGS -b $HOSTS_FILE:/etc/hosts"
 

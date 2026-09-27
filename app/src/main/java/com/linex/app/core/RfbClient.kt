@@ -74,6 +74,7 @@ class RfbClient(
             ready = true
             socket.soTimeout = 0 // An idle desktop legitimately has no updates.
             requestUpdate(false)
+            var lastUpdateRequest = System.nanoTime()
             onStatus("Desktop connected")
             while (!closed.get()) {
                 when (val type = input.readUnsignedByte()) {
@@ -107,7 +108,17 @@ class RfbClient(
                             }
                         }
                         if (rectangles > 0) onFrame(width, height, pixels.copyOf())
+                        // Keep only one framebuffer request in flight and cap the raw
+                        // decoder/snapshot allocation rate. Do not hold writeLock while
+                        // waiting: keyboard and pointer events must remain responsive.
+                        var remaining = FRAME_INTERVAL_NANOS - (System.nanoTime() - lastUpdateRequest)
+                        while (remaining > 0 && !closed.get()) {
+                            TimeUnit.NANOSECONDS.sleep(remaining)
+                            remaining = FRAME_INTERVAL_NANOS - (System.nanoTime() - lastUpdateRequest)
+                        }
+                        if (closed.get()) break
                         requestUpdate(!resized)
+                        lastUpdateRequest = System.nanoTime()
                     }
                     2 -> Unit // Bell
                     3 -> { input.readFully(ByteArray(3)); readText(input) }
@@ -194,6 +205,7 @@ class RfbClient(
     }
 
     companion object {
+        private const val FRAME_INTERVAL_NANOS = 1_000_000_000L / 15
         private fun checkSize(width: Int, height: Int) {
             if (width !in 1..4096 || height !in 1..4096 || width.toLong() * height > 8_000_000)
                 throw IOException("Unsupported desktop size ${width}x$height")

@@ -68,11 +68,22 @@ trap 'exit 143' TERM
 trap 'exit 130' INT
 trap 'exit 129' HUP
 
-# 2. Setup POSIX Shared Memory (/dev/shm)
-mkdir -p /tmp/shm
-chmod 1777 /tmp/shm
-if [ ! -d /dev/shm ]; then
-    ln -s /tmp/shm /dev/shm 2>/dev/null || true
+# 2. Verify the host runner supplied writable POSIX shared memory.
+# A symlink in Android's read-only /dev cannot repair a missing bind.
+if [ ! -d /dev/shm ] || [ ! -w /dev/shm ] || [ ! -x /dev/shm ]; then
+    echo "[Linex:ContainerInit] ERROR: /dev/shm is unavailable or not writable. Restart the instance to refresh runtime mounts."
+    exit 1
+fi
+echo "[Linex:ContainerInit] Shared memory directory is writable."
+
+# 3. Setup Runtime Directory
+echo "[Linex:Network] Checking guest DNS (a failed check does not stop desktop startup)..."
+if command -v timeout >/dev/null 2>&1 && command -v getent >/dev/null 2>&1; then
+    if timeout 8 getent ahosts example.com >/dev/null 2>&1; then
+        echo "[Linex:Network] Guest DNS lookup succeeded. This does not verify browser or HTTPS connectivity."
+    else
+        echo "[Linex:Network] Guest DNS lookup failed or timed out. Check the active Android network, VPN and resolver settings."
+    fi
 fi
 
 # 3. Setup Runtime Directory

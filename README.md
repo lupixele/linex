@@ -4,6 +4,8 @@ Android app for managing rootless Linux instances with PRoot. Package: `com.line
 
 ## Current development build
 
+`0.3.1-dev` adds manual resolution fields (apply on restart), fullscreen/landscape controls, a dedicated /dev/shm mount for browsers, active-network DNS refresh and 15fps frame pacing. Guest exit137 remains under diagnosis. Build signing after the PC reset differs from the published APK; this build is not an in-place update until the original key is recovered.
+
 `0.3.0-dev` adds an embedded RFB desktop viewer and an authenticated loopback TigerVNC display server inside the guest. First launch installs missing TigerVNC packages using apt (internet and working distribution repositories required). Existing installed instances are reused. POSIX signal traps and supervisor exit status are fixed.
 
 `0.2.9-dev` displays live archive-read progress, extracted entry count, elapsed time and inactivity age, keeps the screen awake during setup, and removes redundant extraction filesystem work. Archive-read percentage is not a time estimate; Android speedup is not yet measured.

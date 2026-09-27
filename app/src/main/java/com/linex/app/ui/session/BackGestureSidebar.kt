@@ -32,7 +32,11 @@ fun BackGestureSidebar(
     onToggleTouchMode: () -> Unit,
     displayConnected: Boolean = false,
     onDetach: () -> Unit = {},
-    onViewLogs: () -> Unit = {}
+    onViewLogs: () -> Unit = {},
+    fullscreen: Boolean = false,
+    onToggleFullscreen: () -> Unit = {},
+    landscape: Boolean = false,
+    onToggleLandscape: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier
@@ -138,6 +142,15 @@ fun BackGestureSidebar(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Section 2: Input & Peripherals
+            OutlinedButton(onClick = onToggleFullscreen, modifier = Modifier.fillMaxWidth()) {
+                Text(if (fullscreen) "Exit fullscreen" else "Enter fullscreen")
+            }
+            OutlinedButton(onClick = onToggleLandscape, modifier = Modifier.fillMaxWidth()) {
+                Text(if (landscape) "Use device rotation" else "Use landscape")
+            }
+            Text("The desktop keeps its aspect ratio. For fewer borders, choose a resolution matching your screen in instance settings. Back exits fullscreen.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
             Text(
                 text = "INPUT & DISPLAY",
                 style = MaterialTheme.typography.labelSmall,

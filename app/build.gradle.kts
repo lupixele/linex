@@ -14,8 +14,8 @@ android {
         applicationId = "com.linex.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "0.3.0-dev"
+        versionCode = 13
+        versionName = "0.3.1-dev"
 
         ndk {
             abiFilters.addAll(setOf("arm64-v8a", "x86_64"))
