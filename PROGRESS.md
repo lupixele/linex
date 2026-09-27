@@ -7,17 +7,14 @@ Working 0.3.1-dev (code13), based on released main f274964. User confirms embedd
 Log proves Chromium fatal missing /dev/shm, then guest exit137; no evidence establishes the kill cause. Shell syntax passes. 39 tests pass; debug assembly and lint succeed after correcting fullscreen API reference. New-key APK signature verifies but differs from installed release. No Android device test. Private DNS cannot be inherited by guest libc; existing settings retained with diagnostic rather than claiming encrypted support.
 
 ## Next Steps
-1. Local validation complete (39 tests/build/lint); changes ready for original-key rebuild and publication.
-2. Recover original Android debug.keystore to update installed app without data loss. New reset-generated key differs from released cert51fd9d7fc672767cfd2d0bd8294bfc7448498855fb2b3569010ac87ec20905e3.
-3. Reauthenticate GitHub CLI (reset token invalid), then publish source/release once signing situation is resolved.
-4. Verify custom resolution after restart, fullscreen/rotation, browser shared memory/DNS and any remaining guest kill on Android.
+1. Publish new-key 0.3.1-dev; user accepts fresh install and no restoration of old instance data.
+2. Verify custom resolution after restart, fullscreen/rotation, browser shared memory/DNS and any remaining guest kill on Android.
 
 ## Open Questions / Blockers
-- Old signing key not found in normal profile or named backup profile; user asked for other location. Do not advise uninstalling existing instance to test new-key APK.
-- GitHub authentication invalid after reset. JDK17, Git and gh restored; Gradle dependencies downloading again.
-- Exit137 cause remains unconfirmed; OOM/process-policy attribution needs device logs. User says only desktop/browser stops, not Linex.
+- Exit137 cause remains unconfirmed; memory/process-policy attribution needs device logs. User says desktop/browser stops, not Linex.
+- New signing key is backed up at P:/Android/Signing/linex-development.keystore outside Git. Old app must be uninstalled before installing new-key APK.
+- JDK17, Git, gh restored and GitHub authenticated. SDK34/build-tools34, NDK26.1 and CMake3.22.1 present; ANDROID_HOME and tool paths configured.
 - Generated files already tracked remain excluded; user raw logs remain private/untracked.
-
 ## Last Updated
 2026-09-27
 ## Recent Decisions
@@ -27,3 +24,4 @@ Log proves Chromium fatal missing /dev/shm, then guest exit137; no evidence esta
 - [2026-09-26] Device log reached 359,000 entries in 12m10s without error. Added archive-byte/stage progress, elapsed/inactivity UI, active-setup screen wake, and removed duplicate canonical checks/repeated parent creation. No Android speedup claimed without measurement.
 - [2026-09-26] User requires the desktop entirely inside Linex. Device extraction completed at 671,719 entries (~21m22s); startup failed at POSIX SIGTERM trap and absent display server. Implement embedded authenticated loopback RFB viewer plus guest TigerVNC; preserve installed rootfs.
 - [2026-09-27] Fixed confirmed missing guest shared-memory mount; added custom resolution/fullscreen, network DNS diagnostics and bounded display cadence. Reset lost usable GitHub login and original signing key; new key cannot update released APK.
+- [2026-09-27] User explicitly accepts new development signing key and no restore. Backed up key outside Git; GitHub login restored; publish 0.3.1-dev with reinstall notice.
