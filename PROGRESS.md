@@ -1,15 +1,15 @@
 # Linex progress
 
 ## Current State
-0.3.3-dev published; 0.3.4-dev adds per-instance 15/30/60/90/120/144 FPS settings through viewer and TigerVNC server, with Android refresh preference. Foreground service owns setup/copy/delete, notifications expose phase/count progress, and UI dismissal no longer cancels work. Interrupted operations are reported on next launch.
+0.4.0-dev built: landscape fullscreen sessions, native landscape geometry, per-instance text resource overlay, hardware input and touchpad gestures, and default/recommended/custom advisory RAM budgets. Background setup/copy/delete and per-instance FPS15–144 remain available. Prior guest SIGKILL remains unconfirmed pending Android system logs.
 
 ## Verification
-Background ownership regression tests added. 54 tests pass; debug assembly succeeds; lint has 0 errors and 32 warnings. APK signature matches 0.3.1-dev. JDK17 and Gradle cache restored after reset. Android screen-off and notification verification still required.
+72 tests pass; debug assembly succeeds; lint has 0 errors and 32 warnings. APK signature matches 0.3.1-dev through 0.3.4-dev. Input/geometry/metrics/RAM regression checks added and independent review findings fixed. Physical-device fullscreen, hardware/IME input, gestures and overlay/background behavior still need verification.
 
 ## Next Steps
-1. Verify selected FPS and delayed-crash behavior on device.
-2. Verify background download/extraction, notification cancel/open and screen-off behavior on Android.
-3. Recheck guest browser/DNS and exit137 using device logs.
+1. Verify fullscreen, sidebar focus, keyboard/mouse, touchpad and resource overlay on device.
+2. Verify background tasks, notifications, selected FPS and screen-off behavior.
+3. Capture Android system logcat to identify who sends guest SIGKILL137.
 
 ## Open Questions / Blockers
 - Guest exit137 cause remains unconfirmed; no Android device attached.
@@ -33,3 +33,5 @@ Background ownership regression tests added. 54 tests pass; debug assembly succe
 - [2026-09-30] Delayed crash log establishes guest SIGKILL137, not the killer. Fixed viewer allocation/hidden work, process-exit detection, metadata races and cancellation cleanup; lightweight XFCE and bounded logging. 50 tests plus shell regression/build/lint pass; same signing key. See DELAYED_CRASH_AUDIT.md.
 - [2026-09-30] Published v0.3.3-dev and pushed306d2bf to main. Root cause of external guest SIGKILL remains unconfirmed pending device system logs; do not claim crash resolved from build success.
 - [2026-09-30] Added per-instance FPS presets15-144; preserve default15 for existing instances, configure both RFB pacing and TigerVNC FrameRate, request supported Android refresh and restore preference on leaving. Hardware FPS not measured.
+- [2026-09-30] v0.3.4-dev published. New launch log exits137 after11s; Firefox was manually opened and user also reports spontaneous crashes. Dropped saved-session theory; added5s startup samples and app-UID process lower bound. Android phantom-process trimming remains a hypothesis pending system logcat; no USB device attached.
+- [2026-09-30] Implemented landscape fullscreen default, Back/sidebar controls, persistent resource overlay (actual frame FPS/visible guest RSS/CPU; omit GPU), hardware keyboard/mouse and touchpad gestures. RAM selectors are advisory planning targets, preserving legacy settings.72 tests/build pass, lint0 errors32 warnings; same signing key. Device verification and guest SIGKILL source remain pending.
