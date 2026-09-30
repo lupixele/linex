@@ -64,7 +64,7 @@ class EmbeddedDesktopView(context: Context) : View(context) {
         keepScreenOn = true
         contentDescription = "Linux desktop. Touch to click or drag; use Keyboard to type."
     }
-    fun connect(endpoint: DisplayEndpoint) {
+    fun connect(endpoint: DisplayEndpoint, targetFps: Int = 15) {
         if (worker != null || disposed) return
         displayVisible = windowVisibility == VISIBLE
         worker = Thread({
@@ -75,7 +75,7 @@ class EmbeddedDesktopView(context: Context) : View(context) {
                     pending.getAndSet(Frame(w, h, pixels, connection))?.release()
                     removeCallbacks(applyFrame)
                     if (disposed) pending.getAndSet(null)?.release() else post(applyFrame)
-                }, { status -> post { if (!disposed) onConnection(false, status) } })
+                }, { status -> post { if (!disposed) onConnection(false, status) } }, targetFps)
                 client = connection
                 connection.pauseUpdates(!displayVisible)
                 if (disposed) { connection.close(); break }

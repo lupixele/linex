@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.linex.app.data.DesktopEnvironment
+import com.linex.app.core.DesktopFrameRate
 import com.linex.app.data.DisplayResolutionMode
 import com.linex.app.data.DistroType
 import com.linex.app.data.LinuxInstance
@@ -39,6 +40,8 @@ fun CreateInstanceDialog(
     var dpiScaling by remember { mutableFloatStateOf(existingInstance?.dpiScaling?.toFloat() ?: 120f) }
     var customWidth by remember { mutableStateOf((existingInstance?.customWidth ?: 1920).toString()) }
     var customHeight by remember { mutableStateOf((existingInstance?.customHeight ?: 1080).toString()) }
+    var desktopFps by remember { mutableIntStateOf(DesktopFrameRate.normalized(existingInstance?.desktopFps ?: 15)) }
+    var fpsMenuExpanded by remember { mutableStateOf(false) }
     val resolutionError = if (selectedResolution == DisplayResolutionMode.CUSTOM)
         CustomResolution.error(customWidth, customHeight) else null
 
@@ -181,6 +184,36 @@ fun CreateInstanceDialog(
                     Text("Resolution changes apply on the next session start. Match your screen's aspect ratio to avoid black borders.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Desktop frame rate", style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold)
+                        Box {
+                            OutlinedButton(
+                                onClick = { fpsMenuExpanded = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Up to $desktopFps FPS")
+                            }
+                            DropdownMenu(
+                                expanded = fpsMenuExpanded,
+                                onDismissRequest = { fpsMenuExpanded = false }
+                            ) {
+                                DesktopFrameRate.options.forEach { fps ->
+                                    DropdownMenuItem(
+                                        text = { Text(if (fps == 15) "$fps FPS · Battery saver" else "$fps FPS") },
+                                        leadingIcon = { RadioButton(selected = desktopFps == fps, onClick = null) },
+                                        onClick = { desktopFps = fps; fpsMenuExpanded = false }
+                                    )
+                                }
+                            }
+                        }
+                        Text(
+                            "Sets a frame-rate cap, not guaranteed FPS. Actual smoothness depends on your display, resolution and Linux workload. Higher rates use more CPU and battery. Applies on the next session start.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
                     // DPI Scaling Slider
                     Column {
                         Row(
@@ -229,7 +262,8 @@ fun CreateInstanceDialog(
                                 resolutionMode = selectedResolution,
                                 customWidth = if (selectedResolution == DisplayResolutionMode.CUSTOM) customWidth.toInt() else base.customWidth,
                                 customHeight = if (selectedResolution == DisplayResolutionMode.CUSTOM) customHeight.toInt() else base.customHeight,
-                                dpiScaling = dpiScaling.toInt()
+                                dpiScaling = dpiScaling.toInt(),
+                                desktopFps = desktopFps
                             )
                             onCreate(newInstance)
                         },

@@ -64,7 +64,12 @@ start_embedded_display() {
     esac
     export DISPLAY=:0
     echo "[Linex:Display] Starting authenticated local display at ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}..."
-    "$DISPLAY_SERVER" :0 -rfbport "$LINEX_VNC_PORT" -localhost yes \
+    case "${LINEX_DESKTOP_FPS:-15}" in
+        15|30|60|90|120|144) DISPLAY_FPS="${LINEX_DESKTOP_FPS:-15}" ;;
+        *) DISPLAY_FPS=15 ;;
+    esac
+    echo "[Linex:Display] Frame limit: $DISPLAY_FPS FPS"
+    "$DISPLAY_SERVER" :0 -FrameRate "$DISPLAY_FPS" -rfbport "$LINEX_VNC_PORT" -localhost yes \
         -SecurityTypes VncAuth -PasswordFile /tmp/linex-vnc.passwd \
         -geometry "${DISPLAY_WIDTH}x${DISPLAY_HEIGHT}" -depth 24 \
         -AlwaysShared -ac -nolisten tcp &

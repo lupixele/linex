@@ -201,6 +201,7 @@ class ContainerManager(
             env["SHELL"] = "/bin/bash"
             env["LINEX_EMBEDDED_DISPLAY"] = "1"
             env["LINEX_VNC_PORT"] = port.toString()
+            env["LINEX_DESKTOP_FPS"] = DesktopFrameRate.normalized(instance.desktopFps).toString()
             pb.redirectErrorStream(true)
 
             val process = pb.start()

@@ -21,8 +21,10 @@ class RfbClient(
     private val port: Int,
     private val password: String,
     private val onFrame: (width: Int, height: Int, pixels: IntArray) -> Unit,
-    private val onStatus: (String) -> Unit
+    private val onStatus: (String) -> Unit,
+    targetFps: Int = 15
 ) : AutoCloseable {
+    private val frameIntervalNanos = DesktopFrameRate.intervalNanos(targetFps)
     private val closed = AtomicBoolean(false)
     private val started = AtomicBoolean(false)
     private val socket = Socket()
@@ -120,10 +122,10 @@ class RfbClient(
                         // Keep only one framebuffer request in flight and cap the raw
                         // decoder/snapshot allocation rate. Do not hold writeLock while
                         // waiting: keyboard and pointer events must remain responsive.
-                        var remaining = FRAME_INTERVAL_NANOS - (System.nanoTime() - lastUpdateRequest)
+                        var remaining = frameIntervalNanos - (System.nanoTime() - lastUpdateRequest)
                         while (remaining > 0 && !closed.get()) {
                             TimeUnit.NANOSECONDS.sleep(remaining)
-                            remaining = FRAME_INTERVAL_NANOS - (System.nanoTime() - lastUpdateRequest)
+                            remaining = frameIntervalNanos - (System.nanoTime() - lastUpdateRequest)
                         }
                         if (!awaitVisible()) break
                         requestUpdate(!resized)
@@ -232,7 +234,6 @@ class RfbClient(
     }
 
     companion object {
-        private const val FRAME_INTERVAL_NANOS = 1_000_000_000L / 15
         private fun checkSize(width: Int, height: Int) {
             if (width !in 1..4096 || height !in 1..4096 || width.toLong() * height > 8_000_000)
                 throw IOException("Unsupported desktop size ${width}x$height")

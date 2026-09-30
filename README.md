@@ -4,6 +4,8 @@ Android app for managing rootless Linux instances with PRoot. Package: `com.line
 
 ## Current development build
 
+`0.3.4-dev` adds per-instance desktop FPS limits: 15, 30, 60, 90, 120 and 144. Edit instance settings while stopped, save, then launch. The viewer uses the selected pacing and requests a supported Android refresh rate for the session; actual FPS depends on hardware/workload and the OS may ignore refresh preferences. Existing instances retain 15 FPS.
+
 `0.3.3-dev` reduces framebuffer allocation and hidden-view rendering, disables incompatible XFCE applets/compositing, fixes cancellation cleanup and concurrent instance saves, and detects guest exit independently of log EOF. Adds bounded log backlog and host/guest diagnostics. Delayed guest SIGKILL remains unattributed; see DELAYED_CRASH_AUDIT.md.
 
 `0.3.2-dev` moves download, extraction/configuration, clone and delete work into the foreground service. Notifications show stages, percentages or file counts, completion and errors; setup/copy can be cancelled. Leaving the screen or dismissing progress keeps work running. Enable notification permission to see progress. Force-stop or system process termination interrupts work; reopening reports interruption and completed archives remain available for retry. This build uses the same signing key as 0.3.1-dev and can update it in place. Device verification of screen-off behavior remains required.

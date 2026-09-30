@@ -49,6 +49,19 @@ fun SessionScreen(
     var fullscreen by rememberSaveable(instance.id) { mutableStateOf(false) }
     var landscape by rememberSaveable(instance.id) { mutableStateOf(false) }
     val activity = LocalContext.current.findActivity()
+    DisposableEffect(activity, instance.desktopFps) {
+        val window = activity?.window
+        val previous = window?.attributes?.preferredRefreshRate
+        if (window != null) {
+            val rates = window.decorView.display?.supportedModes?.map { it.refreshRate }.orEmpty()
+            val requested = com.linex.app.core.DesktopFrameRate.preferredRefresh(instance.desktopFps, rates)
+            window.attributes = window.attributes.apply { preferredRefreshRate = requested }
+            AppLogger.log("Display", "Frame limit ${com.linex.app.core.DesktopFrameRate.normalized(instance.desktopFps)} FPS; requested display refresh $requested Hz", instance.id)
+        }
+        onDispose {
+            if (window != null && previous != null) window.attributes = window.attributes.apply { preferredRefreshRate = previous }
+        }
+    }
     DisposableEffect(activity, fullscreen) {
         val window = activity?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
@@ -144,7 +157,7 @@ fun SessionScreen(
                                                 lastStatus = message
                                             }
                                         }
-                                        view.connect(endpoint)
+                                        view.connect(endpoint, instance.desktopFps)
                                     }
                                 }
                             )

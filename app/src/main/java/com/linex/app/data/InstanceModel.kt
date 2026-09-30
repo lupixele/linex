@@ -94,5 +94,6 @@ data class LinuxInstance(
     val pointerLockEnabled: Boolean = true,
     val state: ContainerState = ContainerState.STOPPED,
     val ramAllocatedMb: Int = 2048,
-    val snapshotPath: String? = null
+    val snapshotPath: String? = null,
+    val desktopFps: Int = 15
 )
