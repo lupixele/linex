@@ -29,3 +29,4 @@ Background ownership regression tests added. 45 tests pass; debug assembly succe
 - [2026-09-27] Fixed confirmed missing guest shared-memory mount; added custom resolution/fullscreen, network DNS diagnostics and bounded display cadence. Reset lost usable GitHub login and original signing key; new key cannot update released APK.
 - [2026-09-27] User explicitly accepts new development signing key and no restore. Backed up key outside Git; GitHub login restored; publish 0.3.1-dev with reinstall notice.
 - [2026-09-30] Move setup/copy/delete to service-owned work with foreground notification progress, explicit cancellation and persisted interruption; restore JDK after reset and retain existing signing key.
+- [2026-09-30] Published v0.3.2-dev APK and pushed bda859f to main; 45 tests passed, lint 0 errors/32 warnings, signature matches v0.3.1-dev. Android background behavior still requires device verification.
