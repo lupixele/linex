@@ -14,6 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.linex.app.core.TouchInputMode
@@ -36,7 +38,10 @@ fun BackGestureSidebar(
     fullscreen: Boolean = false,
     onToggleFullscreen: () -> Unit = {},
     landscape: Boolean = false,
-    onToggleLandscape: () -> Unit = {}
+    onToggleLandscape: () -> Unit = {},
+    resourceMonitor: Boolean = false,
+    onToggleResourceMonitor: () -> Unit = {},
+    ramBudgetMb: Int? = null
 ) {
     Surface(
         modifier = Modifier
@@ -148,7 +153,7 @@ fun BackGestureSidebar(
             OutlinedButton(onClick = onToggleLandscape, modifier = Modifier.fillMaxWidth()) {
                 Text(if (landscape) "Use device rotation" else "Use landscape")
             }
-            Text("The desktop keeps its aspect ratio. For fewer borders, choose a resolution matching your screen in instance settings. Back exits fullscreen.",
+            Text("Back opens these controls. Native resolution fills a landscape screen; custom resolutions keep their aspect ratio.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
             Text(
@@ -185,6 +190,30 @@ fun BackGestureSidebar(
                 Text(label)
             }
 
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (currentTouchMode == TouchInputMode.TRACKPAD_EMULATION)
+                    "Slide to move the cursor. Tap for left click; tap with two fingers for right click. Scroll with two fingers. Hold, then move to drag."
+                else "Touch the desktop to click or drag. Switch to touchpad for a movable cursor, scrolling and right click.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text("USB and Bluetooth keyboards and mice work in either mode. Android keeps its navigation and system shortcuts.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider()
+            Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Resource monitor", style = MaterialTheme.typography.titleSmall)
+                    Text("Text over the desktop", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = resourceMonitor, onCheckedChange = { onToggleResourceMonitor() },
+                    modifier = Modifier.semantics { contentDescription = "Resource monitor overlay" })
+            }
+            Text("FPS counts new desktop frames; an idle screen can show 0. RAM and CPU cover visible Linux processes only. Shared RAM pages may be counted twice; CPU uses 100% per core. Unsupported metrics, including GPU, are omitted.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
             if (!displayConnected) {
                 Text("Input controls require a connected desktop display.", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -202,6 +231,7 @@ fun BackGestureSidebar(
                 Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Display: ${instance.resolutionMode.displayName}", style = MaterialTheme.typography.labelSmall)
                     Text("State: ${instance.state.name}", style = MaterialTheme.typography.labelSmall)
+                    ramBudgetMb?.let { Text("RAM budget: $it MiB · advisory", style = MaterialTheme.typography.labelSmall) }
                 }
             }
         }

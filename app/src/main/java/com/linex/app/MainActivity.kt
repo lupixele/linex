@@ -152,6 +152,7 @@ class MainActivity : ComponentActivity() {
                         SessionScreen(
                             instance = session,
                             endpoint = manager?.getDisplayEndpoint(session.id),
+                            processGroup = manager?.getProcessGroup(session.id),
                             onSuspend = {
                                 if (manager?.suspendActiveInstance() == true) sessionId = null
                                 else message("Could not pause the session. See instance logs.")

@@ -4,6 +4,10 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.ActivityInfo
+import android.os.Build
+import android.view.WindowManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -18,6 +22,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -36,7 +42,8 @@ fun SessionScreen(
     onShutdown: () -> Unit,
     onRestart: () -> Unit,
     onDetach: () -> Unit,
-    endpoint: DisplayEndpoint? = null
+    endpoint: DisplayEndpoint? = null,
+    processGroup: Int? = null
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -44,11 +51,32 @@ fun SessionScreen(
     var retry by remember { mutableIntStateOf(0) }
     var connected by remember(instance.id, endpoint, retry) { mutableStateOf(false) }
     var status by remember(instance.id, endpoint, retry) { mutableStateOf("Preparing desktop. First startup may install display packages; progress is in instance logs.") }
-    var trackpad by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val preferences = remember(context) { context.getSharedPreferences("desktop_controls", Context.MODE_PRIVATE) }
+    var trackpad by rememberSaveable(instance.id) { mutableStateOf(preferences.getBoolean("trackpad.${instance.id}", false)) }
+    var showMonitor by rememberSaveable(instance.id) { mutableStateOf(preferences.getBoolean("monitor.${instance.id}", false)) }
     var desktop by remember { mutableStateOf<EmbeddedDesktopView?>(null) }
-    var fullscreen by rememberSaveable(instance.id) { mutableStateOf(false) }
-    var landscape by rememberSaveable(instance.id) { mutableStateOf(false) }
-    val activity = LocalContext.current.findActivity()
+    var fullscreen by rememberSaveable(instance.id) { mutableStateOf(true) }
+    var landscape by rememberSaveable(instance.id) { mutableStateOf(true) }
+    val activity = context.findActivity()
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var sessionVisible by remember(lifecycle) { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
+    val controlsVisible = drawerState.currentValue != DrawerValue.Closed || drawerState.targetValue != DrawerValue.Closed
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val totalRamMb = remember(context) {
+        val memory = android.app.ActivityManager.MemoryInfo()
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memory)
+        memory.totalMem / 1048576
+    }
+    val budgetMb = com.linex.app.core.MemoryBudget.resolveMb(instance, totalRamMb)
+    DisposableEffect(lifecycle, desktop) {
+        val observer = LifecycleEventObserver { _, _ ->
+            sessionVisible = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+            if (!sessionVisible) desktop?.releaseInput()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     DisposableEffect(activity, instance.desktopFps) {
         val window = activity?.window
         val previous = window?.attributes?.preferredRefreshRate
@@ -62,21 +90,41 @@ fun SessionScreen(
             if (window != null && previous != null) window.attributes = window.attributes.apply { preferredRefreshRate = previous }
         }
     }
-    DisposableEffect(activity, fullscreen) {
+    DisposableEffect(activity, fullscreen, lifecycle) {
         val window = activity?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         val oldBehavior = controller?.systemBarsBehavior
-        if (window != null && controller != null) {
+        val oldCutout = if (Build.VERSION.SDK_INT >= 28) window?.attributes?.layoutInDisplayCutoutMode else null
+        fun applyFullscreen() {
+            if (window == null || controller == null) return
             WindowCompat.setDecorFitsSystemWindows(window, !fullscreen)
+            if (Build.VERSION.SDK_INT >= 28) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode = if (fullscreen) WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                        else oldCutout ?: WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                }
+            }
             if (fullscreen) {
                 controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 controller.hide(WindowInsetsCompat.Type.systemBars())
             } else controller.show(WindowInsetsCompat.Type.systemBars())
         }
+        if (window != null && controller != null) {
+            applyFullscreen()
+        }
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) applyFullscreen() }
+        val focusListener = android.view.ViewTreeObserver.OnWindowFocusChangeListener { focused ->
+            if (focused && fullscreen) applyFullscreen()
+        }
+        lifecycle.addObserver(observer)
+        window?.decorView?.viewTreeObserver?.addOnWindowFocusChangeListener(focusListener)
         onDispose {
+            lifecycle.removeObserver(observer)
+            window?.decorView?.viewTreeObserver?.takeIf { it.isAlive }?.removeOnWindowFocusChangeListener(focusListener)
             if (window != null && controller != null) {
                 controller.show(WindowInsetsCompat.Type.systemBars())
                 WindowCompat.setDecorFitsSystemWindows(window, true)
+                if (Build.VERSION.SDK_INT >= 28 && oldCutout != null) window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = oldCutout }
                 oldBehavior?.let { controller.systemBarsBehavior = it }
             }
         }
@@ -86,13 +134,17 @@ fun SessionScreen(
         if (landscape) activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         onDispose { if (previous != null) activity?.requestedOrientation = previous }
     }
-    LaunchedEffect(drawerState.isOpen, showLogs) {
-        if (drawerState.isOpen || showLogs) desktop?.releaseInput()
+    LaunchedEffect(controlsVisible, showLogs, desktop, sessionVisible) {
+        desktop?.inputEnabled = !controlsVisible && !showLogs && sessionVisible
+        if (controlsVisible || showLogs || !sessionVisible) {
+            desktop?.releaseInput()
+            desktop?.clearFocus()
+        }
+        else if (sessionVisible) desktop?.requestFocus()
     }
     BackHandler {
         if (drawerState.isOpen) scope.launch { drawerState.close() }
-        else if (fullscreen) fullscreen = false
-        else onDetach()
+        else scope.launch { drawerState.open() }
     }
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -101,20 +153,37 @@ fun SessionScreen(
             BackGestureSidebar(
                 instance = instance,
                 currentTouchMode = if (trackpad) TouchInputMode.TRACKPAD_EMULATION else TouchInputMode.DIRECT_TOUCH,
-                isKeyboardVisible = false,
+                isKeyboardVisible = keyboardVisible,
                 onResume = { scope.launch { drawerState.close() } },
                 onSuspend = onSuspend,
                 onRestart = onRestart,
                 onShutdown = onShutdown,
-                onToggleKeyboard = { desktop?.toggleKeyboard(); scope.launch { drawerState.close() } },
-                onToggleTouchMode = { trackpad = !trackpad; desktop?.trackpadMode = trackpad },
+                onToggleKeyboard = {
+                    val hide = keyboardVisible
+                    scope.launch {
+                        drawerState.close()
+                        desktop?.requestFocus()
+                        if (hide) desktop?.hideKeyboard() else desktop?.showKeyboard()
+                    }
+                },
+                onToggleTouchMode = {
+                    trackpad = !trackpad
+                    preferences.edit().putBoolean("trackpad.${instance.id}", trackpad).apply()
+                    desktop?.trackpadMode = trackpad
+                },
                 displayConnected = connected,
                 onDetach = onDetach,
                 onViewLogs = { showLogs = true },
                 fullscreen = fullscreen,
                 onToggleFullscreen = { fullscreen = !fullscreen; scope.launch { drawerState.close() } },
                 landscape = landscape,
-                onToggleLandscape = { landscape = !landscape }
+                onToggleLandscape = { landscape = !landscape },
+                resourceMonitor = showMonitor,
+                onToggleResourceMonitor = {
+                    showMonitor = !showMonitor
+                    preferences.edit().putBoolean("monitor.${instance.id}", showMonitor).apply()
+                },
+                ramBudgetMb = budgetMb
             )
         }
     ) {
@@ -125,7 +194,7 @@ fun SessionScreen(
                     title = { Text(instance.name, maxLines = 1) },
                     navigationIcon = { IconButton(onClick = onDetach) { Icon(Icons.Default.ArrowBack, "Back to instances") } },
                     actions = {
-                        TextButton(onClick = { desktop?.toggleKeyboard() }, enabled = connected) { Text("Keyboard") }
+                        TextButton(onClick = { if (keyboardVisible) desktop?.hideKeyboard() else desktop?.showKeyboard() }, enabled = connected) { Text("Keyboard") }
                         IconButton(onClick = { fullscreen = true }) { Icon(Icons.Default.Fullscreen, "Enter fullscreen") }
                         IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Default.Menu, "Session controls") }
                     }
@@ -171,8 +240,16 @@ fun SessionScreen(
                 FilledIconButton(
                     onClick = { scope.launch { drawerState.open() } },
                     modifier = Modifier.align(Alignment.TopEnd).displayCutoutPadding().padding(8.dp)
-                ) { Icon(Icons.Default.Menu, "Session controls and exit fullscreen") }
+                ) { Icon(Icons.Default.Menu, "Session controls") }
             }
+            SessionResourceOverlay(
+                view = desktop,
+                processGroup = processGroup,
+                enabled = showMonitor && connected,
+                sessionVisible = sessionVisible && !showLogs,
+                modifier = Modifier.align(Alignment.TopStart).displayCutoutPadding().statusBarsPadding()
+                    .padding(start = 8.dp, top = if (fullscreen) 8.dp else 72.dp)
+            )
         }
     }
     if (showLogs) LogViewerDialog(selectedInstance = instance, onDismiss = { showLogs = false })

@@ -38,6 +38,8 @@ class ProcessController {
         activePgid = -1
     }
 
+    @Synchronized fun getActiveProcessGroup(): Int? = activePgid.takeIf { it > 0 }
+
     private fun signalTarget(): Int {
         // This group was verified after the launcher completed setsid. Keep it while
         // stopping so remaining children can be killed even if their leader exits.

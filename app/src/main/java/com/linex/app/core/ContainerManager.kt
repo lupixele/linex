@@ -3,7 +3,6 @@ package com.linex.app.core
 import android.content.Context
 import android.util.Log
 import com.linex.app.data.ContainerState
-import com.linex.app.data.DisplayResolutionMode
 import com.linex.app.data.LinuxInstance
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +34,8 @@ class ContainerManager(
     @Volatile private var displayEndpoint: DisplayEndpoint? = null
     fun getDisplayEndpoint(instanceId: String): DisplayEndpoint? =
         if (activeInstance?.id == instanceId) displayEndpoint else null
+    fun getProcessGroup(instanceId: String): Int? =
+        if (activeInstance?.id == instanceId && containerProcess?.isAlive == true) processController.getActiveProcessGroup() else null
     private var logReadingJob: Job? = null
     private val launchMutex = Mutex()
     private val managerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -47,21 +48,16 @@ class ContainerManager(
      * Resolves display geometry based on selected profile.
      */
     fun calculateDisplayGeometry(instance: LinuxInstance): Pair<Int, Int> {
-        return when (instance.resolutionMode) {
-            DisplayResolutionMode.NATIVE_PHONE -> {
-                val dm = context.resources.displayMetrics
-                Pair(dm.widthPixels, dm.heightPixels)
-            }
-            DisplayResolutionMode.FULL_HD_1080P -> Pair(1920, 1080)
-            DisplayResolutionMode.HD_720P -> Pair(1280, 720)
-            DisplayResolutionMode.DEX_AUTO -> {
-                // Default 1080p for external display detection
-                Pair(1920, 1080)
-            }
-            DisplayResolutionMode.CUSTOM -> {
-                Pair(instance.customWidth, instance.customHeight)
-            }
+        val windows = context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager
+        val size = if (android.os.Build.VERSION.SDK_INT >= 30) {
+            windows.maximumWindowMetrics.bounds.let { it.width() to it.height() }
+        } else {
+            val metrics = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            windows.defaultDisplay.getRealMetrics(metrics)
+            metrics.widthPixels to metrics.heightPixels
         }
+        return DesktopGeometry.resolve(instance, size.first, size.second)
     }
 
     /**
@@ -216,11 +212,16 @@ class ContainerManager(
             processController.setActiveProcess(pid)
             logWrapper("Container process initialized with isolated group $pid")
             logWrapper("Runtime: Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}), ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, app ${com.linex.app.BuildConfig.VERSION_NAME}")
+            val deviceMemory = android.app.ActivityManager.MemoryInfo()
+            (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(deviceMemory)
+            val totalRamMb = deviceMemory.totalMem / 1048576
+            logWrapper("RAM planning budget: ${MemoryBudget.resolveMb(instance, totalRamMb)} MiB (${MemoryBudget.mode(instance)}); device RAM $totalRamMb MiB. Advisory only: Android shares memory; no guest reservation or enforced limit.")
             val startedAt = android.os.SystemClock.elapsedRealtime()
             val diagnosticsJob = managerScope.launch {
                 while (isActive && process.isAlive) {
                     logRuntimeResources(pid, startedAt, logWrapper)
-                    delay(30_000)
+                    // Capture short startup failures before the old first 30s sample.
+                    delay(if (android.os.SystemClock.elapsedRealtime() - startedAt < 30_000) 5_000 else 30_000)
                 }
             }
 
@@ -422,14 +423,16 @@ class ContainerManager(
             val entries = File("/proc").listFiles().orEmpty()
                 .asSequence().filter { it.name.toIntOrNull() != null }.take(4096)
             var visible = 0
+            var ownUidProcesses = 0
             for (entry in entries) {
+                if (runCatching { android.system.Os.stat(entry.path).st_uid == android.os.Process.myUid() }.getOrDefault(false)) ownUidProcesses++
                 val group = runCatching { GuestProcessStats.processGroup(File(entry, "stat").readText()) }.getOrNull()
                 if (group == pid) visible++
             }
             val memory = android.app.ActivityManager.MemoryInfo()
             (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memory)
             val runtime = Runtime.getRuntime()
-            log("Resources: uptime=${(android.os.SystemClock.elapsedRealtime() - startedAt) / 1000}s, visible guest-group processes=$visible (restricted /proc; not all descendants), Android available=${memory.availMem / 1048576} MiB, lowMemory=${memory.lowMemory}, app Java heap=${(runtime.totalMemory() - runtime.freeMemory()) / 1048576}/${runtime.maxMemory() / 1048576} MiB")
+            log("Resources: uptime=${(android.os.SystemClock.elapsedRealtime() - startedAt) / 1000}s, visible guest-group processes=$visible, visible app-UID processes=$ownUidProcesses (restricted /proc; lower bounds, includes app and other sessions), Android available=${memory.availMem / 1048576} MiB, lowMemory=${memory.lowMemory}, app Java heap=${(runtime.totalMemory() - runtime.freeMemory()) / 1048576}/${runtime.maxMemory() / 1048576} MiB")
         } catch (e: Exception) {
             Log.d(TAG, "Resource sample unavailable: ${e.javaClass.simpleName}")
         }
