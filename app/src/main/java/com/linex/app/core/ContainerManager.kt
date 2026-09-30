@@ -214,6 +214,14 @@ class ContainerManager(
             val pid = handshake.substringAfter('=').toInt()
             processController.setActiveProcess(pid)
             logWrapper("Container process initialized with isolated group $pid")
+            logWrapper("Runtime: Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}), ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, app ${com.linex.app.BuildConfig.VERSION_NAME}")
+            val startedAt = android.os.SystemClock.elapsedRealtime()
+            val diagnosticsJob = managerScope.launch {
+                while (isActive && process.isAlive) {
+                    logRuntimeResources(pid, startedAt, logWrapper)
+                    delay(30_000)
+                }
+            }
 
             // Stream logs asynchronously and monitor if process exits prematurely
             logReadingJob?.cancel()
@@ -232,10 +240,15 @@ class ContainerManager(
                 } catch (e: Exception) {
                     Log.d(TAG, "Container log stream closed: ${e.message}")
                 }
-
-                // Check process exit status
+            }
+            // A surviving guest daemon can retain stdout after the PRoot parent
+            // exits. Observe process death independently of pipe EOF, then clean
+            // up the group so those descendants cannot keep the session alive.
+            managerScope.launch {
                 try {
                     val exitCode = process.waitFor()
+                    diagnosticsJob.cancel()
+                    logRuntimeResources(pid, startedAt, logWrapper)
                     Log.w(TAG, "Container process exited with code $exitCode")
                     logWrapper("Container exited (code $exitCode)")
                     if (exitCode == 137 && !stopping) {
@@ -255,6 +268,8 @@ class ContainerManager(
                     }
                 } catch (e: Exception) {
                     Log.d(TAG, "Process wait interrupted: ${e.message}")
+                } finally {
+                    diagnosticsJob.cancel()
                 }
             }
 
@@ -397,6 +412,26 @@ class ContainerManager(
 
     private fun updateState(id: String, state: ContainerState) {
         _currentState.update { it + (id to state) }
+    }
+
+    private fun logRuntimeResources(pid: Int, startedAt: Long, log: (String) -> Unit) {
+        // No subprocesses: spawning ps periodically would itself add Android
+        // child-process pressure. SELinux can hide entries; counts are a lower bound.
+        try {
+            val entries = File("/proc").listFiles().orEmpty()
+                .asSequence().filter { it.name.toIntOrNull() != null }.take(4096)
+            var visible = 0
+            for (entry in entries) {
+                val group = runCatching { GuestProcessStats.processGroup(File(entry, "stat").readText()) }.getOrNull()
+                if (group == pid) visible++
+            }
+            val memory = android.app.ActivityManager.MemoryInfo()
+            (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memory)
+            val runtime = Runtime.getRuntime()
+            log("Resources: uptime=${(android.os.SystemClock.elapsedRealtime() - startedAt) / 1000}s, visible guest-group processes=$visible (restricted /proc; not all descendants), Android available=${memory.availMem / 1048576} MiB, lowMemory=${memory.lowMemory}, app Java heap=${(runtime.totalMemory() - runtime.freeMemory()) / 1048576}/${runtime.maxMemory() / 1048576} MiB")
+        } catch (e: Exception) {
+            Log.d(TAG, "Resource sample unavailable: ${e.javaClass.simpleName}")
+        }
     }
 
     private fun refreshGuestDns(tmpDir: File, log: (String) -> Unit) {

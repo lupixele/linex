@@ -27,6 +27,9 @@ class RfbClient(
     private val started = AtomicBoolean(false)
     private val socket = Socket()
     private val writeLock = Any()
+    private val visibilityLock = Object()
+    @Volatile private var updatesPaused = false
+    private val reusableFrames = ArrayBlockingQueue<IntArray>(2)
     @Volatile private var output: DataOutputStream? = null
     @Volatile private var ready = false
     @Volatile private var width = 0
@@ -73,6 +76,7 @@ class RfbClient(
             var pixels = IntArray(width * height)
             ready = true
             socket.soTimeout = 0 // An idle desktop legitimately has no updates.
+            if (!awaitVisible()) return
             requestUpdate(false)
             var lastUpdateRequest = System.nanoTime()
             onStatus("Desktop connected")
@@ -107,7 +111,12 @@ class RfbClient(
                                 else -> throw IOException("Unsupported desktop encoding $encoding")
                             }
                         }
-                        if (rectangles > 0) onFrame(width, height, pixels.copyOf())
+                        if (rectangles > 0) {
+                            var snapshot = reusableFrames.poll()
+                            if (snapshot == null || snapshot.size != pixels.size) snapshot = IntArray(pixels.size)
+                            pixels.copyInto(snapshot)
+                            onFrame(width, height, snapshot)
+                        }
                         // Keep only one framebuffer request in flight and cap the raw
                         // decoder/snapshot allocation rate. Do not hold writeLock while
                         // waiting: keyboard and pointer events must remain responsive.
@@ -116,7 +125,7 @@ class RfbClient(
                             TimeUnit.NANOSECONDS.sleep(remaining)
                             remaining = FRAME_INTERVAL_NANOS - (System.nanoTime() - lastUpdateRequest)
                         }
-                        if (closed.get()) break
+                        if (!awaitVisible()) break
                         requestUpdate(!resized)
                         lastUpdateRequest = System.nanoTime()
                     }
@@ -138,6 +147,22 @@ class RfbClient(
     private fun requestUpdate(incremental: Boolean) = write {
         writeByte(3); writeByte(if (incremental) 1 else 0)
         writeShort(0); writeShort(0); writeShort(width); writeShort(height)
+    }
+
+    /** Return an owned snapshot only after the consumer has finished copying it. */
+    fun recycleFrame(pixels: IntArray) {
+        if (!closed.get()) reusableFrames.offer(pixels)
+    }
+
+    /** A hidden surface needs no new frames. At most one already-requested update can arrive. */
+    fun pauseUpdates(paused: Boolean) = synchronized(visibilityLock) {
+        updatesPaused = paused
+        if (!paused) visibilityLock.notifyAll()
+    }
+
+    private fun awaitVisible(): Boolean = synchronized(visibilityLock) {
+        while (updatesPaused && !closed.get()) visibilityLock.wait()
+        !closed.get()
     }
 
     fun pointer(x: Int, y: Int, buttons: Int) = enqueue {
@@ -198,6 +223,8 @@ class RfbClient(
 
     override fun close() {
         closed.set(true)
+        synchronized(visibilityLock) { visibilityLock.notifyAll() }
+        reusableFrames.clear()
         ready = false
         // Socket exists before connect starts, so cancellation also interrupts a racing connect.
         try { socket.close() } catch (_: IOException) { }

@@ -1,4 +1,4 @@
-﻿package com.linex.app.core
+package com.linex.app.core
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -14,7 +14,7 @@ internal class BackgroundWorkOwner(dispatcher: CoroutineDispatcher) {
     private var job: Job? = null
     private var operationId: String? = null
     private var cancellable = false
-    val isRunning: Boolean get() = job?.isActive == true
+    val isRunning: Boolean get() = job?.isCompleted == false
 
     fun start(id: String, canCancel: Boolean, operation: suspend () -> Unit) {
         check(!isRunning) { "Another operation is already running" }

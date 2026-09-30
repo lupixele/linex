@@ -12,6 +12,66 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class RfbClientTest {
+    @Test fun pausedDisplayStopsRequestsAndResumesWithoutDisconnecting() {
+        ServerSocket(0).use { server ->
+            val error = AtomicReference<Throwable>()
+            val client = RfbClient(server.localPort, "password", { _, _, _ -> }, {})
+            val worker = thread { try { client.run() } catch (t: Throwable) { error.set(t) } }
+            try {
+                server.accept().use { socket ->
+                    val (input, output) = handshake(socket)
+                    input.readFully(ByteArray(42))
+                    client.pauseUpdates(true)
+                    output.writeByte(0); output.writeByte(0); output.writeShort(0)
+                    socket.soTimeout = 200
+                    try { input.readUnsignedByte(); fail("Hidden display requested a frame") }
+                    catch (_: java.net.SocketTimeoutException) { }
+                    client.pauseUpdates(false)
+                    socket.soTimeout = 3000
+                    assertEquals(3, input.readUnsignedByte())
+                    input.readFully(ByteArray(9))
+                    client.pauseUpdates(true)
+                    output.writeByte(0); output.writeByte(0); output.writeShort(0)
+                    client.close()
+                    worker.join(2000)
+                    assertFalse("Closing must unblock a paused reader", worker.isAlive)
+                    assertNull(error.get())
+                }
+            } finally { client.close(); worker.join(2000) }
+        }
+    }
+
+    @Test fun snapshotsAreReusedOnlyAfterConsumerReturnsThem() {
+        ServerSocket(0).use { server ->
+            val frames = java.util.concurrent.LinkedBlockingQueue<IntArray>()
+            val client = RfbClient(server.localPort, "password", { _, _, pixels -> frames.add(pixels) }, {})
+            val worker = thread { runCatching { client.run() } }
+            try {
+                server.accept().use { socket ->
+                    val (input, output) = handshake(socket)
+                    input.readFully(ByteArray(42))
+                    fun frame(red: Int): IntArray {
+                        output.writeByte(0); output.writeByte(0); output.writeShort(1)
+                        output.writeShort(0); output.writeShort(0); output.writeShort(2); output.writeShort(1); output.writeInt(0)
+                        repeat(2) { output.write(byteArrayOf(0, 0, red.toByte(), 0)) }
+                        return frames.poll(3, TimeUnit.SECONDS) ?: throw AssertionError("No frame")
+                    }
+                    val first = frame(1)
+                    input.readFully(ByteArray(10))
+                    val second = frame(2)
+                    assertNotSame(first, second)
+                    assertEquals(0xff010000.toInt(), first[0])
+                    client.recycleFrame(first)
+                    input.readFully(ByteArray(10))
+                    val third = frame(3)
+                    assertSame("Released snapshot should avoid another full-frame allocation", first, third)
+                    assertEquals(0xff030000.toInt(), third[0])
+                    assertEquals(0xff020000.toInt(), second[0])
+                }
+            } finally { client.close(); worker.join(2000) }
+        }
+    }
+
     @Test fun emptyUpdatesArePacedWithoutPublishingFrames() {
         ServerSocket(0).use { server ->
             val error = AtomicReference<Throwable>()

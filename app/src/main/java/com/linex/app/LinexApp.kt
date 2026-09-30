@@ -13,6 +13,7 @@ class LinexApp : Application() {
         AppLogger.init(applicationContext)
         AppLogger.log("LinexApp", "Linex Application initialized (Build v${BuildConfig.VERSION_NAME} code ${BuildConfig.VERSION_CODE})")
         createNotificationChannels()
+        Thread({ com.linex.app.core.HostExitDiagnostics.record(applicationContext) }, "LinexExitDiagnostics").start()
     }
 
     private fun createNotificationChannels() {

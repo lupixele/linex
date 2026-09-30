@@ -24,10 +24,13 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     @Volatile private var disposed = false
     @Volatile private var client: RfbClient? = null
     private var worker: Thread? = null
+    @Volatile private var displayVisible = true
     private var bitmap: Bitmap? = null
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val destination = RectF()
-    private data class Frame(val width: Int, val height: Int, val pixels: IntArray)
+    private data class Frame(val width: Int, val height: Int, val pixels: IntArray, val owner: RfbClient) {
+        fun release() = owner.recycleFrame(pixels)
+    }
     private val pending = AtomicReference<Frame?>()
     var trackpadMode = false
     private var pointerX = 0
@@ -41,14 +44,18 @@ class EmbeddedDesktopView(context: Context) : View(context) {
         override fun run() {
             if (disposed) return
             val frame = pending.getAndSet(null) ?: return
-            var image = bitmap
-            if (image == null || image.width != frame.width || image.height != frame.height) {
-                image = Bitmap.createBitmap(frame.width, frame.height, Bitmap.Config.ARGB_8888)
-                bitmap = image
+            try {
+                var image = bitmap
+                if (image == null || image.width != frame.width || image.height != frame.height) {
+                    image = Bitmap.createBitmap(frame.width, frame.height, Bitmap.Config.ARGB_8888)
+                    bitmap = image
+                }
+                image.setPixels(frame.pixels, 0, frame.width, 0, 0, frame.width, frame.height)
+                onConnection(true, "Desktop connected")
+                invalidate()
+            } finally {
+                frame.release()
             }
-            image.setPixels(frame.pixels, 0, frame.width, 0, 0, frame.width, frame.height)
-            onConnection(true, "Desktop connected")
-            invalidate()
         }
     }
     init {
@@ -59,15 +66,18 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     }
     fun connect(endpoint: DisplayEndpoint) {
         if (worker != null || disposed) return
+        displayVisible = windowVisibility == VISIBLE
         worker = Thread({
             val deadline = System.nanoTime() + 30_000_000_000L
             while (!disposed) {
-                val connection = RfbClient(endpoint.port, endpoint.password, { w, h, pixels ->
-                    pending.set(Frame(w, h, pixels))
+                lateinit var connection: RfbClient
+                connection = RfbClient(endpoint.port, endpoint.password, { w, h, pixels ->
+                    pending.getAndSet(Frame(w, h, pixels, connection))?.release()
                     removeCallbacks(applyFrame)
-                    post(applyFrame)
+                    if (disposed) pending.getAndSet(null)?.release() else post(applyFrame)
                 }, { status -> post { if (!disposed) onConnection(false, status) } })
                 client = connection
+                connection.pauseUpdates(!displayVisible)
                 if (disposed) { connection.close(); break }
                 try {
                     connection.run()
@@ -91,9 +101,17 @@ class EmbeddedDesktopView(context: Context) : View(context) {
         client?.close()
         worker?.interrupt()
         removeCallbacks(applyFrame)
-        pending.set(null)
+        pending.getAndSet(null)?.release()
         bitmap = null
         keepScreenOn = false
+    }
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        displayVisible = visibility == VISIBLE
+        client?.pauseUpdates(!displayVisible)
+        // View can dispatch visibility while its superclass is being constructed.
+        // A client exists only after connect(), once our input state is initialized.
+        if (!displayVisible && client != null) releaseInput()
     }
     override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
         super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)

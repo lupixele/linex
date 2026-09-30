@@ -94,8 +94,7 @@ class LinuxContainerService : Service() {
                 reportFileProgress(source.id, operationStarted, "Copied $count files", "Copying instance")
             }, onProgress = { })
             val repository = InstanceRepository(this@LinuxContainerService)
-            val instances = repository.loadInstances()
-            repository.saveInstances(instances + newInstance)
+            repository.upsertInstance(newInstance)
         }
     }
 
@@ -107,7 +106,7 @@ class LinuxContainerService : Service() {
                 reportFileProgress(instance.id, operationStarted, "Deleted $count entries", "Deleting instance")
             }
             val repository = InstanceRepository(this@LinuxContainerService)
-            repository.saveInstances(repository.loadInstances().filterNot { it.id == instance.id })
+            repository.removeInstance(instance.id)
         }
     }
 

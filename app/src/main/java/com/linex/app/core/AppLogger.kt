@@ -19,6 +19,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicInteger
 
 object AppLogger {
     private const val TAG = "LinexLogger"
@@ -32,6 +34,10 @@ object AppLogger {
     private val worker = CoroutineScope(SupervisorJob() + Executors.newSingleThreadExecutor().asCoroutineDispatcher())
     private var initialized = false
     private var store: DiagnosticLogStore? = null
+    // A noisy guest must not create an unbounded backlog of coroutine jobs and strings.
+    private val pendingLogs = Semaphore(256)
+    private val droppedLogs = AtomicInteger()
+    private val timestampFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
 
     @Synchronized fun init(context: Context) {
         if (initialized) return
@@ -48,14 +54,22 @@ object AppLogger {
     }
 
     @Synchronized fun log(tag: String, message: String, instanceId: String? = null) {
-        val entry = LogEntry(SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date()),
+        if (!pendingLogs.tryAcquire()) {
+            droppedLogs.incrementAndGet()
+            return
+        }
+        val entry = LogEntry(timestampFormat.format(Date()),
             instanceId, tag.take(100), message.take(4096))
         Log.i(tag, entry.toString())
         worker.launch {
+          try {
+            val dropped = droppedLogs.getAndSet(0)
+            if (dropped > 0) _storageError.value = "Skipped $dropped log messages because guest output exceeded logging capacity."
             val history = _logs.value
             val sameInstance = history.filter { it.instanceId == instanceId }.takeLast(MAX_ENTRIES_PER_INSTANCE - 1)
             _logs.value = (history.filter { it.instanceId != instanceId } + sameInstance + entry).sortedBy { it.timestamp }
             try { store?.append(entry) } catch (e: Exception) { storageFailure("Could not save diagnostics", e) }
+          } finally { pendingLogs.release() }
         }
     }
 

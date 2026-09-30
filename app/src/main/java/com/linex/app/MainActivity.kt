@@ -82,14 +82,15 @@ class MainActivity : ComponentActivity() {
                 val session = visibleInstances.firstOrNull { it.id == sessionId }
 
                 fun message(text: String) { scope.launch { snackbar.showSnackbar(text) } }
-                fun persist(updated: List<LinuxInstance>) {
+                fun persist(updated: LinuxInstance) {
                     if (operationRunning) return
-                    instances = updated.map { it.copy(state = ContainerState.STOPPED) }
-                    val snapshot = instances
+                    instances = if (instances.any { it.id == updated.id }) {
+                        instances.map { if (it.id == updated.id) updated else it }
+                    } else instances + updated
                     scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
                         try {
                             withContext(kotlinx.coroutines.NonCancellable) {
-                                saveMutex.withLock { repository.saveInstances(snapshot) }
+                                saveMutex.withLock { repository.upsertInstance(updated) }
                             }
                         } catch (e: CancellationException) {
                             throw e
@@ -192,8 +193,8 @@ class MainActivity : ComponentActivity() {
                                 containerService?.startClone(source, clone)
                             },
                             onDeleteInstance = { instance -> containerService?.startDelete(instance) },
-                            onCreateInstance = { persist(instances + it) },
-                            onUpdateInstance = { updated -> persist(instances.map { if (it.id == updated.id) updated else it }) }
+                            onCreateInstance = { persist(it) },
+                            onUpdateInstance = { updated -> persist(updated) }
                         )
                     }
                     SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())

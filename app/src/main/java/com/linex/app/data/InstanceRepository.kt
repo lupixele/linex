@@ -19,6 +19,8 @@ class InstanceRepository(private val context: Context) {
     companion object {
         private const val TAG = "InstanceRepository"
         private const val FILE_NAME = "instances.json"
+        // AtomicFile protects replacement, not concurrent readers/writers or read-modify-write.
+        private val persistenceLock = Any()
     }
 
     private val json = Json {
@@ -55,7 +57,7 @@ class InstanceRepository(private val context: Context) {
         )
     }
 
-    fun loadInstancesSync(): List<LinuxInstance> {
+    fun loadInstancesSync(): List<LinuxInstance> = synchronized(persistenceLock) {
         return try {
             if (!file.exists()) {
                 val defaults = getDefaultInstances()
@@ -87,8 +89,7 @@ class InstanceRepository(private val context: Context) {
         }
     }
 
-    @Synchronized
-    fun saveInstancesSync(instances: List<LinuxInstance>) {
+    fun saveInstancesSync(instances: List<LinuxInstance>) = synchronized(persistenceLock) {
         val atomicFile = AtomicFile(file)
         var stream: java.io.FileOutputStream? = null
         try {
@@ -103,6 +104,22 @@ class InstanceRepository(private val context: Context) {
         }
     }
 
+    /** Mutate the latest disk state under the same lock across activity/service instances. */
+    suspend fun upsertInstance(instance: LinuxInstance) = withContext(Dispatchers.IO) {
+        synchronized(persistenceLock) {
+            val current = loadInstancesSync()
+            val updated = if (current.any { it.id == instance.id }) {
+                current.map { if (it.id == instance.id) instance else it }
+            } else current + instance
+            saveInstancesSync(updated)
+        }
+    }
+
+    suspend fun removeInstance(instanceId: String) = withContext(Dispatchers.IO) {
+        synchronized(persistenceLock) {
+            saveInstancesSync(loadInstancesSync().filterNot { it.id == instanceId })
+        }
+    }
     suspend fun loadInstances(): List<LinuxInstance> = withContext(Dispatchers.IO) {
         loadInstancesSync()
     }

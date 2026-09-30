@@ -1,10 +1,25 @@
-﻿package com.linex.app.core
+package com.linex.app.core
 
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
 
 class BackgroundWorkOwnerTest {
+    @Test fun cancellingOperationKeepsSlotUntilCleanupCompletes() = runBlocking {
+        val owner = BackgroundWorkOwner(Dispatchers.Unconfined)
+        val cleanup = CompletableDeferred<Unit>()
+        owner.start("first", true) {
+            try { awaitCancellation() }
+            finally { withContext(NonCancellable) { cleanup.await() } }
+        }
+        owner.cancel("first")
+        assertTrue("Cancellation must not allow overlapping filesystem work", owner.isRunning)
+        assertThrows(IllegalStateException::class.java) { owner.start("retry", true) {} }
+        cleanup.complete(Unit)
+        assertFalse(owner.isRunning)
+        owner.start("retry", true) {}
+        owner.close()
+    }
     @Test fun cancellingUiCallerDoesNotCancelServiceOperation() = runBlocking {
         val owner = BackgroundWorkOwner(Dispatchers.Unconfined)
         val release = CompletableDeferred<Unit>()
