@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.linex.app.core.AppLogger
+import com.linex.app.core.SetupTask
+import com.linex.app.core.SetupStatus
 import com.linex.app.data.*
 import com.linex.app.service.LinuxContainerService
 import com.linex.app.ui.hub.HubScreen
@@ -36,6 +38,7 @@ import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     private var containerService by mutableStateOf<LinuxContainerService?>(null)
+    private var progressRequest by mutableIntStateOf(0)
     private var isServiceBound = false
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -67,16 +70,20 @@ class MainActivity : ComponentActivity() {
                 var loadError by remember { mutableStateOf<String?>(null) }
                 var loadAttempt by remember { mutableIntStateOf(0) }
                 var sessionId by remember { mutableStateOf<String?>(null) }
-                var busyMessage by remember { mutableStateOf<String?>(null) }
+
                 val snackbar = remember { SnackbarHostState() }
                 val manager = containerService?.containerManager
                 val emptyStates = remember { MutableStateFlow<Map<String, ContainerState>>(emptyMap()) }
+                val emptySetup = remember { MutableStateFlow<SetupTask?>(null) }
+                val setupTask by (containerService?.setupState ?: emptySetup).collectAsState()
+                val operationRunning = setupTask?.status == SetupStatus.RUNNING
                 val states by (manager?.currentState ?: emptyStates).collectAsState()
                 val visibleInstances = instances.map { it.copy(state = states[it.id] ?: ContainerState.STOPPED) }
                 val session = visibleInstances.firstOrNull { it.id == sessionId }
 
                 fun message(text: String) { scope.launch { snackbar.showSnackbar(text) } }
                 fun persist(updated: List<LinuxInstance>) {
+                    if (operationRunning) return
                     instances = updated.map { it.copy(state = ContainerState.STOPPED) }
                     val snapshot = instances
                     scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
@@ -92,6 +99,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 fun launch(instance: LinuxInstance, restart: Boolean = false) {
+                    if (operationRunning) { message("Wait for the current background task to finish."); return }
                     val engine = manager
                     if (engine == null) { message("Container engine is still connecting. Try again shortly."); return }
                     scope.launch {
@@ -107,6 +115,7 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                LaunchedEffect(progressRequest) { if (progressRequest > 0) sessionId = null }
                 LaunchedEffect(loadAttempt) {
                     loaded = false
                     loadError = null
@@ -117,6 +126,9 @@ class MainActivity : ComponentActivity() {
                     } catch (e: Exception) {
                         loadError = "Could not load saved instances: ${e.message}"
                     } finally { loaded = true }
+                }
+                LaunchedEffect(setupTask?.instanceId, setupTask?.status) {
+                    if (setupTask != null && setupTask?.status != SetupStatus.RUNNING && setupTask?.kind != "setup") loadAttempt++
                 }
                 LaunchedEffect(sessionId, states) {
                     val id = sessionId
@@ -155,61 +167,46 @@ class MainActivity : ComponentActivity() {
                         HubScreen(
                             instances = visibleInstances,
                             storageEngine = containerService?.storageEngine,
-                            rootfsDownloader = manager?.rootfsDownloader,
+                            setupTask = setupTask,
+                            progressRequest = progressRequest,
+                            onStartSetup = { instance ->
+                                val service = containerService
+                                if (service == null) message("Background engine is still connecting. Try again shortly.")
+                                else {
+                                    if (!androidx.core.app.NotificationManagerCompat.from(this@MainActivity).areNotificationsEnabled()) {
+                                        message("Notifications are disabled. Enable Linex notifications in Android Settings to see background progress.")
+                                        checkNotificationPermission()
+                                    }
+                                    service.startSetup(instance)
+                                }
+                            },
+                            onCancelSetup = { containerService?.cancelSetup(it) },
+                            onClearSetup = { containerService?.clearSetup(it) },
                             onLaunchInstance = { launch(it) },
                             onSuspendInstance = {
                                 if (manager?.suspendActiveInstance() != true) message("Could not pause the session.")
                             },
                             onStopInstance = { manager?.stopActiveInstance() },
                             onCloneInstance = { source ->
-                                val storage = containerService?.storageEngine
-                                if (storage != null && busyMessage == null) scope.launch {
-                                    val clone = source.copy(id = UUID.randomUUID().toString(), name = "${source.name} (Copy)", state = ContainerState.STOPPED)
-                                    busyMessage = "Copying ${source.name}…"
-                                    try {
-                                        storage.cloneInstance(source.id, clone.id) { }
-                                        persist(instances + clone)
-                                        AppLogger.log("Instances", "Copied from ${source.name}", clone.id)
-                                    } catch (e: CancellationException) { throw e
-                                    } catch (e: Exception) {
-                                        AppLogger.log("Instances", "Copy failed: ${e.message}", source.id)
-                                        message("Copy failed: ${e.message}")
-                                    } finally { busyMessage = null }
-                                }
+                                val clone = source.copy(id = UUID.randomUUID().toString(), name = "${source.name} (Copy)", state = ContainerState.STOPPED)
+                                containerService?.startClone(source, clone)
                             },
-                            onDeleteInstance = { instance ->
-                                val storage = containerService?.storageEngine
-                                if (storage != null && busyMessage == null) scope.launch {
-                                    busyMessage = "Deleting ${instance.name}…"
-                                    try {
-                                        storage.deleteInstance(instance.id)
-                                        persist(instances.filterNot { it.id == instance.id })
-                                    } catch (e: CancellationException) { throw e
-                                    } catch (e: Exception) {
-                                        AppLogger.log("Instances", "Delete failed: ${e.message}", instance.id)
-                                        message("Delete failed: ${e.message}")
-                                    } finally { busyMessage = null }
-                                }
-                            },
+                            onDeleteInstance = { instance -> containerService?.startDelete(instance) },
                             onCreateInstance = { persist(instances + it) },
                             onUpdateInstance = { updated -> persist(instances.map { if (it.id == updated.id) updated else it }) }
                         )
                     }
                     SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
                 }
-                busyMessage?.let { text ->
-                    AlertDialog(
-                        onDismissRequest = { },
-                        title = { Text(text) },
-                        text = { Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            LinearProgressIndicator(Modifier.fillMaxWidth())
-                            Text("Keep Linex open until this finishes.")
-                        } },
-                        confirmButton = { }
-                    )
-                }
+
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        progressRequest++
     }
 
     private fun checkNotificationPermission() {

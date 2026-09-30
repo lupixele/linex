@@ -1,22 +1,25 @@
 # Linex progress
 
 ## Current State
-Working 0.3.1-dev (code13), based on released main f274964. User confirms embedded desktop works but guest/browser stops, custom size fields absent and fullscreen absent. Implemented custom width/height validation, fullscreen/landscape controls, dedicated guest /dev/shm mount, active-network DNS refresh and guest lookup diagnostics, 15fps display request pacing, and exit137 memory diagnostics.
+0.3.1-dev is published; 0.3.2-dev background operations implemented locally. Foreground service owns setup/copy/delete, notifications expose phase/count progress, and UI dismissal no longer cancels work. Interrupted operations are reported on next launch.
 
 ## Verification
-Log proves Chromium fatal missing /dev/shm, then guest exit137; no evidence establishes the kill cause. Shell syntax passes. 39 tests pass; debug assembly and lint succeed after correcting fullscreen API reference. New-key APK signature verifies but differs from installed release. No Android device test. Private DNS cannot be inherited by guest libc; existing settings retained with diagnostic rather than claiming encrypted support.
+Background ownership regression tests added. 45 tests pass; debug assembly succeeds; lint has 0 errors and 32 warnings. APK signature matches 0.3.1-dev. JDK17 and Gradle cache restored after reset. Android screen-off and notification verification still required.
 
 ## Next Steps
-1. Publish new-key 0.3.1-dev; user accepts fresh install and no restoration of old instance data.
-2. Verify custom resolution after restart, fullscreen/rotation, browser shared memory/DNS and any remaining guest kill on Android.
+1. Publish verified 0.3.2-dev and test on device.
+2. Verify background download/extraction, notification cancel/open and screen-off behavior on Android.
+3. Recheck guest browser/DNS and exit137 using device logs.
 
 ## Open Questions / Blockers
-- Exit137 cause remains unconfirmed; memory/process-policy attribution needs device logs. User says desktop/browser stops, not Linex.
-- New signing key is backed up at P:/Android/Signing/linex-development.keystore outside Git. Old app must be uninstalled before installing new-key APK.
-- JDK17, Git, gh restored and GitHub authenticated. SDK34/build-tools34, NDK26.1 and CMake3.22.1 present; ANDROID_HOME and tool paths configured.
-- Generated files already tracked remain excluded; user raw logs remain private/untracked.
+- Guest exit137 cause remains unconfirmed; no Android device attached.
+- Existing new signing key and matching backup survived reset. Same key as 0.3.1-dev.
+- Java17 now at P:/Android/Java17/PFiles64/Microsoft/jdk-17.0.20.101-hotspot; JAVA_HOME configured. Git/gh/SDK/NDK/CMake present; GitHub authenticated.
+- Generated files already tracked excluded; raw logs remain private/untracked.
+
 ## Last Updated
-2026-09-27
+2026-09-30
+
 ## Recent Decisions
 - [2026-09-26] Work directly in the user-specified linex checkout; replace unreliable Android tar extraction with bounded streaming JVM extraction; preserve old ready roots and scope diagnostics per instance.
 - [2026-09-26] Confirmed upstream archive entry /usr/bin/X11 -> . was converted to an empty symlink target. Preserve literal dot and report symlink target/type on failures; retain download cache and user instance data.
@@ -25,3 +28,4 @@ Log proves Chromium fatal missing /dev/shm, then guest exit137; no evidence esta
 - [2026-09-26] User requires the desktop entirely inside Linex. Device extraction completed at 671,719 entries (~21m22s); startup failed at POSIX SIGTERM trap and absent display server. Implement embedded authenticated loopback RFB viewer plus guest TigerVNC; preserve installed rootfs.
 - [2026-09-27] Fixed confirmed missing guest shared-memory mount; added custom resolution/fullscreen, network DNS diagnostics and bounded display cadence. Reset lost usable GitHub login and original signing key; new key cannot update released APK.
 - [2026-09-27] User explicitly accepts new development signing key and no restore. Backed up key outside Git; GitHub login restored; publish 0.3.1-dev with reinstall notice.
+- [2026-09-30] Move setup/copy/delete to service-owned work with foreground notification progress, explicit cancellation and persisted interruption; restore JDK after reset and retain existing signing key.

@@ -1,6 +1,5 @@
 package com.linex.app.ui.hub
 
-import android.os.SystemClock
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,27 +11,33 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import com.linex.app.data.LinuxInstance
+import com.linex.app.core.SetupStatus
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DownloadProgressDialog(
-    instance: LinuxInstance,
+    instanceName: String,
+    operationKind: String = "setup",
     progress: Float,
     stage: String = "Preparing setup",
-    startedAtMillis: Long = SystemClock.elapsedRealtime(),
+    startedAtMillis: Long = System.currentTimeMillis(),
     lastProgressAtMillis: Long = startedAtMillis,
     statusText: String = "Downloading rootfs archive…",
     error: String? = null,
+    taskStatus: SetupStatus = SetupStatus.RUNNING,
+    onBackground: () -> Unit,
+    onClose: () -> Unit,
     onViewLogs: () -> Unit = {},
+    logsAvailable: Boolean = true,
     onRetry: () -> Unit = {},
     onCancel: () -> Unit
 ) {
-    var now by remember(startedAtMillis) { mutableLongStateOf(SystemClock.elapsedRealtime()) }
-    LaunchedEffect(startedAtMillis, error) {
-        while (error == null) {
-            now = SystemClock.elapsedRealtime()
+    val running = taskStatus == SetupStatus.RUNNING
+    var now by remember(startedAtMillis) { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(startedAtMillis, taskStatus) {
+        while (running) {
+            now = System.currentTimeMillis()
             delay(1_000)
         }
     }
@@ -41,13 +46,18 @@ fun DownloadProgressDialog(
         return "${seconds / 60}m ${seconds % 60}s"
     }
     AlertDialog(
-        onDismissRequest = onCancel,
+        onDismissRequest = { if (running) onBackground() else onClose() },
         properties = DialogProperties(dismissOnClickOutside = false),
-        title = { Text(if (error != null) "Setup paused" else "Setting up ${instance.name}") },
+        title = { Text(when (taskStatus) {
+            SetupStatus.COMPLETE -> "Task completed"
+            SetupStatus.FAILED -> "Task failed"
+            SetupStatus.CANCELLED -> "Task cancelled"
+            SetupStatus.RUNNING -> stage
+        }) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(instance.distro.displayName)
-                if (error == null) {
+                Text(instanceName)
+                if (running) {
                     Text(stage, style = MaterialTheme.typography.titleMedium)
                     if (progress >= 0f) {
                         LinearProgressIndicator(progress = { progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
@@ -63,7 +73,7 @@ fun DownloadProgressDialog(
                 Text(error ?: statusText,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     color = if (error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-                if (error == null) {
+                if (running) {
                     Text("Elapsed ${duration(now - startedAtMillis)}", style = MaterialTheme.typography.labelMedium)
                     if (now - lastProgressAtMillis >= 30_000) {
                         Text("No new progress for ${duration(now - lastProgressAtMillis)}. Open the logs for details; this does not necessarily mean setup has stopped.",
@@ -71,20 +81,21 @@ fun DownloadProgressDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text(if (stage == "Extracting")
-                        "Large Linux images contain hundreds of thousands of files. Archive progress does not predict time remaining; finishing links and configuration follows. Keep Linex open."
-                        else "Keep Linex open during setup. The screen stays awake while setup is running.",
+                        "Large Linux images contain hundreds of thousands of files. Archive progress does not predict time remaining; finishing links and configuration follows. You can leave Linex or turn the screen off."
+                        else "This task continues in the background, even with the screen off. Follow progress in notifications.",
                         style = MaterialTheme.typography.bodySmall)
                 } else {
-                    Text("Your instance is still available. Check its logs or retry when ready.", style = MaterialTheme.typography.bodySmall)
+                    Text(if (taskStatus == SetupStatus.COMPLETE && operationKind == "setup") "Return to the instance card and tap Launch to open your desktop." else "Check the instance list or logs for details.", style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
         confirmButton = {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onViewLogs) { Text("View logs") }
-                if (error != null) Button(onClick = onRetry) { Text("Retry setup") }
+                TextButton(onClick = onViewLogs, enabled = logsAvailable) { Text("View logs") }
+                if (error != null && operationKind == "setup") Button(onClick = onRetry) { Text("Retry setup") }
+                if (running) Button(onClick = onBackground) { Text("Run in background") }
             }
         },
-        dismissButton = { TextButton(onClick = onCancel) { Text(if (error == null) "Cancel setup" else "Close") } }
+        dismissButton = { TextButton(onClick = { if (running) onCancel() else onClose() }, enabled = !running || operationKind != "delete") { Text(if (running) "Cancel task" else "Close") } }
     )
 }

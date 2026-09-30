@@ -205,23 +205,36 @@ class StorageEngine(
         true
     }
 
-    private fun removeTree(dir: File) {
+    private fun removeTree(dir: File, onDetail: (Long) -> Unit = {}, checkCancelled: () -> Unit = {}) {
+        var count = 0L
+        var reportedAt = 0L
+        fun removed() {
+            count++
+            val now = System.nanoTime()
+            if (now - reportedAt >= 1_000_000_000L) { onDetail(count); reportedAt = now }
+        }
         val path = dir.toPath()
         if (!java.nio.file.Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return
         java.nio.file.Files.walkFileTree(path, object : java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
             override fun visitFile(file: java.nio.file.Path, attrs: java.nio.file.attribute.BasicFileAttributes): java.nio.file.FileVisitResult {
+                checkCancelled()
                 java.nio.file.Files.delete(file)
+                removed()
                 return java.nio.file.FileVisitResult.CONTINUE
             }
             override fun postVisitDirectory(dir: java.nio.file.Path, error: IOException?): java.nio.file.FileVisitResult {
                 if (error != null) throw error
+                checkCancelled()
                 java.nio.file.Files.delete(dir)
+                removed()
                 return java.nio.file.FileVisitResult.CONTINUE
             }
         })
     }
 
-    suspend fun cloneInstance(sourceId: String, newId: String, onProgress: (Float) -> Unit) = withContext(Dispatchers.IO) {
+    suspend fun cloneInstance(sourceId: String, newId: String, onDetail: (Long) -> Unit = {}, onProgress: (Float) -> Unit) = withContext(Dispatchers.IO) {
+        var count = 0L
+        var reportedAt = 0L
         require(sourceId != newId) { "Source and destination must differ" }
         val source = getInstanceDirectory(sourceId).toPath()
         val destination = getInstanceDirectory(newId).toPath()
@@ -237,9 +250,13 @@ class StorageEngine(
                 override fun visitFile(file: java.nio.file.Path, attrs: java.nio.file.attribute.BasicFileAttributes): java.nio.file.FileVisitResult {
                     coroutineContext.ensureActive()
                     java.nio.file.Files.copy(file, destination.resolve(source.relativize(file)), java.nio.file.LinkOption.NOFOLLOW_LINKS, java.nio.file.StandardCopyOption.COPY_ATTRIBUTES)
+                    count++
+                    val now = System.nanoTime()
+                    if (now - reportedAt >= 1_000_000_000L) { onDetail(count); reportedAt = now }
                     return java.nio.file.FileVisitResult.CONTINUE
                 }
             })
+            onDetail(count)
             onProgress(1f)
         } catch (e: Exception) {
             try { removeTree(destination.toFile()) } catch (_: IOException) { }
@@ -247,7 +264,8 @@ class StorageEngine(
         }
     }
 
-    suspend fun deleteInstance(instanceId: String) = withContext(Dispatchers.IO) {
-        removeTree(getInstanceDirectory(instanceId))
+    suspend fun deleteInstance(instanceId: String, onDetail: (Long) -> Unit = {}) = withContext(Dispatchers.IO) {
+        val context = kotlinx.coroutines.currentCoroutineContext()
+        removeTree(getInstanceDirectory(instanceId), onDetail) { context.ensureActive() }
     }
 }

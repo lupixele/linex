@@ -27,7 +27,8 @@ fun InstanceCard(
     onEditSettings: (LinuxInstance) -> Unit,
     onViewLogs: (LinuxInstance) -> Unit = {},
     setupError: String? = null,
-    busy: Boolean = false
+    busy: Boolean = false,
+    operationsBlocked: Boolean = false
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val stopped = instance.state == ContainerState.STOPPED
@@ -56,17 +57,17 @@ fun InstanceCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Box {
-                    IconButton(onClick = { menuExpanded = true }, enabled = !busy) {
+                    IconButton(onClick = { menuExpanded = true }, enabled = !busy && !operationsBlocked) {
                         Icon(Icons.Default.MoreVert, contentDescription = "Actions for ${instance.name}")
                     }
                     DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        DropdownMenuItem(text = { Text("Edit settings") }, enabled = stopped,
+                        DropdownMenuItem(text = { Text("Edit settings") }, enabled = stopped && !operationsBlocked,
                             onClick = { menuExpanded = false; onEditSettings(instance) },
                             leadingIcon = { Icon(Icons.Default.Settings, null) })
-                        DropdownMenuItem(text = { Text("Clone instance") }, enabled = stopped,
+                        DropdownMenuItem(text = { Text("Clone instance") }, enabled = stopped && !operationsBlocked,
                             onClick = { menuExpanded = false; onClone(instance) },
                             leadingIcon = { Icon(Icons.Default.ContentCopy, null) })
-                        DropdownMenuItem(text = { Text("Delete instance") }, enabled = stopped,
+                        DropdownMenuItem(text = { Text("Delete instance") }, enabled = stopped && !operationsBlocked,
                             onClick = { menuExpanded = false; onDelete(instance) },
                             leadingIcon = { Icon(Icons.Default.DeleteOutline, null) })
                     }
@@ -82,7 +83,7 @@ fun InstanceCard(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Button(onClick = { onLaunchOrResume(instance) }, enabled = !busy && !starting) {
+                Button(onClick = { onLaunchOrResume(instance) }, enabled = !busy && !starting && !operationsBlocked) {
                     Icon(Icons.Default.PlayArrow, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(when {
