@@ -82,6 +82,9 @@ enum class ContainerState {
 }
 
 @Serializable
+enum class MemoryBudgetMode { DEFAULT, RECOMMENDED, CUSTOM }
+
+@Serializable
 data class LinuxInstance(
     val id: String,
     val name: String,
@@ -95,5 +98,6 @@ data class LinuxInstance(
     val state: ContainerState = ContainerState.STOPPED,
     val ramAllocatedMb: Int = 2048,
     val snapshotPath: String? = null,
-    val desktopFps: Int = 15
+    val desktopFps: Int = 15,
+    val memoryBudgetMode: MemoryBudgetMode? = null
 )

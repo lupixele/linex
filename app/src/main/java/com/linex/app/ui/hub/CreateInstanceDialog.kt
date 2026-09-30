@@ -1,5 +1,8 @@
 package com.linex.app.ui.hub
 
+import android.app.ActivityManager
+import android.content.Context
+
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -21,6 +25,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.linex.app.data.DesktopEnvironment
 import com.linex.app.core.DesktopFrameRate
+import com.linex.app.core.MemoryBudget
+import com.linex.app.data.MemoryBudgetMode
 import com.linex.app.data.DisplayResolutionMode
 import com.linex.app.data.DistroType
 import com.linex.app.data.LinuxInstance
@@ -42,6 +48,18 @@ fun CreateInstanceDialog(
     var customHeight by remember { mutableStateOf((existingInstance?.customHeight ?: 1080).toString()) }
     var desktopFps by remember { mutableIntStateOf(DesktopFrameRate.normalized(existingInstance?.desktopFps ?: 15)) }
     var fpsMenuExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val totalRamMb = remember(context) {
+        val memory = ActivityManager.MemoryInfo()
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.getMemoryInfo(memory)
+        memory.totalMem / (1024L * 1024L)
+    }
+    var memoryMode by remember { mutableStateOf(existingInstance?.let(MemoryBudget::mode) ?: MemoryBudgetMode.DEFAULT) }
+    var customRam by remember { mutableStateOf((existingInstance?.ramAllocatedMb ?: MemoryBudget.DEFAULT_MB).toString()) }
+    var memoryMenuExpanded by remember { mutableStateOf(false) }
+    val memoryError = if (memoryMode == MemoryBudgetMode.CUSTOM) MemoryBudget.error(customRam, totalRamMb) else null
+    val defaultRam = MemoryBudget.DEFAULT_MB.coerceAtMost(MemoryBudget.maximumMb(totalRamMb))
+    val recommendedRam = MemoryBudget.recommendedMb(totalRamMb, selectedDesktop.recommendedRamMb)
     val resolutionError = if (selectedResolution == DisplayResolutionMode.CUSTOM)
         CustomResolution.error(customWidth, customHeight) else null
 
@@ -214,6 +232,46 @@ fun CreateInstanceDialog(
                         )
                     }
 
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("RAM budget", style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold)
+                        Box {
+                            OutlinedButton(onClick = { memoryMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                                Text(when (memoryMode) {
+                                    MemoryBudgetMode.DEFAULT -> "Default · $defaultRam MiB"
+                                    MemoryBudgetMode.RECOMMENDED -> "Recommended · $recommendedRam MiB"
+                                    MemoryBudgetMode.CUSTOM -> "Custom budget"
+                                })
+                            }
+                            DropdownMenu(expanded = memoryMenuExpanded, onDismissRequest = { memoryMenuExpanded = false }) {
+                                MemoryBudgetMode.values().forEach { mode ->
+                                    DropdownMenuItem(
+                                        text = { Text(when (mode) {
+                                            MemoryBudgetMode.DEFAULT -> "Default · $defaultRam MiB"
+                                            MemoryBudgetMode.RECOMMENDED -> "Recommended · $recommendedRam MiB"
+                                            MemoryBudgetMode.CUSTOM -> "Custom…"
+                                        }) },
+                                        leadingIcon = { RadioButton(selected = memoryMode == mode, onClick = null) },
+                                        onClick = { memoryMode = mode; memoryMenuExpanded = false }
+                                    )
+                                }
+                            }
+                        }
+                        if (memoryMode == MemoryBudgetMode.CUSTOM) {
+                            OutlinedTextField(value = customRam, onValueChange = { customRam = it.take(10) },
+                                label = { Text("Custom RAM budget (MiB)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true, isError = memoryError != null,
+                                modifier = Modifier.fillMaxWidth())
+                        }
+                        if (memoryError != null) Text(memoryError, color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall)
+                        Text("Planning target only. Android shares RAM with Linux; Linex cannot reserve memory or enforce a guest RAM limit. Recommended considers your desktop and device RAM, up to 4096 MiB, leaving room for Android.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (totalRamMb > 0) Text("Device RAM: $totalRamMb MiB", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
                     // DPI Scaling Slider
                     Column {
                         Row(
@@ -248,7 +306,7 @@ fun CreateInstanceDialog(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Button(
-                        enabled = name.isNotBlank() && resolutionError == null,
+                        enabled = name.isNotBlank() && resolutionError == null && memoryError == null,
                         onClick = {
                             val base = existingInstance ?: LinuxInstance(
                                 id = UUID.randomUUID().toString(),
@@ -263,7 +321,13 @@ fun CreateInstanceDialog(
                                 customWidth = if (selectedResolution == DisplayResolutionMode.CUSTOM) customWidth.toInt() else base.customWidth,
                                 customHeight = if (selectedResolution == DisplayResolutionMode.CUSTOM) customHeight.toInt() else base.customHeight,
                                 dpiScaling = dpiScaling.toInt(),
-                                desktopFps = desktopFps
+                                desktopFps = desktopFps,
+                                memoryBudgetMode = memoryMode,
+                                ramAllocatedMb = when (memoryMode) {
+                                    MemoryBudgetMode.DEFAULT -> defaultRam
+                                    MemoryBudgetMode.RECOMMENDED -> recommendedRam
+                                    MemoryBudgetMode.CUSTOM -> customRam.toInt()
+                                }
                             )
                             onCreate(newInstance)
                         },
