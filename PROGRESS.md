@@ -1,7 +1,7 @@
 # Linex progress
 
 ## Current State
-0.4.0-dev built: landscape fullscreen sessions, native landscape geometry, per-instance text resource overlay, hardware input and touchpad gestures, and default/recommended/custom advisory RAM budgets. Background setup/copy/delete and per-instance FPS15–144 remain available. Prior guest SIGKILL remains unconfirmed pending Android system logs.
+0.4.0-dev published: landscape fullscreen sessions, native landscape geometry, per-instance text resource overlay, hardware input and touchpad gestures, and default/recommended/custom advisory RAM budgets. Background setup/copy/delete and per-instance FPS15–144 remain available. Prior guest SIGKILL remains unconfirmed pending Android system logs.
 
 ## Verification
 72 tests pass; debug assembly succeeds; lint has 0 errors and 32 warnings. APK signature matches 0.3.1-dev through 0.3.4-dev. Input/geometry/metrics/RAM regression checks added and independent review findings fixed. Physical-device fullscreen, hardware/IME input, gestures and overlay/background behavior still need verification.
@@ -35,3 +35,4 @@
 - [2026-09-30] Added per-instance FPS presets15-144; preserve default15 for existing instances, configure both RFB pacing and TigerVNC FrameRate, request supported Android refresh and restore preference on leaving. Hardware FPS not measured.
 - [2026-09-30] v0.3.4-dev published. New launch log exits137 after11s; Firefox was manually opened and user also reports spontaneous crashes. Dropped saved-session theory; added5s startup samples and app-UID process lower bound. Android phantom-process trimming remains a hypothesis pending system logcat; no USB device attached.
 - [2026-09-30] Implemented landscape fullscreen default, Back/sidebar controls, persistent resource overlay (actual frame FPS/visible guest RSS/CPU; omit GPU), hardware keyboard/mouse and touchpad gestures. RAM selectors are advisory planning targets, preserving legacy settings.72 tests/build pass, lint0 errors32 warnings; same signing key. Device verification and guest SIGKILL source remain pending.
+- [2026-09-30] Published v0.4.0-dev APK and code367a2b9 on main. Uploaded APK SHA256 matches local e46abbff0babad6ea05a0f2f06a8a6137da623499deb3401ec3f1d4b4ea2e953. Release https://github.com/lupixele/linex/releases/tag/v0.4.0-dev; physical-device checks still pending.
