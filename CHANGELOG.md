@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.1-dev — 2026-10-01
+
+### Fixed
+
+- Coalesce desktop updates into one Android animation callback, presenting the latest
+  complete frame without repeatedly cancelling pending presentation.
+- Support overlap-safe RFB CopyRect to avoid retransmitting copied scrolling regions
+  as raw pixels. Video still needs changed pixels to be transferred and decoded.
+- Preserve the user's XFCE compositing choice across restarts rather than forcing it
+  off; lightweight defaults apply only when the setting is absent.
+
+### Device findings
+
+- System logs confirm Android phantom-process trimming caused the observed guest
+  SIGKILL. The rooted user reports stable operation with monitoring disabled.
+- The user confirms networking works with Android Private DNS Off. Android encrypted
+  DNS is not yet bridged into Linux.
+- Scrolling/video artifacts still need a phone comparison. Frame-delivery improvements
+  do not guarantee hardware-accelerated video, artifact elimination or actual 60 FPS.
+
 ## 0.4.0-dev — 2026-09-30
 
 ### Added

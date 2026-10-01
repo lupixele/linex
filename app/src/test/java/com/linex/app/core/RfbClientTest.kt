@@ -12,6 +12,81 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 class RfbClientTest {
+    @Test fun copyRectPreservesOverlappingScrollsAndOwnedSnapshots() {
+        // Right, left, down and up cover both overlap directions on each axis.
+        val moves = listOf(intArrayOf(1, 0, 2, 3, 0, 0), intArrayOf(0, 0, 2, 3, 1, 0),
+            intArrayOf(0, 1, 3, 2, 0, 0), intArrayOf(0, 0, 3, 2, 0, 1))
+        for (move in moves) {
+            withCopyServer { input, output, frames, _ ->
+                val original = IntArray(9) { 0xff000000.toInt() or (it + 1) }
+                output.writeByte(0); output.writeByte(0); output.writeShort(1)
+                rectangle(output, 0, 0, 3, 3, 0)
+                original.forEach { output.writeInt(Integer.reverseBytes(it)) }
+                val owned = frames.poll(3, TimeUnit.SECONDS) ?: throw AssertionError("No initial frame")
+                input.readFully(ByteArray(10))
+                output.writeByte(0); output.writeByte(0); output.writeShort(1)
+                rectangle(output, move[0], move[1], move[2], move[3], 1)
+                output.writeShort(move[4]); output.writeShort(move[5])
+                val copied = frames.poll(3, TimeUnit.SECONDS) ?: throw AssertionError("CopyRect was not decoded")
+                val expected = original.copyOf()
+                for (row in 0 until move[3]) for (column in 0 until move[2])
+                    expected[(move[1] + row) * 3 + move[0] + column] = original[(move[5] + row) * 3 + move[4] + column]
+                assertArrayEquals(expected, copied)
+                assertArrayEquals("Consumer-owned frame must stay immutable", original, owned)
+            }
+        }
+    }
+
+    @Test fun copyRectPublishesOnlyAfterEveryRectangleArrives() {
+        withCopyServer { _, output, frames, _ ->
+            output.writeByte(0); output.writeByte(0); output.writeShort(2)
+            rectangle(output, 0, 0, 1, 1, 0); output.writeInt(0x01000000)
+            assertNull("Partial update must not become visible", frames.poll(150, TimeUnit.MILLISECONDS))
+            rectangle(output, 1, 0, 1, 1, 1); output.writeShort(0); output.writeShort(0)
+            val result = frames.poll(3, TimeUnit.SECONDS) ?: throw AssertionError("No complete frame")
+            assertEquals(0xff000001.toInt(), result[0]); assertEquals(result[0], result[1])
+            assertNull(frames.poll(100, TimeUnit.MILLISECONDS))
+        }
+    }
+
+    @Test fun copyRectRejectsOutOfBoundsSourceAndDestination() {
+        for (sourceInvalid in listOf(true, false)) {
+            withCopyServer { _, output, frames, error ->
+                output.writeByte(0); output.writeByte(0); output.writeShort(1)
+                rectangle(output, if (sourceInvalid) 0 else 2, 0, 2, 1, 1)
+                output.writeShort(if (sourceInvalid) 2 else 0); output.writeShort(0)
+                val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2)
+                while (error.get() == null && System.nanoTime() < deadline) Thread.sleep(10)
+                assertTrue("Invalid CopyRect bounds must be rejected", error.get()?.message?.contains("exceeds framebuffer") == true)
+                assertTrue(frames.isEmpty())
+            }
+        }
+    }
+
+    private fun rectangle(out: DataOutputStream, x: Int, y: Int, w: Int, h: Int, encoding: Int) {
+        out.writeShort(x); out.writeShort(y); out.writeShort(w); out.writeShort(h); out.writeInt(encoding)
+    }
+
+    private fun withCopyServer(block: (DataInputStream, DataOutputStream,
+        java.util.concurrent.LinkedBlockingQueue<IntArray>, AtomicReference<Throwable>) -> Unit) {
+        ServerSocket(0).use { server ->
+            val frames = java.util.concurrent.LinkedBlockingQueue<IntArray>()
+            val error = AtomicReference<Throwable>()
+            val client = RfbClient(server.localPort, "password", { _, _, pixels -> frames.add(pixels) }, {})
+            val worker = thread { try { client.run() } catch (t: Throwable) { error.set(t) } }
+            try {
+                server.accept().use { socket ->
+                    val (input, output) = handshake(socket, 3, 3)
+                    input.readFully(ByteArray(20)) // SetPixelFormat
+                    assertEquals(2, input.readUnsignedByte()); input.readUnsignedByte()
+                    repeat(input.readUnsignedShort()) { input.readInt() }
+                    input.readFully(ByteArray(10))
+                    block(input, output, frames, error)
+                }
+            } finally { client.close(); worker.join(2000) }
+        }
+    }
+
     @Test fun pausedDisplayStopsRequestsAndResumesWithoutDisconnecting() {
         ServerSocket(0).use { server ->
             val error = AtomicReference<Throwable>()
@@ -20,7 +95,7 @@ class RfbClientTest {
             try {
                 server.accept().use { socket ->
                     val (input, output) = handshake(socket)
-                    input.readFully(ByteArray(42))
+                    input.readFully(ByteArray(46))
                     client.pauseUpdates(true)
                     output.writeByte(0); output.writeByte(0); output.writeShort(0)
                     socket.soTimeout = 200
@@ -49,7 +124,7 @@ class RfbClientTest {
             try {
                 server.accept().use { socket ->
                     val (input, output) = handshake(socket)
-                    input.readFully(ByteArray(42))
+                    input.readFully(ByteArray(46))
                     fun frame(red: Int): IntArray {
                         output.writeByte(0); output.writeByte(0); output.writeShort(1)
                         output.writeShort(0); output.writeShort(0); output.writeShort(2); output.writeShort(1); output.writeInt(0)
@@ -80,7 +155,7 @@ class RfbClientTest {
             try {
                 server.accept().use { socket ->
                     val (input, output) = handshake(socket)
-                    input.readFully(ByteArray(42))
+                    input.readFully(ByteArray(46))
                     // An immediately responding server must not create a busy polling loop.
                     output.writeByte(0); output.writeByte(0); output.writeShort(0)
                     input.readFully(ByteArray(10))
@@ -134,11 +209,16 @@ class RfbClientTest {
             val worker = thread { try { client.run() } catch (t: Throwable) { error.set(t) } }
             server.accept().use { socket ->
                 val (input, output) = handshake(socket)
-                val setup = ByteArray(42).also(input::readFully)
+                val setup = ByteArray(46).also(input::readFully)
                 assertEquals(0, setup[0].toInt())
                 assertEquals(32, setup[4].toInt())
                 assertEquals(2, setup[20].toInt())
-                assertEquals(3, setup[32].toInt())
+                assertEquals(3, setup[23].toInt())
+                val encodings = java.nio.ByteBuffer.wrap(setup)
+                assertEquals(0, encodings.getInt(24))
+                assertEquals(1, encodings.getInt(28))
+                assertEquals(-223, encodings.getInt(32))
+                assertEquals(3, setup[36].toInt())
                 output.writeByte(0); output.writeByte(0); output.writeShort(1)
                 output.writeShort(0); output.writeShort(0); output.writeShort(2); output.writeShort(1); output.writeInt(0)
                 output.write(byteArrayOf(0, 0, -1, 0, 0, -1, 0, 0))
@@ -167,7 +247,7 @@ class RfbClientTest {
             val worker = thread { runCatching { client.run() } }
             server.accept().use { socket ->
                 val (input, _) = handshake(socket)
-                input.readFully(ByteArray(42))
+                input.readFully(ByteArray(46))
                 assertTrue(connected.await(3, TimeUnit.SECONDS))
                 client.text("a".repeat(256) + "\n\t\uD83D\uDE00")
                 val expected = List(256) { 97 } + listOf(0xff0d, 0xff09, 0x0101f600)
@@ -221,7 +301,7 @@ class RfbClientTest {
             val worker = thread { runCatching { client.run() } }
             server.accept().use { socket ->
                 val (input, output) = handshake(socket)
-                input.readFully(ByteArray(42))
+                input.readFully(ByteArray(46))
                 output.writeByte(0); output.writeByte(0); output.writeShort(1)
                 output.writeShort(1); output.writeShort(0); output.writeShort(2); output.writeShort(1); output.writeInt(0)
                 worker.join(2000)
@@ -240,7 +320,7 @@ class RfbClientTest {
             val worker = thread { client.run() }
             server.accept().use { socket ->
                 val (input, output) = handshake(socket)
-                input.readFully(ByteArray(42))
+                input.readFully(ByteArray(46))
                 output.writeByte(0); output.writeByte(0); output.writeShort(1)
                 output.writeShort(0); output.writeShort(0); output.writeShort(3); output.writeShort(2); output.writeInt(-223)
                 assertTrue(resized.await(3, TimeUnit.SECONDS))

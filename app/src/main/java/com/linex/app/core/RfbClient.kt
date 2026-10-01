@@ -73,7 +73,7 @@ class RfbClient(
                 writeByte(32); writeByte(24); writeByte(0); writeByte(1)
                 repeat(3) { writeShort(255) }
                 writeByte(16); writeByte(8); writeByte(0); write(ByteArray(3))
-                writeByte(2); writeByte(0); writeShort(2); writeInt(0); writeInt(-223)
+                writeByte(2); writeByte(0); writeShort(3); writeInt(0); writeInt(1); writeInt(-223)
             }
             var pixels = IntArray(width * height)
             ready = true
@@ -108,6 +108,21 @@ class RfbClient(
                                                 ((row[offset + 2].toInt() and 255) shl 16) or
                                                 ((row[offset + 1].toInt() and 255) shl 8) or (row[offset].toInt() and 255)
                                         }
+                                    }
+                                }
+                                1 -> {
+                                    val sourceX = input.readUnsignedShort()
+                                    val sourceY = input.readUnsignedShort()
+                                    if (x + w > width || y + h > height ||
+                                        sourceX + w > width || sourceY + h > height)
+                                        throw IOException("Desktop CopyRect exceeds framebuffer")
+                                    // System.arraycopy (via copyInto) handles horizontal overlap.
+                                    // Copy bottom-up when moving down, so later source rows survive.
+                                    val rows = if (y > sourceY) h - 1 downTo 0 else 0 until h
+                                    for (row in rows) {
+                                        val sourceOffset = (sourceY + row) * width + sourceX
+                                        pixels.copyInto(pixels, (y + row) * width + x,
+                                            sourceOffset, sourceOffset + w)
                                     }
                                 }
                                 else -> throw IOException("Unsupported desktop encoding $encoding")

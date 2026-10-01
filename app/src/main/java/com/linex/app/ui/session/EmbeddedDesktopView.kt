@@ -19,8 +19,8 @@ import com.linex.app.core.DisplayEndpoint
 import com.linex.app.core.RfbClient
 import com.linex.app.core.DesktopInput
 import com.linex.app.core.DesktopGesture
+import com.linex.app.core.LatestFrameMailbox
 import java.net.ConnectException
-import java.util.concurrent.atomic.AtomicReference
 
 /** An in-app desktop surface. All bitmap mutations and drawing stay on the UI thread. */
 class EmbeddedDesktopView(context: Context) : View(context) {
@@ -47,7 +47,6 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     private data class Frame(val width: Int, val height: Int, val pixels: IntArray, val owner: RfbClient) {
         fun release() = owner.recycleFrame(pixels)
     }
-    private val pending = AtomicReference<Frame?>()
     var trackpadMode = false
         set(value) { if (field != value) releaseInput(); field = value; invalidate() }
     private var pointerX = 0
@@ -67,10 +66,10 @@ class EmbeddedDesktopView(context: Context) : View(context) {
         if (trackpadMode && !moved && !multiTouch) { pressed = true; pointerButton(1, true) }
     }
     private val heldKeys = mutableMapOf<Int, Int>()
-    private val applyFrame = object : Runnable {
+    private val applyFrame: Runnable = object : Runnable {
         override fun run() {
             if (disposed) return
-            val frame = pending.getAndSet(null) ?: return
+            val frame = frames.take() ?: return
             try {
                 var image = bitmap
                 if (image == null || image.width != frame.width || image.height != frame.height) {
@@ -85,9 +84,15 @@ class EmbeddedDesktopView(context: Context) : View(context) {
                 invalidate()
             } finally {
                 frame.release()
+                frames.complete()
             }
         }
     }
+    private val frames: LatestFrameMailbox<Frame> = LatestFrameMailbox(
+        schedule = { postOnAnimation(applyFrame) },
+        cancel = { removeCallbacks(applyFrame) },
+        release = { it.release() }
+    )
     init {
         isFocusable = true
         isFocusableInTouchMode = true
@@ -103,9 +108,7 @@ class EmbeddedDesktopView(context: Context) : View(context) {
             while (!disposed) {
                 lateinit var connection: RfbClient
                 connection = RfbClient(endpoint.port, endpoint.password, { w, h, pixels ->
-                    pending.getAndSet(Frame(w, h, pixels, connection))?.release()
-                    removeCallbacks(applyFrame)
-                    if (disposed) pending.getAndSet(null)?.release() else post(applyFrame)
+                    frames.offer(Frame(w, h, pixels, connection))
                 }, { status -> post { if (!disposed) onConnection(false, status) } }, targetFps)
                 client = connection
                 connection.pauseUpdates(!displayVisible)
@@ -132,8 +135,7 @@ class EmbeddedDesktopView(context: Context) : View(context) {
         disposed = true
         client?.close()
         worker?.interrupt()
-        removeCallbacks(applyFrame)
-        pending.getAndSet(null)?.release()
+        frames.close()
         bitmap = null
         keepScreenOn = false
     }

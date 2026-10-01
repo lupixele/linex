@@ -1,8 +1,7 @@
 #!/bin/sh
 # ==============================================================================
 # Linex XFCE4 Session Launcher
-# Starts XFCE4 with compositing and power-saving disabled (unneeded on mobile)
-# for maximum frame-rate and lowest memory usage.
+# Starts XFCE4 with lightweight defaults while preserving desktop preferences.
 # ==============================================================================
 
 set -e
@@ -40,12 +39,14 @@ for APPLET in xfce4-power-manager xfce4-screensaver light-locker xscreensaver \
     fi
 done
 
-# Software-rendered compositing adds avoidable work to every remote frame.
+# Default to lower-cost rendering, but preserve an explicit compositor choice.
+# Compositing can help users test tearing behavior in their desktop session.
 if command -v xfconf-query >/dev/null 2>&1; then
-    xfconf-query -c xfwm4 -p /general/use_compositing -s false 2>/dev/null || \
+    if ! xfconf-query -c xfwm4 -p /general/use_compositing >/dev/null 2>&1; then
         xfconf-query -c xfwm4 -p /general/use_compositing -n -t bool -s false 2>/dev/null || true
+    fi
 fi
-echo "[Linex:XFCE] Applied lightweight session defaults (system applets disabled; software compositing off)."
+echo "[Linex:XFCE] Applied lightweight session defaults (system applets disabled; existing compositor preference preserved)."
 
 # Execute xfce4-session
 exec xfce4-session

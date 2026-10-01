@@ -1,24 +1,24 @@
 # Linex progress
 
 ## Current State
-0.4.0-dev published: landscape fullscreen sessions, native landscape geometry, per-instance text resource overlay, hardware input and touchpad gestures, and default/recommended/custom advisory RAM budgets. Background setup/copy/delete and per-instance FPS15–144 remain available. Prior guest SIGKILL remains unconfirmed pending Android system logs.
+0.4.1-dev prepared: coalesced animation-frame presentation, overlap-safe CopyRect scrolling, and persistent XFCE compositing preferences. Android system logs prove phantom-process trimming caused prior guest kills; the rooted user confirms disabling monitoring prevents crashes. Internet works with Private DNS Off; encrypted DNS bridging remains unimplemented.
 
 ## Verification
-72 tests pass; debug assembly succeeds; lint has 0 errors and 32 warnings. APK signature matches 0.3.1-dev through 0.3.4-dev. Input/geometry/metrics/RAM regression checks added and independent review findings fixed. Physical-device fullscreen, hardware/IME input, gestures and overlay/background behavior still need verification.
+79 unit tests and XFCE shell regressions pass; debug assembly succeeds; lint has 0 errors and 32 warnings. APK certificate matches installed 0.4.0-dev. Independent review approves frame ownership, scheduling and CopyRect overlap/bounds behavior. Device visual quality and actual FPS remain unmeasured.
 
 ## Next Steps
-1. Verify fullscreen, sidebar focus, keyboard/mouse, touchpad and resource overlay on device.
-2. Verify background tasks, notifications, selected FPS and screen-off behavior.
-3. Capture Android system logcat to identify who sends guest SIGKILL137.
+1. Publish verified 0.4.1-dev and compare video/scrolling on the phone at selected 60 FPS.
+2. Compare actual overlay FPS and compositing on/off; desktop rendering remains software-based.
+3. Verify hardware input, gestures and background operation; implement Android resolver bridging separately.
 
 ## Open Questions / Blockers
-- Guest exit137 cause remains unconfirmed; no Android device attached.
+- Device scrolling/video artifacts remain unverified; Android guest-kill workaround is confirmed by the user.
 - Existing new signing key and matching backup survived reset. Same key as 0.3.1-dev.
 - Java17 now at P:/Android/Java17/PFiles64/Microsoft/jdk-17.0.20.101-hotspot; JAVA_HOME configured. Git/gh/SDK/NDK/CMake present; GitHub authenticated.
 - Generated files already tracked excluded; raw logs remain private/untracked.
 
 ## Last Updated
-2026-09-30
+2026-10-01
 
 ## Recent Decisions
 - [2026-09-26] Work directly in the user-specified linex checkout; replace unreliable Android tar extraction with bounded streaming JVM extraction; preserve old ready roots and scope diagnostics per instance.
@@ -36,3 +36,6 @@
 - [2026-09-30] v0.3.4-dev published. New launch log exits137 after11s; Firefox was manually opened and user also reports spontaneous crashes. Dropped saved-session theory; added5s startup samples and app-UID process lower bound. Android phantom-process trimming remains a hypothesis pending system logcat; no USB device attached.
 - [2026-09-30] Implemented landscape fullscreen default, Back/sidebar controls, persistent resource overlay (actual frame FPS/visible guest RSS/CPU; omit GPU), hardware keyboard/mouse and touchpad gestures. RAM selectors are advisory planning targets, preserving legacy settings.72 tests/build pass, lint0 errors32 warnings; same signing key. Device verification and guest SIGKILL source remain pending.
 - [2026-09-30] Published v0.4.0-dev APK and code367a2b9 on main. Uploaded APK SHA256 matches local e46abbff0babad6ea05a0f2f06a8a6137da623499deb3401ec3f1d4b4ea2e953. Release https://github.com/lupixele/linex/releases/tag/v0.4.0-dev; physical-device checks still pending.
+
+- [2026-10-01] System-log diagnosis confirmed: at 13:39:09.179 Android ActivityManager killed libproot.so, Xtigervnc and xfce4-session for 'Trimming phantom processes'. Earlier Sep30 15:49:33 kill matches exit137. Rooted Android13 workaround: settings put global settings_enable_monitor_phantom_procs false (system-wide); device verification pending. No APK change can directly override this privileged policy without root/shell access.
+- [2026-10-01] User confirms Private DNS Off restores internet and disabling phantom-process monitoring prevents crashes. Severe scrolling/video artifacts remain with 60 FPS selected. Fix confirmed scheduling and raw-scrolling overhead; preserve compositor choice for controlled comparison. Phone improvement is not yet measured.

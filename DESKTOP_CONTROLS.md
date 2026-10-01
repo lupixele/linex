@@ -56,10 +56,43 @@ delegated memory controller. Per-process address-space limits would not implemen
 pool and could break browsers. See the [Linux cgroup memory controller documentation](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html)
 and [Android memory information](https://developer.android.com/reference/android/app/ActivityManager.MemoryInfo).
 
+## Display motion and troubleshooting
+
+The instance FPS setting is a maximum update rate, not a promise of that many new
+frames. Enable the resource overlay and compare actual FPS while scrolling or playing
+video. The embedded display and guest video path still use software rendering; high
+resolution and refresh targets increase CPU and pixel-transfer work.
+
+Incoming complete updates are coalesced to Android's animation cadence. RFB CopyRect
+can copy scrolling regions locally rather than retransmitting those pixels. Video
+still needs changed pixels to be transferred and decoded; this is not video hardware
+acceleration or a guarantee against artifacts already present in guest drawing.
+
+For an XFCE compositing comparison, run inside the Linux terminal:
+
+```sh
+xfconf-query -c xfwm4 -p /general/use_compositing -s true
+```
+
+Use `false` to undo. Linex now preserves this choice on restart. Newly unset settings
+retain the lightweight compositing-off default. Compare both image quality and actual
+FPS because software compositing can add CPU work.
+
+## Android compatibility findings
+
+Android system logs identified `Trimming phantom processes` as the cause of the
+reported PRoot/display/desktop kills. The rooted Android 13 user confirmed that
+`settings put global settings_enable_monitor_phantom_procs false` stopped the crash.
+This is a privileged, system-wide Android setting, not an APK-only fix.
+
+The user also confirmed Linux networking works with Android Private DNS Off. Guest
+libc currently does not inherit Android's encrypted resolver. Turning it off is a
+workaround; an Android resolver bridge remains future work.
+
 ## Device verification
 
-72 unit tests and debug assembly pass; lint reports 0 errors and 32 warnings. The development
-APK still needs a phone check for fullscreen with rotation/cutouts, sidebar
-focus, USB/Bluetooth shortcuts and keypad/dead-key input, IME dismissal, gesture scrolling
-and dragging, idle/active FPS, and resource polling stopping in the background. The earlier
-guest SIGKILL crash remains an independent investigation requiring Android system logs.
+79 unit tests, XFCE startup regressions and debug assembly pass; lint reports 0 errors
+and 32 warnings. APK certificate matches the installed development release. Scrolling
+and video need a phone comparison with actual FPS and compositing on/off. The earlier
+guest kill was traced to Android phantom-process trimming; the rooted workaround and
+Private DNS Off workaround are confirmed by the user.
