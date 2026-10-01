@@ -1,13 +1,13 @@
 # Linex progress
 
 ## Current State
-0.4.1-dev prepared: coalesced animation-frame presentation, overlap-safe CopyRect scrolling, and persistent XFCE compositing preferences. Android system logs prove phantom-process trimming caused prior guest kills; the rooted user confirms disabling monitoring prevents crashes. Internet works with Private DNS Off; encrypted DNS bridging remains unimplemented.
+0.4.1-dev published: coalesced animation-frame presentation, overlap-safe CopyRect scrolling, and persistent XFCE compositing preferences. Android system logs prove phantom-process trimming caused prior guest kills; the rooted user confirms disabling monitoring prevents crashes. Internet works with Private DNS Off; encrypted DNS bridging remains unimplemented.
 
 ## Verification
 79 unit tests and XFCE shell regressions pass; debug assembly succeeds; lint has 0 errors and 32 warnings. APK certificate matches installed 0.4.0-dev. Independent review approves frame ownership, scheduling and CopyRect overlap/bounds behavior. Device visual quality and actual FPS remain unmeasured.
 
 ## Next Steps
-1. Publish verified 0.4.1-dev and compare video/scrolling on the phone at selected 60 FPS.
+1. Compare 0.4.1-dev video/scrolling on the phone at selected 60 FPS.
 2. Compare actual overlay FPS and compositing on/off; desktop rendering remains software-based.
 3. Verify hardware input, gestures and background operation; implement Android resolver bridging separately.
 
@@ -39,3 +39,4 @@
 
 - [2026-10-01] System-log diagnosis confirmed: at 13:39:09.179 Android ActivityManager killed libproot.so, Xtigervnc and xfce4-session for 'Trimming phantom processes'. Earlier Sep30 15:49:33 kill matches exit137. Rooted Android13 workaround: settings put global settings_enable_monitor_phantom_procs false (system-wide); device verification pending. No APK change can directly override this privileged policy without root/shell access.
 - [2026-10-01] User confirms Private DNS Off restores internet and disabling phantom-process monitoring prevents crashes. Severe scrolling/video artifacts remain with 60 FPS selected. Fix confirmed scheduling and raw-scrolling overhead; preserve compositor choice for controlled comparison. Phone improvement is not yet measured.
+- [2026-10-01] Published v0.4.1-dev and pushed c1f5e2d to main. 79 tests and XFCE shell regression pass; lint 0 errors/32 warnings; existing signing certificate matches. GitHub asset digest matches local 7b47dff74b6c494aa72527c6b0d370f3f9438ffcb95c13a9745d5a4bdb37736d. Device tearing improvement remains unverified.
