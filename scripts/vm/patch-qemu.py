@@ -25,7 +25,16 @@ def patch(source: Path, shim: Path) -> None:
   endif
 
 """
-    meson.write_text(content.replace(anchor, addition + anchor))
+    content = content.replace(anchor, addition + anchor)
+    # Android merges realtime functions into libc and has no librt or POSIX
+    # shm_open. The serial VM uses anonymous RAM; our unsupported shm backend
+    # returns ENOTSUP. Preserve the real feature probe instead of faking it.
+    realtime_anchor = "  if not have_shm_open\n    rt = cc.find_library('rt', required: true)"
+    if content.count(realtime_anchor) != 1:
+        raise ValueError("QEMU realtime library probe changed")
+    content = content.replace(realtime_anchor,
+        "  if not have_shm_open and cc.get_define('__ANDROID__') == ''\n    rt = cc.find_library('rt', required: true)")
+    meson.write_text(content)
     shutil.copyfile(shim, source / "system/linex_jni.c")
     # Bionic has no POSIX shm declarations. These backends deliberately return
     # ENOTSUP in the shim; the managed launch always uses anonymous guest RAM.
