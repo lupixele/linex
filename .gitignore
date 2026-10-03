@@ -7,3 +7,5 @@
 */build
 .cxx
 *.log
+/.vm-native-cache/
+/scripts/vm/__pycache__/
