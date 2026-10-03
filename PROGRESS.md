@@ -1,22 +1,22 @@
 # Linex progress
 
 ## Current State
-0.5.2-dev/code21 is published: https://github.com/lupixele/linex/releases/tag/v0.5.2-dev. Implementation6cb873b is pushed to main; release APK/native-source digests match local files. User confirms display improvement; the new device log proves native GLES display starts successfully at15 and60FPS targets on Adreno618. Guest SIGKILL137 still occurs after13s and65s with available memory/lowMemory=false; the first precedes Firefox output. No matching system kill record identifies the killer, while phantom monitoring remains enabled.
+User confirms v0.5.2 still crashes on opening Firefox. Fresh code21 log shows guest-group16 at5s,34 at10s before Firefox,42 at20s; guest137at50s with2003MiB available/lowMemory=false and phantom monitoring true. Native GLES remains connected. This strengthens the process-policy hypothesis but still lacks the matching system kill record. Cleanup/autostart patches have not solved the crash.
 
-Fixed actual printer autostart filename and symlink preservation, owned foreground D-Bus/readiness/reaping, and group-only cleanup by tracking positively attributed PRoot children across daemonization. PID/start-time/UID identities are revalidated before signals; registry bounded4096. Added bounded kernel-name diagnostics without command arguments. These app-side changes require no root or Android policy changes; see GPU_CRASH_AUDIT.md.
+User explicitly chose a full VM instead of slimmer PRoot. Proposed capability map is VM_MODULES.md; module review is pending. Target: maintained full-system QEMU embedded in a nonexported Android-managed service, with guest kernel/forks internal to emulation, rootless networking, bootable disks and embedded console. Existing PRoot instances/data must remain intact. Optional autostart experiment stopped and test-only changes reversed; no new APK published.
 
 ## Verification
 112 unit tests pass, including ownership/PID reuse/churn and bounded name diagnostics. Unbounded-registry regression failed with the guard removed, then passed restored. XFCE, browser-default and session-bus shell regressions pass. APK assembly/lint pass (0errors34warnings); v2 signature/alignment verified; same development certificate. APK SHA2567f1158d36724a11705cb18212a35cc8d32da6a5c5879239b477672f5e997c541. Scoped review passes. New cleanup behavior requires device verification; GPU startup from0.5.1 is phone-confirmed.
 
 ## Next Steps
-1. Install v0.5.2-dev normally and restart the existing instance without root or system-policy changes.
-2. Verify desktop/restart/browser behavior with normal Android process policy and inspect process-name counts if guest exits recur.
-3. Implement capability-based guest GPU bridge and Android resolver bridge; native FPS telemetry remains pending.
+1. Review VM_MODULES.md boundaries/build order, then write engine specification and prove Android-managed JNI Linux boot.
+2. Build a maintained QEMU engine with pinned sources and corresponding-source packaging on a Linux runner; current Windows has no installed WSL/Docker/QEMU.
+3. Integrate bootable VM images, rootless network/DNS, private authenticated display and actual guest RAM allocation. Measure phone performance before claiming stability.
 
 ## Open Questions / Blockers
 - Latest killer remains unattributed. Ordinary PRoot cannot exempt unrestricted workloads from Android process limits.
 - Cleanup covers observed readable identities; OEM /proc restrictions, between-sample forks and app process death limit coverage.
-- Host GPU presentation works; guest OpenGL/video rendering still software. Available memory does not exclude all OEM kill policies.
+- Full VM removes guest-fork multiplication but CPU emulation may be slow on Snapdragon732G. Guest GPU acceleration and Private DNS require separate validation.
 - Signing key backed up outside Git; build tools available. Generated tracked build files and raw logs excluded from commits.
 
 ## Last Updated
@@ -59,3 +59,4 @@ Fixed actual printer autostart filename and symlink preservation, owned foregrou
 - [2026-10-03] Published v0.5.1-dev/code20 and pushed implementation8eb1753 to main. GitHub APK digest2067c6877e54d6c4e6bacd903042708b772d0c866af72d85b686060f333d8efc and native-source digest match local files. Normal Android installation; no root requirement. Stopped build daemon. Phone no-root crash and native display verification remain pending.
 - [2026-10-03] New device log confirms native GPU display works at15/60FPS targets, but guest137stillafter13/65s(firstbeforeFirefox), killerunproven. Fixed actualprint-applet autostart basename/symlinknoclobber, foregroundownedD-Bus/readiness/reap, bounded4096identitytracker with PID/startTicks/UID revalidation acrossgroups and expected-session sampling. 112tests+3shell suites/build/lint0errors34warnings/signature/alignment pass; scope review passes. No root/system-policy changes; new cleanup phone outcome pending.
 - [2026-10-03] Published v0.5.2-dev/code21 with corresponding native source and pushed6cb873b to main. GitHub APK digest7f1158d36724a11705cb18212a35cc8d32da6a5c5879239b477672f5e997c541 matches signed local build. Build daemon stopped. Native0.5.1startup is phone-confirmed; new cleanup mitigation and latest kill attribution still require device evidence.
+- [2026-10-03] User reports code21stillcrashesopeningFirefox; newlog34guestprocessesbeforebrowser/42after,137at50savailable2003MiBfalse. User chooses FULL VM forno-rootarchitecture over slimmerPRoot. TargetmanagedJNIQEMUservice/realguestkernel, preserveoldinstances. ProposedVM_MODULES.md awaitingmodule review; no newcode/APK, optionalautostarttestexperimentreversed. Linuxbuildrunner needed (WSL/Docker/QEMU absent).
