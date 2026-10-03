@@ -24,7 +24,7 @@ def verify(library: Path, abi: str, tools: Path) -> dict:
     alignments = [int(line.split()[-1], 16) for line in program.splitlines() if line.strip().startswith("LOAD ")]
     if not alignments or min(alignments) < 16384:
         raise ValueError("ELF LOAD segments must support 16KiB page alignment")
-    if "Java_com_linex_vm_NativeVm_run" not in symbols:
+    if not re.search(r"^\s*[a-fA-F0-9]+\s+[TW]\s+Java_com_linex_vm_NativeVm_run$", symbols, re.MULTILINE):
         raise ValueError("Missing JNI entry point")
     imports = [line.split()[-1].split("@")[0] for line in symbols.splitlines() if re.search(r"\bU\b", line)]
     forbidden = {"fork", "vfork", "clone", "clone3", "forkpty", "posix_spawn", "posix_spawnp",

@@ -124,6 +124,22 @@ int __wrap_execve(const char *s, char *const v[], char *const e[])
 { (void)s; (void)v; (void)e; errno = ENOTSUP; return -1; }
 int __wrap_execvp(const char *s, char *const v[])
 { (void)s; (void)v; errno = ENOTSUP; return -1; }
+int __wrap_execv(const char *s, char *const v[])
+{ return __wrap_execvp(s, v); }
+int __wrap_execvpe(const char *s, char *const v[], char *const e[])
+{ return __wrap_execve(s, v, e); }
+int __wrap_execl(const char *s, const char *a, ...)
+{ (void)s; (void)a; errno = ENOTSUP; return -1; }
+int __wrap_execlp(const char *s, const char *a, ...)
+{ (void)s; (void)a; errno = ENOTSUP; return -1; }
+int __wrap_execle(const char *s, const char *a, ...)
+{ (void)s; (void)a; errno = ENOTSUP; return -1; }
+int __wrap_fexecve(int f, char *const v[], char *const e[])
+{ (void)f; (void)v; (void)e; errno = ENOTSUP; return -1; }
+struct termios;
+struct winsize;
+pid_t __wrap_forkpty(int *f, char *s, const struct termios *t, const struct winsize *w)
+{ (void)f; (void)s; (void)t; (void)w; errno = ENOTSUP; return -1; }
 
 /* POSIX shared-memory backends are unsupported by Bionic. Anonymous guest RAM
  * does not call these functions. Explicit failure prevents a fake shm backend. */

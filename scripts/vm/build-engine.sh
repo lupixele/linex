@@ -160,7 +160,7 @@ if [[ $VM_ABI == arm64-v8a ]]; then
   VM_SETJMP='-landroid-setjmp'
 fi
 VM_WRAP=''
-for VM_SYMBOL in fork vfork posix_spawn posix_spawnp system popen execve execvp; do
+for VM_SYMBOL in fork vfork forkpty posix_spawn posix_spawnp system popen execve execvp execv execvpe execl execlp execle fexecve; do
   VM_WRAP+=" -Wl,--wrap=$VM_SYMBOL"
 done
 mkdir "$VM_WORK/qemu-build"
@@ -182,7 +182,7 @@ cp "$VM_WORK/qemu-build/compile_commands.json" "$VM_OUTPUT/$VM_ABI/"
 # Preserve the actual inputs, exact patches/shim and relinkable objects to meet
 # static LGPL distribution obligations. Retain this alongside any binary.
 tar -C "$VM_WORK" -czf "$VM_OUTPUT/$VM_ABI/corresponding-source.tar.gz" src
-tar -C "$VM_WORK/qemu-build" -czf "$VM_OUTPUT/$VM_ABI/relinkable-build.tar.gz" .
+tar -C "$VM_WORK" -czf "$VM_OUTPUT/$VM_ABI/relinkable-build.tar.gz" qemu-build prefix
 cp -a "$VM_ROOT/scripts/vm" "$VM_OUTPUT/$VM_ABI/build-scripts"
 cp -a "$VM_ROOT/vm-engine/src/main/jni" "$VM_OUTPUT/$VM_ABI/build-scripts/jni"
 echo "Native ELF verified. Android JNI load, kernel boot and process proof remain required."

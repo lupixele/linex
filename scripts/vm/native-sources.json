@@ -51,7 +51,7 @@
     },
     "dtc": {
       "version": "1.8.1",
-      "url": "https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot/dtc-1.8.1.tar.gz",
+      "url": "https://github.com/dgibson/dtc/archive/refs/tags/v1.8.1.tar.gz",
       "sha256": "74b50bb19134f6562490afea53e59953dd6c4afb17e5ccb60be32221262d3390",
       "license": "BSD-2-Clause OR GPL-2.0-or-later (libfdt)"
     },
