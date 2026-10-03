@@ -60,6 +60,28 @@ def patch(source: Path, shim: Path) -> None:
     anchor = '#include "qemu/osdep.h"'
     assert content.count(anchor) == 1
     oslib.write_text(content.replace(anchor, anchor + '\nint shm_open(const char *, int, mode_t);\nint shm_unlink(const char *);'))
+    # Linux's optional async teardown clones a separate cleanup process. An
+    # Android-managed VM must never start such a host helper. Exclude both its
+    # object and command-line option instead of supplying a successful stub.
+    system_meson = source / "system/meson.build"
+    content = system_meson.read_text()
+    anchor = "if host_os == 'linux'\n  system_ss.add(files('async-teardown.c'))"
+    if content.count(anchor) != 1:
+        raise ValueError("QEMU async teardown source selector changed")
+    system_meson.write_text(content.replace(anchor,
+        "if host_os == 'linux' and cc.get_define('__ANDROID__') == ''\n  system_ss.add(files('async-teardown.c'))"))
+    vl = source / "system/vl.c"
+    content = vl.read_text()
+    anchors = [
+        '#if defined(CONFIG_LINUX)\n        {\n            .name = "async-teardown",',
+        '#if defined(CONFIG_LINUX)\n                if (qemu_opt_get_bool(opts, "async-teardown", false)) {',
+    ]
+    for anchor in anchors:
+        if content.count(anchor) != 1:
+            raise ValueError("QEMU async teardown option/call changed")
+        content = content.replace(anchor, anchor.replace(
+            '#if defined(CONFIG_LINUX)', '#if defined(CONFIG_LINUX) && !defined(__ANDROID__)'))
+    vl.write_text(content)
 
 
 if __name__ == "__main__":
