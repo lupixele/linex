@@ -49,7 +49,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential ninja-build pkg-config cmake python3 python3-venv patch curl xz-utils unzip
           python3 -m venv "$RUNNER_TEMP/vm-build-tools"
-          "$RUNNER_TEMP/vm-build-tools/bin/pip" install meson==1.8.3 packaging==25.0
+          "$RUNNER_TEMP/vm-build-tools/bin/pip" install --only-binary=:all: --require-hashes -r scripts/vm/build-tools.txt
           echo "$RUNNER_TEMP/vm-build-tools/bin" >> "$GITHUB_PATH"
       - name: Acquire the hash-pinned NDK r30
         run: |
