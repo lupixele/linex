@@ -1,7 +1,7 @@
 # Full VM capability map
 
-Status: proposed module boundaries. The user chose a full virtual machine on
-2026-10-03; module review is pending before implementation specifications.
+Status: module boundaries and build order approved by the user's “proceed” on
+2026-10-03. Engine specification: SPEC-vm-engine.md (approved for implementation).
 
 | Module | Responsibility | Depends on |
 | --- | --- | --- |
