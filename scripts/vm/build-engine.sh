@@ -45,6 +45,7 @@ export CPPFLAGS="-I$VM_PREFIX/include"
 export LDFLAGS="-L$VM_PREFIX/lib -Wl,-z,max-page-size=16384"
 export PKG_CONFIG_LIBDIR="$VM_PREFIX/lib/pkgconfig"
 export PKG_CONFIG_PATH=''
+export PKG_CONFIG="$(command -v pkg-config)"
 export SOURCE_DATE_EPOCH=1790985600
 VM_JOBS=${LINEX_VM_JOBS:-2}
 
