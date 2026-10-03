@@ -47,6 +47,7 @@ class SerialCapture:
         self.booted = False
         self.child_count = 0
         self.child_reports = 0
+        self.guest_pids = ()
         self.kernel = None
         self.lock = threading.Lock()
         self.thread = threading.Thread(target=self._read, args=(stream,), daemon=True)
@@ -74,10 +75,22 @@ class SerialCapture:
                         self.child_reports += 1
                     except ValueError:
                         pass
+                if line.startswith("LINEX_VM_GUEST_PIDS "):
+                    try:
+                        values = line.split()[1:]
+                        self.guest_pids = tuple(int(value) for value in values) if len(values) <= 64 else ()
+                    except ValueError:
+                        self.guest_pids = ()
 
     def snapshot(self):
         with self.lock:
             return self.booted, self.child_count, self.child_reports, self.kernel
+
+    def verified_guest_pids(self):
+        with self.lock:
+            if len(self.guest_pids) != 64 or len(set(self.guest_pids)) != 64 or min(self.guest_pids) < 2:
+                raise ValueError("Guest did not report 64 distinct child PIDs")
+            return self.guest_pids
 
     def text(self):
         with self.lock:
@@ -148,6 +161,7 @@ def run(args):
                 if process.poll() is not None:
                     raise RuntimeError(f"QEMU exited before guest boot: {process.returncode}")
                 sample = host_process_sample(process.pid)
+                sample["phase"] = "booting"
                 evidence["hostSamples"].append(sample)
                 if sample["hostChildPids"]:
                     raise RuntimeError("QEMU created a host child process")
@@ -155,6 +169,7 @@ def run(args):
                 if booted and count == 64:
                     evidence["guestChildCount"] = count
                     evidence["guestKernel"] = kernel_line
+                    evidence["guestPids"] = capture.verified_guest_pids()
                     break
                 time.sleep(0.5)
             else:
@@ -172,6 +187,7 @@ def run(args):
             status_deadline = time.monotonic() + 10
             while time.monotonic() < status_deadline:
                 sample = host_process_sample(process.pid)
+                sample["phase"] = "children-active"
                 evidence["hostSamples"].append(sample)
                 if sample["hostChildPids"]:
                     raise RuntimeError("Guest forks created host child processes")
@@ -183,6 +199,31 @@ def run(args):
                 time.sleep(0.2)
             else:
                 raise TimeoutError("Guest serial status response timed out")
+            previous_reports = capture.snapshot()[2]
+            process.stdin.write(b"clear\n")
+            process.stdin.flush()
+            clear_deadline = time.monotonic() + 10
+            while time.monotonic() < clear_deadline:
+                sample = host_process_sample(process.pid)
+                sample["phase"] = "clearing-guest-children"
+                evidence["hostSamples"].append(sample)
+                if sample["hostChildPids"]:
+                    raise RuntimeError("Host children appeared after guest child cleanup")
+                _, count, reports, _ = capture.snapshot()
+                if reports > previous_reports:
+                    if count != 0:
+                        raise RuntimeError("Guest clear command did not remove the child processes")
+                    evidence["guestChildrenCleared"] = True
+                    evidence["guestChildCountAfterClear"] = 0
+                    after_clear = host_process_sample(process.pid)
+                    after_clear["phase"] = "children-cleared"
+                    evidence["hostSamples"].append(after_clear)
+                    if after_clear["hostChildPids"]:
+                        raise RuntimeError("Host children remained after guest child cleanup")
+                    break
+                time.sleep(0.2)
+            else:
+                raise TimeoutError("Guest clear response timed out")
             process.stdin.write(b"stop\n")
             process.stdin.flush()
             process.wait(timeout=15)

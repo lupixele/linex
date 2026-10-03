@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sys
@@ -13,6 +14,21 @@ spec.loader.exec_module(harness)
 
 
 class BootHarnessTest(unittest.TestCase):
+    def test_records_distinct_guest_pid_proof_and_clear_reply(self):
+        pids = tuple(range(2, 66))
+        serial = ("LINEX_VM_GUEST_CHILDREN count=0\nLINEX_VM_GUEST_PIDS "
+                  + " ".join(str(pid) for pid in pids)
+                  + "\nLINEX_VM_GUEST_CHILDREN count=64\nLINEX_VM_BOOT_OK\n"
+                  + "LINEX_VM_GUEST_CHILDREN count=0\n")
+        capture = harness.SerialCapture(io.BytesIO(serial.encode()))
+        capture.thread.join(timeout=2)
+        self.assertEqual(capture.verified_guest_pids(), pids)
+        self.assertEqual(capture.snapshot()[:3], (True, 0, 3))
+        duplicate = harness.SerialCapture(io.BytesIO(("LINEX_VM_GUEST_PIDS " + " ".join(["2"] * 64) + "\n").encode()))
+        duplicate.thread.join(timeout=2)
+        with self.assertRaises(ValueError):
+            duplicate.verified_guest_pids()
+
     def test_rejects_modified_fixture_before_launch(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

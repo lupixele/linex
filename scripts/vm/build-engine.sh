@@ -107,8 +107,8 @@ endian = 'little'
 [properties]
 needs_exe_wrapper = true
 [built-in options]
-c_args = ['-O2', '-fPIC', '-I$VM_PREFIX/include']
-cpp_args = ['-O2', '-fPIC', '-I$VM_PREFIX/include']
+c_args = ['-O2', '-fPIC', '-D__BIONIC__=1', '-I$VM_PREFIX/include']
+cpp_args = ['-O2', '-fPIC', '-D__BIONIC__=1', '-I$VM_PREFIX/include']
 c_link_args = ['-L$VM_PREFIX/lib', '-Wl,-z,max-page-size=16384']
 cpp_link_args = ['-L$VM_PREFIX/lib', '-Wl,-z,max-page-size=16384']
 EOF
@@ -123,7 +123,9 @@ for VM_DEP in libiconv libffi pcre2; do
   esac
   (cd "$VM_WORK/$VM_DEP-build"; "$VM_WORK/src/$VM_DEP/configure" --host="$VM_TRIPLE" --prefix="$VM_PREFIX" --disable-shared --enable-static "${VM_OPTIONS[@]}"; make -j"$VM_JOBS"; make install)
 done
-(cd "$VM_WORK/src/android-shmem"; "$CC" $CFLAGS -std=c11 -c shmem.c -o shmem.o; "$AR" rcs "$VM_PREFIX/lib/libandroid-shmem.a" shmem.o)
+# QEMU's Linux osdep header includes sys/shm.h, absent from the NDK. Only the
+# compatibility declarations are needed: user-mode/ivshmem/SysV backends are
+# disabled. Do not ship Termux's keyed shared-memory helper/runtime path.
 mkdir -p "$VM_PREFIX/include/sys"
 cp "$VM_WORK/src/android-shmem/shm.h" "$VM_PREFIX/include/sys/shm.h"
 # GLib carries GVDB in its release archive; supply its hash-pinned gettext stub
@@ -168,7 +170,7 @@ mkdir "$VM_WORK/qemu-build"
   --target-list=aarch64-softmmu --without-default-features --disable-download \
   --cross-prefix="$VM_TRIPLE-" --cc="$CC" --cxx="$CXX" --host-cc=gcc \
   --extra-cflags="$CFLAGS" --extra-cxxflags="$CXXFLAGS" \
-  --extra-ldflags="$LDFLAGS $VM_SETJMP -landroid-shmem -llog -landroid $VM_WRAP" \
+  --extra-ldflags="$LDFLAGS $VM_SETJMP -llog -landroid $VM_WRAP" \
   --enable-tcg --enable-fdt=system --enable-iconv --disable-rust --disable-modules \
   --disable-tools --disable-guest-agent --disable-docs --audio-drv-list= \
   -Db_staticpic=true -Dprefer_static=true --prefix="$VM_PREFIX")

@@ -100,6 +100,8 @@ class FixtureTest(unittest.TestCase):
         self.assertIn(b"LINEX_VM_BOOT_OK", entries["init"][1])
         self.assertIn(b"LINEX_VM_GUEST_CHILDREN", entries["init"][1])
         self.assertIn(b"sleep 86400 &", entries["init"][1])
+        self.assertIn(b'echo "LINEX_VM_GUEST_PIDS$children"', entries["init"][1])
+        self.assertIn(b'clear)\n                cleanup\n                echo "LINEX_VM_GUEST_CHILDREN count=0"', entries["init"][1])
         self.assertEqual(entries["dev/console"][0][9:11], [5, 1])
         self.assertTrue(all(item[0][5] == 0 for item in entries.values()))
 

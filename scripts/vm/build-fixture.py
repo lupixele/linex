@@ -44,6 +44,7 @@ shutdown_guest() {
 }
 trap shutdown_guest TERM INT
 count=0
+echo "LINEX_VM_GUEST_CHILDREN count=0"
 while [ "$count" -lt 64 ]; do
     sleep 86400 &
     children="$children $!"
@@ -57,6 +58,7 @@ for child in $children; do
     fi
 done
 echo "LINEX_VM_KERNEL arch=$(uname -m) version=$(uname -r)"
+echo "LINEX_VM_GUEST_PIDS$children"
 echo "LINEX_VM_GUEST_CHILDREN count=$count"
 echo LINEX_VM_BOOT_OK
 # PID 1 retains all 64 children. The private serial controller requests status
@@ -70,6 +72,10 @@ while true; do
                     if kill -0 "$child" 2>/dev/null; then alive=$((alive + 1)); fi
                 done
                 echo "LINEX_VM_GUEST_CHILDREN count=$alive"
+                ;;
+            clear)
+                cleanup
+                echo "LINEX_VM_GUEST_CHILDREN count=0"
                 ;;
             stop|poweroff) shutdown_guest ;;
             *) echo LINEX_VM_UNKNOWN_COMMAND ;;
@@ -237,6 +243,7 @@ def build(output):
         "guestChildCount": 64,
         "serialBootMarker": "LINEX_VM_BOOT_OK",
         "serialStopCommand": "stop",
+        "serialClearCommand": "clear",
     }
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2), flush=True)

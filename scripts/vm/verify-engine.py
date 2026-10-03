@@ -28,7 +28,8 @@ def verify(library: Path, abi: str, tools: Path) -> dict:
         raise ValueError("Missing JNI entry point")
     imports = [line.split()[-1].split("@")[0] for line in symbols.splitlines() if re.search(r"\bU\b", line)]
     forbidden = {"fork", "vfork", "clone", "clone3", "forkpty", "posix_spawn", "posix_spawnp",
-                 "system", "popen", "execve", "execvp", "execv", "execl", "execlp", "execle", "execvpe", "fexecve"}
+                 "system", "popen", "execve", "execvp", "execv", "execl", "execlp", "execle", "execvpe", "fexecve",
+                 "shmat", "shmget", "shmdt", "shmctl"}
     if set(imports) & forbidden:
         raise ValueError("Uncontrolled host helper imports: " + repr(set(imports) & forbidden))
     if b"/data/data/com.termux" in library.read_bytes() or b"@TERMUX_PREFIX@" in library.read_bytes():
