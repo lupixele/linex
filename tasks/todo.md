@@ -8,6 +8,8 @@
     guest init handshake and64 persistent children; no unsafe host extraction.
   - Verify: Python unit tests; Linux host QEMU boot (fixture evidence only).
 - [ ] Native Android engine build (independent)
+  - Run37127951054 reaches final QEMU/JNI linking for both ABIs; x86 compiles2015
+    objects. Android dynamic-link fix e96c085 is under verification in run37128625180.
   - Files: scripts/vm/build-engine.sh, embedding shim/patch, source manifest,
     .github/workflows/vm-engine.yml.
   - Acceptance: genuine QEMU11 ARM64guest JNI library for both host ABIs,
@@ -31,12 +33,17 @@
 - [ ] QMP control and lifecycle proof (depends on managed service)
   - Implemented;8protocol tests pass (framing, deadline, errors/events). Actual
     two-boot/control/fork64 proof is compiled and awaits Android emulator execution.
+    Separate remote Binder tests cover rejected launch, stale/duplicate controls,
+    owned force stop and concurrent valid first STARTs; test APK compilation passes.
   - Files: QMP protocol/client and tests, service instrumentation tests.
   - Acceptance: bounded framing/timeouts, valid capabilities, pause/resume,
     owned stop, stale-session rejection, fresh PID restart and failure cleanup.
   - Verify: unit protocol tests plus real connected boot/guestfork64/hostchildren
     evidence. No device → connected test remains pending.
 - [ ] Rootless networking (depends on boot/control)
+  - Source-grounded VM_NETWORK_DESIGN.md records anonymous socketpair transport,
+    Android resolver bounds and unresolved native libslirp UDP/TCP DNS extension.
+    No network backend is implemented; existing fixture remains serial-only.
   - Acceptance: in-process SLIRP and Android DNS resolver bridge; actual guest
     DHCP, TCP, HTTPS and Private DNS on/off proof.
   - Verify: connected networking instrumentation and physical-device evidence.
