@@ -48,16 +48,17 @@ cleanup() {
         wait "$VNC_PID" 2>/dev/null || true
     fi
 
-    if [ -n "$DBUS_PID" ] && kill -0 "$DBUS_PID" 2>/dev/null; then
+    if [ -n "$DBUS_PID" ]; then
         echo "[Linex:ContainerInit] Terminating D-Bus daemon (PID $DBUS_PID)..."
         kill -15 "$DBUS_PID" 2>/dev/null || true
+        wait "$DBUS_PID" 2>/dev/null || true
     fi
 
     echo "[Linex:ContainerInit] Flushing filesystem buffers..."
     sync 2>/dev/null || true
 
     # Clean socket and locks
-    rm -f /tmp/dbus-session-socket /tmp/dbus.pid /tmp/linex-vnc.secret /tmp/linex-vnc.passwd
+    rm -f /tmp/dbus-session-socket /tmp/dbus.pid /tmp/dbus.address /tmp/linex-vnc.secret /tmp/linex-vnc.passwd
     echo "[Linex:ContainerInit] Container shutdown sequence complete."
     exit "$SHUTDOWN_STATUS"
 }
@@ -106,13 +107,8 @@ fi
 DBUS_PID=""
 if command -v dbus-daemon >/dev/null 2>&1; then
     echo "[Linex:ContainerInit] Initializing D-Bus Session Bus..."
-    rm -f /tmp/dbus-session-socket
-    dbus-daemon --session --fork --address="unix:path=/tmp/dbus-session-socket" --print-pid > /tmp/dbus.pid 2>/dev/null || true
-    if [ -f /tmp/dbus.pid ]; then
-        DBUS_PID="$(cat /tmp/dbus.pid)"
-        export DBUS_SESSION_BUS_ADDRESS="unix:path=/tmp/dbus-session-socket"
-        echo "[Linex:ContainerInit] D-Bus started with PID $DBUS_PID"
-    fi
+    . /linex/session_bus.sh
+    start_session_bus
 elif command -v dbus-launch >/dev/null 2>&1; then
     eval "$(dbus-launch --sh-syntax --exit-with-session)"
 fi

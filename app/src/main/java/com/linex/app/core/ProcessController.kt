@@ -25,17 +25,60 @@ class ProcessController {
 
     private var activePid: Int = -1
     private var activePgid: Int = -1
+    private var ownership: GuestProcessOwnership? = null
 
     @Synchronized
     fun setActiveProcess(pid: Int, pgid: Int = -1) {
         require(pid > 0 && resolvePgid(pid) == pid) { "Container did not create an isolated process group" }
         this.activePid = pid
         this.activePgid = pid
+        ownership = readIdentity(pid)?.takeIf { it.uid == android.os.Process.myUid() && it.group == pid }
+            ?.let { GuestProcessOwnership(android.os.Process.myUid(), it) }
+        refreshTrackedProcesses()
     }
 
     @Synchronized fun clearActiveProcess() {
         activePid = -1
         activePgid = -1
+        ownership = null
+    }
+
+    /** Read-only collection; never discovers ownership from names or shared UID alone. */
+    @Synchronized fun refreshTrackedProcesses(expectedPid: Int = activePid): Int {
+        if (expectedPid <= 0 || expectedPid != activePid) return 0
+        val rows = readIdentities()
+        ownership?.observe(rows)
+        return ownership?.targets(rows)?.size ?: 0
+    }
+
+    private fun readIdentity(pid: Int): GuestProcessIdentity? = runCatching {
+        val directory = File("/proc/$pid")
+        GuestProcessIdentity.read(File(directory, "stat").readText(), File(directory, "status").readText())
+    }.getOrNull()
+
+    private fun readIdentities(): List<GuestProcessIdentity> = File("/proc").listFiles().orEmpty()
+        .asSequence().mapNotNull { it.name.toIntOrNull() }.take(4096).mapNotNull(::readIdentity).toList()
+
+    private fun sendOwnedSignal(signal: Int): Boolean {
+        val rows = readIdentities()
+        ownership?.observe(rows)
+        val targets = ownership?.targets(rows).orEmpty()
+        // A recycled numeric PGID alone does not prove session ownership.
+        val confirmedGroupMember = targets.asSequence().mapNotNull(::readIdentity).any {
+            it.group == activePgid && ownership?.targets(listOf(it))?.contains(it.pid) == true
+        }
+        val groupResult = if (confirmedGroupMember) {
+            nativeSendSignal(signalTarget(), signal)
+        } else false
+        var individualResult = false
+        for (pid in targets) {
+            // Re-read identity immediately before dispatch, retaining the registry
+            // even after PRoot exits. Unreadable/reused identities are never killed.
+            val current = readIdentity(pid) ?: continue
+            if (pid == android.os.Process.myPid() || ownership?.targets(listOf(current))?.contains(pid) != true) continue
+            individualResult = nativeSendSignal(pid, signal) || individualResult
+        }
+        return groupResult || individualResult
     }
 
     @Synchronized fun getActiveProcessGroup(): Int? = activePgid.takeIf { it > 0 }
@@ -75,7 +118,7 @@ class ProcessController {
         val target = signalTarget()
         Log.i(TAG, "Suspending container process group: $target via SIGSTOP")
         return try {
-            nativeSendSignal(target, 19) // 19 = SIGSTOP
+            sendOwnedSignal(19) // 19 = SIGSTOP
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to send SIGSTOP", e)
             false
@@ -90,7 +133,7 @@ class ProcessController {
         val target = signalTarget()
         Log.i(TAG, "Resuming container process group: $target via SIGCONT")
         return try {
-            nativeSendSignal(target, 18) // 18 = SIGCONT
+            sendOwnedSignal(18) // 18 = SIGCONT
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to send SIGCONT", e)
             false
@@ -105,7 +148,7 @@ class ProcessController {
         val target = signalTarget()
         Log.i(TAG, "Sending SIGTERM to container: $target")
         return try {
-            nativeSendSignal(target, 15) // 15 = SIGTERM
+            sendOwnedSignal(15) // 15 = SIGTERM
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to send SIGTERM", e)
             false
@@ -120,7 +163,7 @@ class ProcessController {
         val target = signalTarget()
         Log.i(TAG, "Force killing container process: $target via SIGKILL")
         return try {
-            nativeSendSignal(target, 9) // 9 = SIGKILL
+            sendOwnedSignal(9) // 9 = SIGKILL
         } catch (e: Throwable) {
             Log.e(TAG, "Failed to send SIGKILL", e)
             false

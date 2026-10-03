@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.2-dev — 2026-10-03
+
+- Correct the XFCE printer autostart exclusion to `print-applet.desktop`; preserve explicit overrides and dangling symlinks using atomic creation without replacement.
+- Run session D-Bus as a foreground child instead of allowing it to create a separate process group. Wait for readiness, avoid exporting a dead bus address, and reap the child at shutdown.
+- Track positively attributed PRoot children every five seconds, including daemonized children outside the original group. Revalidate UID and process start time before shutdown signals; avoid recycled PIDs/groups and unrelated Android processes. Bound the registry to 4,096 identities.
+- Include bounded, sanitized kernel process-name counts in diagnostics, without recording command arguments or environment variables.
+
+The new phone log confirms native GPU presentation works at both 15 and 60 FPS targets. Guest SIGKILL137 still occurs after 13 and 65 seconds; the first precedes Firefox output. Memory remains available with `lowMemory=false`, but the log does not identify the killer. These permanent no-root changes address concrete cleanup and autostart bugs; Android policy kills remain possible. See [crash audit](GPU_CRASH_AUDIT.md).
+
 ## 0.5.1-dev — 2026-10-03
 
 - Start native X11 on Android's main Looper, matching its Choreographer requirement. The previous worker thread caused native startup to fail and Automatic mode to fall back to VNC.

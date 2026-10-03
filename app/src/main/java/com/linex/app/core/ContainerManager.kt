@@ -245,6 +245,7 @@ class ContainerManager(
             logWrapper("RAM planning budget: ${MemoryBudget.resolveMb(instance, totalRamMb)} MiB (${MemoryBudget.mode(instance)}); device RAM $totalRamMb MiB. Advisory only: Android shares memory; no guest reservation or enforced limit.")
             val startedAt = android.os.SystemClock.elapsedRealtime()
             val diagnosticsJob = managerScope.launch {
+                var nextResourceSample = 0L
                 while (isActive && process.isAlive) {
                     val endpoint = displayEndpoint
                     if (endpoint?.backend == DisplayBackend.NATIVE_X11 &&
@@ -253,9 +254,15 @@ class ContainerManager(
                         stopActiveInstance()
                         break
                     }
-                    logRuntimeResources(pid, startedAt, logWrapper)
-                    // Capture short startup failures before the old first 30s sample.
-                    delay(if (android.os.SystemClock.elapsedRealtime() - startedAt < 30_000) 5_000 else 30_000)
+                    // Track this launch's tracees while PRoot is still alive, so
+                    // daemonized children remain identifiable after a forced kill.
+                    processController.refreshTrackedProcesses(pid)
+                    val uptime = android.os.SystemClock.elapsedRealtime() - startedAt
+                    if (uptime >= nextResourceSample) {
+                        logRuntimeResources(pid, startedAt, logWrapper)
+                        nextResourceSample = uptime + if (uptime < 30_000) 5_000 else 30_000
+                    }
+                    delay(5_000)
                 }
             }
 
@@ -460,15 +467,21 @@ class ContainerManager(
                 .asSequence().filter { it.name.toIntOrNull() != null }.take(4096)
             var visible = 0
             var ownUidProcesses = 0
+            val names = mutableListOf<String>()
             for (entry in entries) {
-                if (runCatching { android.system.Os.stat(entry.path).st_uid == android.os.Process.myUid() }.getOrDefault(false)) ownUidProcesses++
-                val group = runCatching { GuestProcessStats.processGroup(File(entry, "stat").readText()) }.getOrNull()
+                val sameUid = runCatching { android.system.Os.stat(entry.path).st_uid == android.os.Process.myUid() }.getOrDefault(false)
+                if (!sameUid) continue
+                ownUidProcesses++
+                val stat = runCatching { File(entry, "stat").readText() }.getOrNull()
+                stat?.let(GuestProcessStats::commandName)?.let(names::add)
+                val group = stat?.let(GuestProcessStats::processGroup)
                 if (group == pid) visible++
             }
             val memory = android.app.ActivityManager.MemoryInfo()
             (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(memory)
             val runtime = Runtime.getRuntime()
             log("Resources: uptime=${(android.os.SystemClock.elapsedRealtime() - startedAt) / 1000}s, visible guest-group processes=$visible, visible app-UID processes=$ownUidProcesses (restricted /proc; lower bounds, includes app and other sessions), Android available=${memory.availMem / 1048576} MiB, lowMemory=${memory.lowMemory}, app Java heap=${(runtime.totalMemory() - runtime.freeMemory()) / 1048576}/${runtime.maxMemory() / 1048576} MiB")
+            log("Visible app-UID process names: ${GuestProcessStats.summarizeNames(names)}. Short kernel names only; not a list of Android-monitored phantom processes or proof of the killer.")
         } catch (e: Exception) {
             Log.d(TAG, "Resource sample unavailable: ${e.javaClass.simpleName}")
         }

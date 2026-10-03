@@ -31,6 +31,24 @@ XFCE separately suppresses unused system applets via per-user autostart
 overrides, preserving existing explicit overrides. Native X11 runs as an
 Android-managed service rather than another guest X server process.
 
+Session D-Bus runs as a foreground child with startup readiness and shutdown reaping.
+Linex also records positively attributed PRoot tracees and their PID/start-time
+identities, so daemonized children outside the launcher's group can be cleaned up
+after a guest exit. Registry storage is bounded; PID/UID ownership is revalidated
+before signals. This requires readable `/proc` identities and covers observed
+children, not every process born between samples. It is cleanup, not an Android
+process-policy exemption. See [crash audit](GPU_CRASH_AUDIT.md).
+The printer tray applet is suppressed using its actual `print-applet.desktop`
+filename; `system-config-printer.desktop` names the settings application and
+does not stop the tray applet. Overrides are created atomically, and existing
+user entries, including dangling symlinks, are retained.
+[OpenPrinting applet entry](https://github.com/OpenPrinting/system-config-printer/blob/master/print-applet.desktop.in),
+[autostart filename precedence](https://specifications.freedesktop.org/autostart/latest/).
+
+Linex keeps GVFS available for network file access. It does not globally force
+the local VFS backend or override volume-monitor selection simply to reduce
+process counts; those choices can change file-manager behavior.
+
 Android 13's AOSP implementation defaults to 32 monitored phantom processes
 **across the monitored process list**, and sorts candidates using parent
 process importance. Other apps and device policy can affect the available
@@ -43,5 +61,6 @@ unlimited browser tabs or unrestricted Linux workloads on all phones.
 Verification: `scripts/test-process-budget.sh` checks unsupported browsers,
 created defaults, preservation of user choices and custom defaults, repeated
 startup, ESR and symlink overrides. `scripts/test-xfce-startup.sh` verifies
-the per-user applet defaults. Actual Android process counts and crash behavior
+the actual printer autostart filename, explicit user overrides, dangling
+symlinks and compositor preservation. Actual Android process counts and crash behavior
 still require testing on a device with normal system policy enabled.
