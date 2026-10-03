@@ -30,8 +30,20 @@ trap 'rm -f "$download_dir/base.apk"; rmdir "$download_dir"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 echo 'Downloading a fresh APK directly from GitHub...'
-curl --fail --location --proto '=https' --tlsv1.2 --connect-timeout 15 \
-    --max-time 300 --retry 2 --retry-delay 2 --output "$download_dir/base.apk" "$URL"
+if curl --fail --location --proto '=https' --tlsv1.2 --connect-timeout 15 \
+    --max-time 300 --retry 2 --retry-delay 2 --output "$download_dir/base.apk" "$URL"; then
+    :
+else
+    download_status=$?
+    [ "$download_status" -eq 6 ] || exit "$download_status"
+    echo 'System DNS failed. Retrying this download with Cloudflare DNS over HTTPS...'
+    # Bootstrap only the resolver; retain HTTPS verification for DNS and GitHub.
+    curl --fail --location --proto '=https' --tlsv1.2 --connect-timeout 15 \
+        --max-time 300 --retry 2 --retry-delay 2 \
+        --doh-url https://cloudflare-dns.com/dns-query \
+        --resolve cloudflare-dns.com:443:1.1.1.1 \
+        --output "$download_dir/base.apk" "$URL"
+fi
 verify_apk "$download_dir/base.apk"
 echo 'Download verified. Checking the root-staged copy before updating Linex...'
 

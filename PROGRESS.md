@@ -1,7 +1,7 @@
 # Linex progress
 
 ## Current State
-Installation remains unresolved: the verified installer previously printed matching download/staging hashes and pm install Success, but the user now reports package invalid after uninstalling and retrying. Need confirm current-user package registration and installed APK integrity; prior rejected-file hash is unknown.
+Installation remains unresolved: the verified installer previously printed matching download/staging hashes and pm install Success, but the user now reports package invalid after uninstalling and retrying. Latest v2 helper download failed curl6 DNS resolution of release-assets.githubusercontent.com before executing. Published v3 with per-download Cloudflare DoH fallback on DNS failure and installed-APK checks. Need current-user registration and installed-file confirmation; prior rejected-file hash is unknown.
 
 0.5.0-dev published: https://github.com/lupixele/linex/releases/tag/v0.5.0-dev (implementation commit119d74d on main). Embedded host EGL/GLES presentation replaces RFB in Automatic mode when the GPU probe and native startup succeed; RFB remains selectable. Linux application GL is still software-rendered and hardware video decoding is not implemented. Android phantom-process and Private DNS workarounds remain confirmed.
 
@@ -9,6 +9,7 @@ Installation remains unresolved: the verified installer previously printed match
 93 unit tests and XFCE shell regressions pass; APK assembly and lint succeed (0 errors, 34 warnings). Signing certificate matches 0.3.1-dev onward. Reviewed server isolation, authenticated sockets, lifecycle ownership, native input and EGL context cleanup. No Android device attached; actual phone FPS and visual quality remain unverified.
 
 ## Next Steps
+0. Download/run the v3 helper using bootstrapped DoH and collect installed-APK verification output.
 1. Compare native display scrolling/video on Snapdragon 732G; record backend logs and compatibility fallback behavior.
 2. Implement and validate a guest GPU bridge with capability-based driver selection; keep software fallback for unsupported phones.
 3. Add native FPS telemetry and Android resolver bridging after device validation.
@@ -52,3 +53,4 @@ Installation remains unresolved: the verified installer previously printed match
 - [2026-10-03] User contradicts installed state: still package invalid and has uninstalled/retried. Do not treat earlier pm install Success as current installed/launchable confirmation. Investigate current Android user, exact APK selected, and installed package digest.
 - [2026-10-03] User clarifies that the Termux version did not visibly update Linex and manual dev-verified APK failed. Added current-user installation and installed-base-APK checksum verification to prevent treating pm Success alone as completion. Nine mock-root tests pass; physical installation remains unresolved.
 - [2026-10-03] Reviewed updated helper verifies active Android user, uses absolute system pm/am, installs for that user, confirms package registration and installed APK digest; nine mock checks pass. Published distinct install-verified-v0.5.0-v2.sh asset (SHA256 b93313825dd6b41a225143dde4cae43477352e73ef313ea06c673d6525f567b2). User must provide resulting installed-file verification; APK content unchanged and actual install outcome unresolved.
+- [2026-10-03] Confirmed new blocker: curl6 DNS failure for GitHub asset hostname; no helper downloaded or install attempted. Added Cloudflare HTTPS DNS fallback on curl6 only, retaining TLS and all hash/installed-file checks. Twelve mock-root tests and independent review pass; actual local DoH GitHub download succeeds. Published install-verified-v0.5.0-v3.sh; phone outcome pending.

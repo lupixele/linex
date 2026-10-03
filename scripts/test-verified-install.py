@@ -28,9 +28,18 @@ with tempfile.TemporaryDirectory(prefix="linex-install-test-") as folder:
     corrupt.write_bytes(Path(apk).read_bytes() + b"changed")
     tools = {
         "curl": '''#!/bin/sh
+printf '%s\\n' "$@" >> "$CURL_ARGS"
+doh=0
 while [ "$#" -gt 0 ]; do
-    if [ "$1" = --output ]; then destination=$2; shift 2; else shift; fi
+    case "$1" in
+        --output) destination=$2; shift 2 ;;
+        --doh-url) doh=1; shift 2 ;;
+        *) shift ;;
+    esac
 done
+if [ "$MOCK_MODE" = tls_failure ]; then exit 60; fi
+if [ "$MOCK_MODE" = dns_failure_persistent ]; then exit 6; fi
+if [ "$MOCK_MODE" = dns_failure ] && [ "$doh" -eq 0 ]; then exit 6; fi
 cp "$MOCK_APK" "$destination"
 if [ "$MOCK_MODE" = corrupt_download ]; then printf changed >> "$destination"; fi
 ''',
@@ -66,6 +75,7 @@ if [ "$MOCK_MODE" = invalid_user ]; then echo unexpected; else echo 10; fi
     env.update(MOCK_BIN=shell_path(mocks), MOCK_STAGE=shell_path(stage),
                MOCK_APK=shell_path(apk), INSTALLER=shell_path(installer),
                MOCK_CORRUPT=shell_path(corrupt),
+               CURL_ARGS=shell_path(work / "curl-args"),
                TMPDIR=shell_path(work), SU_MARKER=shell_path(work / "su-called"),
                PM_MARKER=shell_path(work / "pm-called"))
 
@@ -78,18 +88,26 @@ if [ "$MOCK_MODE" = invalid_user ]; then echo unexpected; else echo 10; fi
     assert run(["--check-file", shell_path(apk)]).returncode == 0
     assert run(["--check-file", shell_path(corrupt)]).returncode != 0
     for mode in ["success", "corrupt_download", "corrupt_stage", "install_failure",
-                 "missing_package", "installed_corrupt", "invalid_user"]:
+                 "missing_package", "installed_corrupt", "invalid_user", "dns_failure",
+                 "dns_failure_persistent", "tls_failure"]:
         env["MOCK_MODE"] = mode
-        for marker in [work / "su-called", work / "pm-called"]:
+        for marker in [work / "su-called", work / "pm-called", work / "curl-args"]:
             marker.unlink(missing_ok=True)
         result = run([])
-        assert (result.returncode == 0) == (mode == "success"), result.stdout + result.stderr
-        pm_called = mode in ["success", "install_failure", "missing_package", "installed_corrupt"]
+        assert (result.returncode == 0) == (mode in ["success", "dns_failure"]), result.stdout + result.stderr
+        pm_called = mode in ["success", "install_failure", "missing_package", "installed_corrupt", "dns_failure"]
         assert (work / "pm-called").exists() == pm_called
         if pm_called:
             assert (work / "pm-called").read_text().startswith("install -r --user 10 ")
-        assert (work / "su-called").exists() == (mode != "corrupt_download")
+        assert (work / "su-called").exists() == (mode not in ["corrupt_download", "dns_failure_persistent", "tls_failure"])
+        curl_args = (work / "curl-args").read_text().splitlines()
+        if mode in ["dns_failure", "dns_failure_persistent"]:
+            assert "--doh-url" in curl_args
+            assert "cloudflare-dns.com:443:1.1.1.1" in curl_args
+        else:
+            assert "--doh-url" not in curl_args
+        assert "--insecure" not in curl_args and "--doh-insecure" not in curl_args
         assert not list(stage.iterdir()), "Root staging files were not cleaned up"
         assert not list(work.glob("linex-download.*")), "Download files were not cleaned up"
         print(mode + ": passed")
-print("9 verified installer checks passed; no real root/install operations performed.")
+print("12 verified installer checks passed; no real root/install operations performed.")
