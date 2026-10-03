@@ -73,9 +73,21 @@ for name, item in manifest['sources'].items():
         prefixes = {m.name.split('/')[0] for m in members}
         if len(prefixes) != 1:
             raise SystemExit('Archive must have one top-level source directory')
+        selected = []
         for member in members:
+            # QEMU's firmware source carries an absolute X11IncludeHack link.
+            # It is irrelevant to a serial direct-kernel boot and must never be
+            # followed/extracted onto the build host. Keep data_filter enabled.
+            if member.issym() and pathlib.PurePosixPath(member.linkname).is_absolute():
+                print('Omitting nonportable absolute source link:', name, member.name, flush=True)
+                continue
             member.name = '/'.join(member.name.split('/')[1:])
-        package.extractall(folder, members=members, filter='data')
+            if not member.name:
+                continue
+            if member.islnk():
+                member.linkname = '/'.join(member.linkname.split('/')[1:])
+            selected.append(member)
+        package.extractall(folder, members=selected, filter='data')
 for relative, expected in manifest['patches'].items():
     if hashlib.sha256((root/relative).read_bytes()).hexdigest() != expected:
         raise SystemExit('Portability input hash mismatch: ' + relative)
