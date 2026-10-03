@@ -53,5 +53,24 @@ if [ "$digest" != "0a6b685a30b5fb7ebf15c01aed1796f7ec905e49f22ad86575f502d641d64
 fi
 chmod 755 "$stage_dir"
 chmod 644 "$stage_dir/base.apk"
-pm install -r "$stage_dir/base.apk"
+android_user=$(/system/bin/am get-current-user)
+case "$android_user" in
+    ""|*[!0-9]*) echo "Could not determine the current Android user." >&2; exit 1 ;;
+esac
+echo "Installing for current Android user: $android_user"
+/system/bin/pm install -r --user "$android_user" "$stage_dir/base.apk"
+installed_paths=$(/system/bin/pm path --user "$android_user" com.linex.app) || {
+    echo "PackageManager did not register Linex for the current user." >&2
+    exit 1
+}
+installed_apk=$(printf "%s\n" "$installed_paths" | sed -n "s/^package://p" | head -n 1)
+[ -f "$installed_apk" ] || { echo "Installed Linex APK could not be located." >&2; exit 1; }
+digest=$(sha256sum "$installed_apk")
+digest=${digest%% *}
+echo "Installed APK SHA256: $digest"
+if [ "$digest" != "0a6b685a30b5fb7ebf15c01aed1796f7ec905e49f22ad86575f502d641d643ac" ]; then
+    echo "Installed APK differs from the verified release. Save this output for diagnosis." >&2
+    exit 1
+fi
+echo "Linex installation verified. Open Linex from the app drawer."
 ' < "$download_dir/base.apk"
