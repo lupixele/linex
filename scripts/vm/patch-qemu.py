@@ -26,6 +26,15 @@ def patch(source: Path, shim: Path) -> None:
 
 """
     content = content.replace(anchor, addition + anchor)
+    # QEMU's prefer_static option serves both dependency selection and an
+    # executable-only -static-pie/-static flag. Keep dependency archives, but
+    # do not force static Android libc into the JNI shared object: Bionic's
+    # log/android system APIs exist only as shared libraries in the NDK.
+    static_anchor = "if get_option('prefer_static')\n  qemu_ldflags += get_option('b_pie') ? '-static-pie' : '-static'"
+    if content.count(static_anchor) != 1:
+        raise ValueError("QEMU static executable linker flag changed")
+    content = content.replace(static_anchor,
+        "if get_option('prefer_static') and cc.get_define('__ANDROID__') == ''\n  qemu_ldflags += get_option('b_pie') ? '-static-pie' : '-static'")
     # Android merges realtime functions into libc and has no librt or POSIX
     # shm_open. The serial VM uses anonymous RAM; our unsupported shm backend
     # returns ENOTSUP. Preserve the real feature probe instead of faking it.
