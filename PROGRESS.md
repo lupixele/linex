@@ -1,7 +1,7 @@
 # Linex progress
 
 ## Current State
-0.5.0-dev native X11 implementation validated and prepared for publication. Embedded host EGL/GLES presentation replaces RFB in Automatic mode when the GPU probe and native startup succeed; RFB remains selectable. Linux application GL is still software-rendered and hardware video decoding is not implemented. Android phantom-process and Private DNS workarounds remain confirmed.
+0.5.0-dev published: https://github.com/lupixele/linex/releases/tag/v0.5.0-dev (implementation commit119d74d on main). Embedded host EGL/GLES presentation replaces RFB in Automatic mode when the GPU probe and native startup succeed; RFB remains selectable. Linux application GL is still software-rendered and hardware video decoding is not implemented. Android phantom-process and Private DNS workarounds remain confirmed.
 
 ## Verification
 93 unit tests and XFCE shell regressions pass; APK assembly and lint succeed (0 errors, 34 warnings). Signing certificate matches 0.3.1-dev onward. Reviewed server isolation, authenticated sockets, lifecycle ownership, native input and EGL context cleanup. No Android device attached; actual phone FPS and visual quality remain unverified.
@@ -42,3 +42,4 @@
 - [2026-10-01] Published v0.4.1-dev and pushed c1f5e2d to main. 79 tests and XFCE shell regression pass; lint 0 errors/32 warnings; existing signing certificate matches. GitHub asset digest matches local 7b47dff74b6c494aa72527c6b0d370f3f9438ffcb95c13a9745d5a4bdb37736d. Device tearing improvement remains unverified.
 - [2026-10-03] User confirms v0.4.1-dev still has display artifacts and requests hardware acceleration. Feasibility audit: Android acceleration already enabled; RFB path remains CPU decoded/uploaded. Existing X11/JNI placeholders cannot activate bundled libXlorie without matching upstream classes and lifecycle integration. Recommend embedded native X11 backend plus device-compatible guest GPU rendering; video decoding separate. Exact current device/GPU confirmation pending.
 - [2026-10-03] Implemented native X11 host GPU presentation with capability probe and RFB fallback, authenticated isolated server and lifecycle/input fixes. 93 tests/shell regressions/build pass; lint 0 errors34 warnings; signing key unchanged. Guest GPU rendering/video decoding and phone performance remain unverified. Native corresponding source archive must accompany APK.
+- [2026-10-03] Published v0.5.0-dev APK and matching native source archive. APK SHA256 0a6b685a30b5fb7ebf15c01aed1796f7ec905e49f22ad86575f502d641d643ac; native source db4bf1740f6b0e465d584108107c01a51fa854723fd037016802c60efbe557d1. Guest GPU acceleration and physical-device artifact verification remain next steps.
