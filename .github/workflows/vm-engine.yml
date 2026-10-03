@@ -1,0 +1,72 @@
+name: VM engine build and boot evidence
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install host proof tools
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm python3
+      - name: Build and boot the real Linux fixture
+        run: |
+          python3 -m unittest discover -s scripts/vm -p 'test_fixture.py'
+          python3 scripts/vm/build-fixture.py --output dist/vm-fixture
+          python3 scripts/vm/test-boot.py --qemu qemu-system-aarch64 --fixture dist/vm-fixture --evidence dist/vm-host-proof --timeout 180
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: vm-host-fixture-evidence
+          path: |
+            dist/vm-fixture/manifest.json
+            dist/vm-host-proof
+          if-no-files-found: error
+          retention-days: 14
+
+  native-engine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, x86_64]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install native build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ninja-build pkg-config cmake python3 python3-venv patch curl xz-utils unzip
+          python3 -m venv "$RUNNER_TEMP/vm-build-tools"
+          "$RUNNER_TEMP/vm-build-tools/bin/pip" install meson==1.8.3 packaging==25.0
+          echo "$RUNNER_TEMP/vm-build-tools/bin" >> "$GITHUB_PATH"
+      - name: Acquire the hash-pinned NDK r30
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess, urllib.request
+          item = json.loads(pathlib.Path('scripts/vm/native-sources.json').read_text())['ndk']
+          archive = pathlib.Path(os.environ['RUNNER_TEMP'])/'ndk-r30.zip'
+          urllib.request.urlretrieve(item['url'], archive)
+          if hashlib.sha256(archive.read_bytes()).hexdigest() != item['sha256']:
+              raise SystemExit('NDK archive hash mismatch')
+          # NDK compiler aliases are Unix symlinks; Python ZipFile.extractall
+          # would turn those links into unusable text files.
+          subprocess.run(['unzip', '-q', str(archive), '-d', os.environ['RUNNER_TEMP']], check=True)
+          archive.unlink()
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('LINEX_VM_NDK=' + os.environ['RUNNER_TEMP'] + '/android-ndk-r30\n')
+          PY
+          chmod -R u+x "$RUNNER_TEMP/android-ndk-r30/toolchains/llvm/prebuilt/linux-x86_64/bin"
+      - name: Build and verify the actual JNI shared library
+        run: bash scripts/vm/build-engine.sh --abi '${{ matrix.abi }}' --output dist/vm-engine
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: vm-engine-${{ matrix.abi }}
+          path: dist/vm-engine/${{ matrix.abi }}/
+          if-no-files-found: error
+          retention-days: 14

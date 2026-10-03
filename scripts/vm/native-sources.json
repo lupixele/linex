@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "ndk": {
+    "revision": "30",
+    "url": "https://dl.google.com/android/repository/android-ndk-r30-linux.zip",
+    "sha256": "753611f410d002cfcd3f3dc2ef49aad532089d3180b436c060a90bf0fcb64df2"
+  },
+  "portability_commit": "27da60be397a6e9eb898bba8d03bcd648782ccd5",
+  "sources": {
+    "qemu": {
+      "version": "11.0.3",
+      "url": "https://download.qemu.org/qemu-11.0.3.tar.xz",
+      "sha256": "da5fcffc32762820568b828ed430a728864d34d50b6d2f30358597760cbb0523",
+      "license": "GPL-2.0-or-later; component exceptions require review"
+    },
+    "glib": {
+      "version": "2.90.0",
+      "url": "https://download.gnome.org/sources/glib/2.90/glib-2.90.0.tar.xz",
+      "sha256": "17d15cac2af80a33271127408e0abc2748eb297c595c2a26409e81e14e7d1b8f",
+      "license": "LGPL-2.1-or-later"
+    },
+    "proxy-libintl": {
+      "version": "0.5",
+      "url": "https://github.com/frida/proxy-libintl/archive/refs/tags/0.5.tar.gz",
+      "sha256": "f7a1cbd7579baaf575c66f9d99fb6295e9b0684a28b095967cfda17857595303",
+      "license": "LGPL-2.1-or-later"
+    },
+    "pcre2": {
+      "version": "10.49",
+      "url": "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.49/pcre2-10.49.tar.bz2",
+      "sha256": "53c156e1ba416a20da8e65395daa132da0d80e76910424caca3fcdae7831d384",
+      "license": "BSD-3-Clause"
+    },
+    "libffi": {
+      "version": "3.8.0",
+      "url": "https://github.com/libffi/libffi/releases/download/v3.8.0/libffi-3.8.0.tar.gz",
+      "sha256": "7da3e2d9a171eb0a038f592ecad3ff2bb2550f3496d87b3b29ad0cf4430c0db4",
+      "license": "MIT"
+    },
+    "libiconv": {
+      "version": "1.19",
+      "url": "https://mirrors.kernel.org/gnu/libiconv/libiconv-1.19.tar.gz",
+      "sha256": "88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6",
+      "license": "LGPL-2.1-or-later (library)"
+    },
+    "zlib": {
+      "version": "1.3.2",
+      "url": "https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz",
+      "sha256": "d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3",
+      "license": "Zlib"
+    },
+    "dtc": {
+      "version": "1.8.1",
+      "url": "https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot/dtc-1.8.1.tar.gz",
+      "sha256": "74b50bb19134f6562490afea53e59953dd6c4afb17e5ccb60be32221262d3390",
+      "license": "BSD-2-Clause OR GPL-2.0-or-later (libfdt)"
+    },
+    "android-shmem": {
+      "version": "0.7",
+      "url": "https://github.com/termux/libandroid-shmem/archive/refs/tags/v0.7.tar.gz",
+      "sha256": "1e5ff8459bc0a8c229dd8a94b27d119987e09ef3414331c2b5ebfff20b98e867",
+      "license": "BSD-3-Clause"
+    }
+  },
+  "slice": "serial-only full-system ARM64 TCG; display/network pending",
+  "patches": {
+    "scripts/vm/patches/qemu/0014-disable-signalfd.patch": "b00e02b746f74b886d39e6769e09f952293902452b17808b2e82acc24c93619f",
+    "scripts/vm/patches/setjmp-aarch64/private-bionic_asm.h": "253d038709ce871463ae47aa4b339476074fde22e8aff5ab241da9d2b7b582fb",
+    "scripts/vm/patches/qemu/0003-fix-time_nsec-defs.patch": "725fec80a44807c7c0a4dbfb16012bb9860090f1ce073442e9b9a62c05c7b7a3",
+    "scripts/vm/patches/setjmp-aarch64/setjmp.S": "1dd781c7d9d132c265109f0ad766a291107c2f9211be2df7aeed28071c75ff0e",
+    "scripts/vm/patches/qemu/0002-fix-soundcard.h-location.patch": "86ce859b0b908cc9c5b1a179521772ae9db8f6d455da77c53e317d7d2b27e1e3",
+    "scripts/vm/patches/setjmp-aarch64/private-bionic_asm_arm64.h": "c1c141e1463072e8181fd13936a99edb1599486904a3876bf981aa322a6f3ccc",
+    "scripts/vm/patches/qemu/0008-fix-struct-member-conflicts.patch": "b2c90a3f376ae7971d5d41a1126e7f789eda9e1bb508c4a92a7c8026c73e2f5e",
+    "scripts/vm/patches/setjmp-aarch64/private-bionic_constants.h": "01b23741b59009da0520240e97b2dacd34b3eca28484a5188f027fb2aeab4888",
+    "scripts/vm/patches/qemu/0005-add-missing-sigorset.patch": "b8a40e11b9c634e456cd9460a00d00fe0e5f775035f0f395829e5f4578c89de3",
+    "scripts/vm/patches/glib/glib-gthreadprivate.h.patch": "40c5136d5e503bbb6b7169dd28fc5f37c06ab0e8af056af72079dfe60053d179",
+    "scripts/vm/patches/glib/glib-gthread-posix.c.patch": "dbe119e4afdfb048930b9c9ebf8da8e050ac8e2fbc1bbe4958eae8c4e1084c33",
+    "scripts/vm/patches/qemu/0000-android-config-support.patch": "fce0dfdfb5e59178e2baaa878f3d89b394af4e37058a24d4ea602d9a00d0b0d4",
+    "scripts/vm/patches/qemu/0012-force-ucs2-little-endian.patch": "c63daa8efaf6a2f072255ff1cd3d154ba0aeaab40ca4f967ea25452cd67fcde0",
+    "scripts/vm/patches/qemu/0010-add-missing-arch_prctl.patch": "8a7b9bac111d3b01be554f137c9a7aa0d6aa72708d8094f334f795232fd93f2b",
+    "scripts/vm/patches/qemu/0004-add-missing-telldir-seekdir.patch": "cfcd1dca1b017909aa412b6a1e9f5747086160c01a4e8632a9c579f1c63c9ec4",
+    "scripts/vm/patches/qemu/0007-fix-syscalls.patch": "976fbbcfa3dff91acd51f7eee3e67cc1da13c06cef8322bf0a7c0063b647b051",
+    "scripts/vm/patches/qemu/0009-disable-glob.h-include.patch": "236740261891e45f7cc134f24d18227a6ec90cc66348ab9db0d8ae2a5c66f2e6",
+    "scripts/vm/patches/qemu/0006-fix-sem.h-location.patch": "40aaf64ad5df0b7031b63786139a355a360ee29910542146c02c70cbc2e469c4",
+    "scripts/vm/patches/qemu/0019-no-timespec_get.patch": "d61308f9b68c3e39c956e2208bb5e53ba3d517afa91a22cf0b01d7ff814b8084",
+    "scripts/vm/patches/qemu/0011-mmap_min_addr-fallback.patch": "5eca8f412c0e50ffb210e9865fa6d041193bfb157c80ceff8ba415c770d99c30"
+  }
+}
