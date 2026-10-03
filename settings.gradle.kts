@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Linex"
 include(":app")
+include(":vm-engine")
