@@ -32,7 +32,8 @@ fi
 AUTOSTART_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/autostart"
 mkdir -p "$AUTOSTART_DIR"
 for APPLET in xfce4-power-manager xfce4-screensaver light-locker xscreensaver \
-    polkit-gnome-authentication-agent-1 system-config-printer gnome-shell-overrides-migration; do
+    polkit-gnome-authentication-agent-1 system-config-printer gnome-shell-overrides-migration \
+    geoclue-demo-agent update-notifier blueman nm-applet xiccd; do
     if [ ! -e "$AUTOSTART_DIR/$APPLET.desktop" ]; then
         printf '[Desktop Entry]\nType=Application\nName=Linex unused system service\nHidden=true\n' \
             > "$AUTOSTART_DIR/$APPLET.desktop"

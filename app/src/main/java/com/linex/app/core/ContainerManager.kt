@@ -19,7 +19,7 @@ class ContainerManager(
     private val context: Context,
     private val storageEngine: StorageEngine,
     private val processController: ProcessController,
-    val rootfsDownloader: RootfsDownloader = RootfsDownloader(storageEngine)
+    val rootfsDownloader: RootfsDownloader = RootfsDownloader(storageEngine, appVersion = AppVersion.read(context).name)
 ) {
     companion object {
         private const val TAG = "ContainerManager"
@@ -233,7 +233,12 @@ class ContainerManager(
             val pid = handshake.substringAfter('=').toInt()
             processController.setActiveProcess(pid)
             logWrapper("Container process initialized with isolated group $pid")
-            logWrapper("Runtime: Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}), ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, app ${com.linex.app.BuildConfig.VERSION_NAME}")
+            val installedVersion = AppVersion.read(context)
+            logWrapper("Runtime: Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}), ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, app ${installedVersion.name} (code ${installedVersion.code})")
+            val phantomPolicy = runCatching {
+                android.provider.Settings.Global.getString(context.contentResolver, "settings_enable_monitor_phantom_procs")
+            }.getOrNull()
+            logWrapper("Android phantom-process monitor setting: ${phantomPolicy ?: "unavailable/default"}. OEM process limits may also apply.")
             val deviceMemory = android.app.ActivityManager.MemoryInfo()
             (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).getMemoryInfo(deviceMemory)
             val totalRamMb = deviceMemory.totalMem / 1048576

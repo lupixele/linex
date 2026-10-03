@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.5.1-dev — 2026-10-03
+
+- Start native X11 on Android's main Looper, matching its Choreographer requirement. The previous worker thread caused native startup to fail and Automatic mode to fall back to VNC.
+- Capture bounded native stdout/stderr in the parent app and record matching Android exit information when available, so early display failures reach instance logs.
+- Show the active display backend and configured FPS target in session controls; report Automatic fallback. New instances default to 60 FPS; existing settings remain intact.
+- Apply permanent guest-only Firefox defaults to reduce content-process demand and disable speculative spare processes. Preserve user preferences, browser sandbox and site isolation.
+- Suppress additional unused XFCE system applets while preserving explicit autostart overrides.
+- Read the installed package version for labels, logs and download requests, fixing stale version labels left by incremental compilation. Version code 20; same signing certificate.
+
+These app-side changes require no root or Android policy modifications. Process defaults reduce demand; they cannot exempt unrestricted PRoot workloads from Android's global process limits. The latest guest SIGKILL remains unattributed. Native presentation uses the host GPU; Linux application OpenGL and video decoding remain software paths. Phone crash behavior and scrolling still need verification.
+
+Validation: clean build, 100 unit tests, six process-default shell scenarios and XFCE startup regressions pass. Lint: 0 errors, 34 warnings. APK v2 signature and alignment verified.
+
 ## 0.5.0-dev — 2026-10-03
 
 - Add an embedded native X11 display presented through Android EGL/GLES, with per-instance Automatic, Native X11 and RFB compatibility selection.

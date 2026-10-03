@@ -6,4 +6,5 @@ object NativeX11Protocol {
     const val CONNECTION = android.os.IBinder.FIRST_CALL_TRANSACTION
     const val STOP = CONNECTION + 1
     const val ERROR = CONNECTION + 2
+    const val START = CONNECTION + 3
 }

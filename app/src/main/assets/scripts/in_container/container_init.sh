@@ -166,6 +166,13 @@ if [ -n "$LINUXDROID_DPI" ]; then
 fi
 
 # 10. Execute Target Desktop / User Command
+# Browser process demand contributes to Android's global native-child budget.
+# Apply guest-only defaults before any desktop can launch a browser; never
+# require root access or modify Android's system settings.
+if [ -f /linex/process_budget.sh ]; then
+    . /linex/process_budget.sh
+    apply_browser_process_defaults
+fi
 CMD="${DESKTOP_START_CMD:-${LINUXDROID_START_COMMAND:-/linex/start_xfce.sh}}"
 
 # If requested command is startxfce4, redirect to the container launcher wrapper

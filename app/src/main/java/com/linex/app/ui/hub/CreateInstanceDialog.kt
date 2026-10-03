@@ -47,7 +47,7 @@ fun CreateInstanceDialog(
     var dpiScaling by remember { mutableFloatStateOf(existingInstance?.dpiScaling?.toFloat() ?: 120f) }
     var customWidth by remember { mutableStateOf((existingInstance?.customWidth ?: 1920).toString()) }
     var customHeight by remember { mutableStateOf((existingInstance?.customHeight ?: 1080).toString()) }
-    var desktopFps by remember { mutableIntStateOf(DesktopFrameRate.normalized(existingInstance?.desktopFps ?: 15)) }
+    var desktopFps by remember { mutableIntStateOf(DesktopFrameRate.normalized(existingInstance?.desktopFps ?: 60)) }
     var fpsMenuExpanded by remember { mutableStateOf(false) }
     var displayBackend by remember { mutableStateOf(existingInstance?.displayBackend ?: DisplayBackendPreference.AUTO) }
     var displayMenuExpanded by remember { mutableStateOf(false) }

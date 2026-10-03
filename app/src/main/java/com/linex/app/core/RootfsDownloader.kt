@@ -24,7 +24,8 @@ import java.util.concurrent.TimeUnit
 
 data class SetupProgress(val fraction: Float, val message: String, val stage: String)
 
-class RootfsDownloader(private val storageEngine: StorageEngine, private val client: OkHttpClient = defaultClient) {
+class RootfsDownloader(private val storageEngine: StorageEngine, private val client: OkHttpClient = defaultClient,
+                       private val appVersion: String = "unknown") {
     companion object {
         private const val TAG = "RootfsDownloader"
         private val installationLocks = java.util.concurrent.ConcurrentHashMap<String, Mutex>()
@@ -58,7 +59,7 @@ class RootfsDownloader(private val storageEngine: StorageEngine, private val cli
         val parent = destFile.parentFile ?: throw IOException("Download directory missing")
         if (!parent.isDirectory && !parent.mkdirs()) throw IOException("Cannot create download directory")
         val partial = File(destFile.path + ".download")
-        val call = client.newCall(Request.Builder().url(url).header("User-Agent", "Linex/${com.linex.app.BuildConfig.VERSION_NAME}").build())
+        val call = client.newCall(Request.Builder().url(url).header("User-Agent", "Linex/$appVersion").build())
         AppLogger.log(TAG, "Downloading $url", instanceId)
         try {
             coroutineScope {

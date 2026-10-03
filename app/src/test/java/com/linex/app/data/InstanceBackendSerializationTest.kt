@@ -22,6 +22,13 @@ class InstanceBackendSerializationTest {
         assertEquals(instance, Json.decodeFromString<LinuxInstance>(Json.encodeToString(instance)))
     }
 
+    @Test fun olderInstancesWithoutFrameRateKeepTheirOriginalDefault() {
+        val json = """{"id":"legacy","name":"Linux","distro":"UBUNTU_JAMMY","desktop":"XFCE4","resolutionMode":"HD_720P"}"""
+        val instance = Json.decodeFromString<LinuxInstance>(json)
+        assertEquals(15, instance.desktopFps)
+        assertEquals(instance, Json.decodeFromString<LinuxInstance>(Json.encodeToString(instance)))
+    }
+
     @Test fun explicitNativeBackendPersistsAcrossReload() {
         val instance = Json.decodeFromString<LinuxInstance>(legacy).copy(displayBackend = DisplayBackendPreference.NATIVE_X11)
         assertEquals(instance, Json.decodeFromString<LinuxInstance>(Json.encodeToString(instance)))

@@ -16,7 +16,8 @@ class LinexApp : Application() {
             else runCatching { java.io.File("/proc/self/cmdline").readText().substringBefore('\u0000') }.getOrNull()
         if (processName?.endsWith(":x11") == true) return
         AppLogger.init(applicationContext)
-        AppLogger.log("LinexApp", "Linex Application initialized (Build v${BuildConfig.VERSION_NAME} code ${BuildConfig.VERSION_CODE})")
+        val version = com.linex.app.core.AppVersion.read(applicationContext)
+        AppLogger.log("LinexApp", "Linex Application initialized (installed v${version.name} code ${version.code})")
         createNotificationChannels()
         Thread({ com.linex.app.core.HostExitDiagnostics.record(applicationContext) }, "LinexExitDiagnostics").start()
     }

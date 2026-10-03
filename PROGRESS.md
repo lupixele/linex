@@ -1,24 +1,23 @@
 # Linex progress
 
 ## Current State
-Installation remains unresolved: the verified installer previously printed matching download/staging hashes and pm install Success, but the user now reports package invalid after uninstalling and retrying. Latest v2 helper download failed curl6 DNS resolution of release-assets.githubusercontent.com before executing. Published v3 with per-download Cloudflare DoH fallback on DNS failure and installed-APK checks. Need current-user registration and installed-file confirmation; prior rejected-file hash is unknown.
+0.5.1-dev (version code20) is built and reviewed, awaiting publication. Latest phone log confirms native X11 failed before guest startup, causing VNC fallback at 15FPS; repaired JNI startup to run on Android's main Looper. Added bounded parent-owned native diagnostics, visible active backend/FPS target, installed-package version labels and permanent guest process defaults requiring no root or Android policy changes.
 
-0.5.0-dev published: https://github.com/lupixele/linex/releases/tag/v0.5.0-dev (implementation commit119d74d on main). Embedded host EGL/GLES presentation replaces RFB in Automatic mode when the GPU probe and native startup succeed; RFB remains selectable. Linux application GL is still software-rendered and hardware video decoding is not implemented. Android phantom-process and Private DNS workarounds remain confirmed.
+Linux application OpenGL remains llvmpipe/software. The latest guest SIGKILL137 is not attributed by the provided log; previous phantom-process trimming was proven, and monitoring is enabled again. Reduced process demand is mitigation, not an exemption or a guaranteed unrestricted all-phone crash fix.
 
 ## Verification
-93 unit tests and XFCE shell regressions pass; APK assembly and lint succeed (0 errors, 34 warnings). Signing certificate matches 0.3.1-dev onward. Reviewed server isolation, authenticated sockets, lifecycle ownership, native input and EGL context cleanup. No Android device attached; actual phone FPS and visual quality remain unverified.
+Clean build, 100 unit tests, six process-default shell scenarios and XFCE regressions pass. Lint:0errors/34warnings. APK v2 signature/alignment verified; same development signing certificate. APK SHA2562067c6877e54d6c4e6bacd903042708b772d0c866af72d85b686060f333d8efc. Scoped lifecycle/security review passes. No Android device attached; native startup, scrolling and normal-policy crash behavior require phone verification.
 
 ## Next Steps
-0. Download/run the v3 helper using bootstrapped DoH and collect installed-APK verification output.
-1. Compare native display scrolling/video on Snapdragon 732G; record backend logs and compatibility fallback behavior.
-2. Implement and validate a guest GPU bridge with capability-based driver selection; keep software fallback for unsupported phones.
-3. Add native FPS telemetry and Android resolver bridging after device validation.
+1. Publish code and v0.5.1-dev APK with corresponding native source.
+2. Validate native backend on Snapdragon732G at 60FPS, then inspect remaining guest exits with normal Android policy enabled.
+3. Implement capability-based guest GPU bridge and Android resolver bridge; native FPS telemetry remains pending.
 
 ## Open Questions / Blockers
-- Device scrolling/video artifacts remain unverified; Android guest-kill workaround is confirmed by the user.
-- Existing new signing key and matching backup survived reset. Same key as 0.3.1-dev.
-- Java17 now at P:/Android/Java17/PFiles64/Microsoft/jdk-17.0.20.101-hotspot; JAVA_HOME configured. Git/gh/SDK/NDK/CMake present; GitHub authenticated.
-- Generated files already tracked excluded; raw logs remain private/untracked.
+- No root prerequisite in these fixes; ordinary PRoot cannot bypass Android's privileged global child-process policy.
+- Host GPU presentation does not accelerate guest Firefox rendering or hardware video decoding.
+- Installed package version now replaces stale compiled BuildConfig labels; phone installation previously disputed, but latest log contains native0.5 code.
+- Java17/Git/gh/SDK/NDK/CMake available; signing key backed up outside Git. Generated tracked build files and raw logs excluded from commits.
 
 ## Last Updated
 2026-10-03
@@ -54,3 +53,6 @@ Installation remains unresolved: the verified installer previously printed match
 - [2026-10-03] User clarifies that the Termux version did not visibly update Linex and manual dev-verified APK failed. Added current-user installation and installed-base-APK checksum verification to prevent treating pm Success alone as completion. Nine mock-root tests pass; physical installation remains unresolved.
 - [2026-10-03] Reviewed updated helper verifies active Android user, uses absolute system pm/am, installs for that user, confirms package registration and installed APK digest; nine mock checks pass. Published distinct install-verified-v0.5.0-v2.sh asset (SHA256 b93313825dd6b41a225143dde4cae43477352e73ef313ea06c673d6525f567b2). User must provide resulting installed-file verification; APK content unchanged and actual install outcome unresolved.
 - [2026-10-03] Confirmed new blocker: curl6 DNS failure for GitHub asset hostname; no helper downloaded or install attempted. Added Cloudflare HTTPS DNS fallback on curl6 only, retaining TLS and all hash/installed-file checks. Twelve mock-root tests and independent review pass; actual local DoH GitHub download succeeds. Published install-verified-v0.5.0-v3.sh; phone outcome pending.
+- [2026-10-03] User root command confirms settings_enable_monitor_phantom_procs=true again. Recent filtered logcat was empty, so current SIGKILL remains unattributed; the previously confirmed phantom-process kill policy is active again. Restore prior rooted false workaround and verify; native startup/diagnostic fixes continue.
+- [2026-10-03] User requires permanent no-root app-side fixes and rejects device-specific temporary phantom-process setting workaround. App must not depend on privileged settings changes; investigate supported process-budget/runtime architecture, native startup repair and lightweight defaults. Do not promise that ordinary PRoot can override Android global forked-process policy.
+- [2026-10-03] Built and reviewed v0.5.1-dev/code20: native JNI starts on main Looper, parent captures bounded native errors, session shows actual backend/target, version comes from installed package, new instances default60FPS, permanent no-root Firefox/XFCE defaults reduce process demand while preserving user settings and browser isolation. Clean100tests, shell regressions, lint0errors34warnings and APK signature/alignment pass. Latest guest SIGKILL remains unattributed; device and guest GPU verification pending.

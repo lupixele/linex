@@ -4,11 +4,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.app.ActivityManager
+import android.os.Build
 import android.os.IBinder
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import com.linex.app.service.NativeX11Service
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -24,10 +27,16 @@ object EmbeddedX11Server {
     @Volatile private var binding: ServiceConnection? = null
     private var owner: Context? = null
     private var authority: File? = null
+    private var diagnosticCapture: NativeX11DiagnosticCapture? = null
+    private var diagnosticFile: File? = null
 
     suspend fun start(context: Context, tmpDirectory: File, width: Int, height: Int, dpi: Int, fps: Int, onLog: (String) -> Unit): String = withContext(Dispatchers.IO) {
         stop()
         val app = context.applicationContext
+        val startedAt = System.currentTimeMillis()
+        var diagnostics: File? = null
+        var pipeWriter: ParcelFileDescriptor? = null
+        var serverPid: Int? = null
         val ready = CompletableDeferred<IBinder>()
         val connection = object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName?, service: IBinder) {
@@ -48,6 +57,23 @@ object EmbeddedX11Server {
         owner = app
         binding = connection
         try {
+            diagnosticFile?.let { runCatching { it.delete() } }
+            // This directory is outside all guest bind mounts. createTempFile
+            // creates a fresh file; guest-controlled symlinks are never opened.
+            val hostDirectory = File(app.noBackupFilesDir, "native-x11-diagnostics")
+            check(hostDirectory.isDirectory || hostDirectory.mkdirs()) { "Cannot create host display diagnostics" }
+            // Keep at most four bounded launch records across app restarts.
+            hostDirectory.listFiles()?.filter { it.name.startsWith("display-") && it.name.endsWith(".log") }
+                ?.sortedByDescending { it.lastModified() }?.drop(3)
+                ?.forEach { runCatching { java.nio.file.Files.deleteIfExists(it.toPath()) } }
+            val file = File.createTempFile("display-", ".log", hostDirectory)
+            diagnostics = file
+            diagnosticFile = file
+            android.system.Os.chmod(file.absolutePath, 0x180)
+            val pipe = ParcelFileDescriptor.createPipe()
+            pipeWriter = pipe[1]
+            diagnosticCapture = NativeX11DiagnosticCapture(ParcelFileDescriptor.AutoCloseInputStream(pipe[0]), file)
+                .also { it.start() }
             val secret = File(tmpDirectory, ".linex-x11.auth")
             java.nio.file.Files.deleteIfExists(secret.toPath())
             val cookie = ByteArray(16).also { java.security.SecureRandom().nextBytes(it) }
@@ -57,7 +83,12 @@ object EmbeddedX11Server {
             val intent = Intent(app, NativeX11Service::class.java).putExtra("tmp", tmpDirectory.absolutePath)
                 .putExtra("args", NativeX11Arguments.build(dpi, secret.absolutePath))
             check(app.bindService(intent, connection, Context.BIND_AUTO_CREATE)) { "Could not bind native X11 service" }
-            withTimeout(15_000) { ready.await() }
+            val service = withTimeout(15_000) { ready.await() }
+            pipeWriter.use { output ->
+                serverPid = transact(NativeX11Protocol.START, service,
+                    write = { requireNotNull(output).writeToParcel(it, 0) }) { it.readInt() }
+            }
+            pipeWriter = null
             withTimeout(15_000) {
                 while (true) {
                     val error = transact(NativeX11Protocol.ERROR) { it.readString() }
@@ -74,7 +105,36 @@ object EmbeddedX11Server {
             session = id
             onLog("Embedded native X11 ready; host GLES presentation, guest GL remains software. Frame target $fps FPS.")
             id
-        } catch (error: Throwable) { withContext(NonCancellable) { stop() }; throw error }
+        } catch (error: Throwable) {
+            if (error is CancellationException && error !is kotlinx.coroutines.TimeoutCancellationException) {
+                runCatching { pipeWriter?.close() }
+                pipeWriter = null
+                withContext(NonCancellable) { stop() }
+                throw error
+            }
+            // Read historical exits before intentional teardown, and only match
+            // the PID returned by this launch's Binder START transaction.
+            val exit = if (Build.VERSION.SDK_INT >= 30 && serverPid != null) runCatching {
+                app.getSystemService(ActivityManager::class.java)
+                    .getHistoricalProcessExitReasons(app.packageName, 0, 10)
+                    .firstOrNull { it.timestamp >= startedAt && it.pid == serverPid && it.processName == "${app.packageName}:x11" }
+                    ?.let { "Android X11 exit: reason=${it.reason}, status=${it.status}, description=${it.description?.take(512)}" }
+            }.getOrNull() else null
+            // Closing our writer and stopping the child gives the parent reader
+            // EOF, so queued native fatal output is persisted before reading it.
+            runCatching { pipeWriter?.close() }
+            pipeWriter = null
+            val capture = diagnosticCapture
+            withContext(NonCancellable) { stop() }
+            val lines = capture?.lines()?.takeIf { it.isNotEmpty() }
+                ?: runCatching { diagnostics?.let { NativeX11DiagnosticTail.read(it) }.orEmpty() }.getOrDefault(emptyList())
+            lines.forEach { onLog("Native X11: $it") }
+            exit?.let(onLog)
+            val detail = lines.lastOrNull()?.take(512) ?: exit
+            throw IllegalStateException(listOfNotNull(error.message ?: error.javaClass.simpleName, detail).joinToString("; "), error)
+        } finally {
+            runCatching { pipeWriter?.close() }
+        }
     }
 
     suspend fun obtainConnection(sessionId: String): ParcelFileDescriptor? = withContext(Dispatchers.IO) {
@@ -94,12 +154,13 @@ object EmbeddedX11Server {
         if (it.readInt() == 0) null else ParcelFileDescriptor.CREATOR.createFromParcel(it)
     }
 
-    private fun <T> transact(code: Int, target: IBinder? = remote, read: (Parcel) -> T): T? {
+    private fun <T> transact(code: Int, target: IBinder? = remote, write: (Parcel) -> Unit = {}, read: (Parcel) -> T): T? {
         val binder = target ?: return null
         val request = Parcel.obtain()
         val response = Parcel.obtain()
         try {
             request.writeInterfaceToken(NativeX11Protocol.DESCRIPTOR)
+            write(request)
             check(binder.transact(code, request, response, 0)) { "Native X11 IPC rejected" }
             response.readException()
             return read(response)
@@ -116,6 +177,8 @@ object EmbeddedX11Server {
         remote = null
         // Don't let a new bind reuse the old process while its shutdown is pending.
         if (previous != null) runCatching { withTimeout(3000) { while (previous.isBinderAlive) delay(50) } }
+        diagnosticCapture?.let { runCatching { it.finish() } }
+        diagnosticCapture = null
         authority?.let { runCatching { java.nio.file.Files.deleteIfExists(it.toPath()) } }
         authority = null
     }

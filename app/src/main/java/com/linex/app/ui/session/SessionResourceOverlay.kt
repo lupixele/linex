@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.linex.app.core.PresentedFrameRate
+import com.linex.app.core.DisplayBackend
 import com.linex.app.core.SessionResourceMonitor
 import com.linex.app.core.SessionResources
 import kotlinx.coroutines.Dispatchers
@@ -26,7 +27,8 @@ internal fun SessionResourceOverlay(
     processGroup: Int?,
     enabled: Boolean,
     sessionVisible: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    displayBackend: DisplayBackend? = null
 ) {
     var fps by remember(view) { mutableStateOf<Double?>(null) }
     var resources by remember(processGroup) { mutableStateOf<SessionResources?>(null) }
@@ -47,6 +49,7 @@ internal fun SessionResourceOverlay(
     }
     if (enabled && sessionVisible && view != null) {
         val text = buildList {
+            displayBackend?.let { add(if (it == DisplayBackend.NATIVE_X11) "Native X11" else "RFB compatibility") }
             if (view.frameMetricsAvailable) add("FPS ${fps?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "…"}")
             resources?.let { sample ->
                 add("RAM* ${sample.visibleRssBytes / 1048576} MiB")

@@ -19,6 +19,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.linex.app.core.TouchInputMode
+import com.linex.app.core.DisplayBackend
+import com.linex.app.core.DesktopFrameRate
 import com.linex.app.data.LinuxInstance
 
 @Composable
@@ -41,7 +43,8 @@ fun BackGestureSidebar(
     onToggleLandscape: () -> Unit = {},
     resourceMonitor: Boolean = false,
     onToggleResourceMonitor: () -> Unit = {},
-    ramBudgetMb: Int? = null
+    ramBudgetMb: Int? = null,
+    displayBackend: DisplayBackend? = null
 ) {
     Surface(
         modifier = Modifier
@@ -81,6 +84,19 @@ fun BackGestureSidebar(
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = when (displayBackend) {
+                    DisplayBackend.NATIVE_X11 -> "Display: Native X11"
+                    DisplayBackend.RFB -> "Display: RFB compatibility"
+                    null -> "Display: preparing"
+                },
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text("Frame target: ${DesktopFrameRate.normalized(instance.desktopFps)} FPS",
+                style = MaterialTheme.typography.bodySmall)
+            Text("Linux apps: software graphics", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             Spacer(modifier = Modifier.height(16.dp))

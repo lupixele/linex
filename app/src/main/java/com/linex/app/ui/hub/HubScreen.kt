@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.linex.app.BuildConfig
+import com.linex.app.core.AppVersion
 import com.linex.app.core.StorageEngine
 import com.linex.app.core.SetupTask
 import com.linex.app.core.SetupStatus
@@ -40,6 +40,7 @@ fun HubScreen(
     onUpdateInstance: (LinuxInstance) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val installedVersion = remember(context) { AppVersion.read(context) }
     val engine = remember(storageEngine) { storageEngine ?: StorageEngine(context.applicationContext) }
     var editingInstance by remember { mutableStateOf<LinuxInstance?>(null) }
     var deletingInstance by remember { mutableStateOf<LinuxInstance?>(null) }
@@ -81,7 +82,7 @@ fun HubScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "v${BuildConfig.VERSION_NAME}",
+                                text = "v${installedVersion.name}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.secondary
                             )

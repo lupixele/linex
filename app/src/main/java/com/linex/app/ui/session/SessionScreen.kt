@@ -29,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.linex.app.core.AppLogger
 import com.linex.app.core.DisplayEndpoint
+import com.linex.app.core.DisplayBackend
+import com.linex.app.core.DesktopFrameRate
+import com.linex.app.data.DisplayBackendPreference
 import com.linex.app.core.TouchInputMode
 import com.linex.app.data.LinuxInstance
 import com.linex.app.ui.hub.LogViewerDialog
@@ -56,6 +59,15 @@ fun SessionScreen(
     var trackpad by rememberSaveable(instance.id) { mutableStateOf(preferences.getBoolean("trackpad.${instance.id}", false)) }
     var showMonitor by rememberSaveable(instance.id) { mutableStateOf(preferences.getBoolean("monitor.${instance.id}", false)) }
     var desktop by remember { mutableStateOf<EmbeddedDesktopView?>(null) }
+    val displayMessages = remember { SnackbarHostState() }
+    val compatibilityFallback = endpoint?.backend == DisplayBackend.RFB &&
+        instance.displayBackend == DisplayBackendPreference.AUTO
+    LaunchedEffect(endpoint) {
+        if (compatibilityFallback && displayMessages.showSnackbar(
+                "Native display could not start. Using RFB at ${DesktopFrameRate.normalized(instance.desktopFps)} FPS target.",
+                actionLabel = "Logs", duration = SnackbarDuration.Long
+            ) == SnackbarResult.ActionPerformed) showLogs = true
+    }
     var fullscreen by rememberSaveable(instance.id) { mutableStateOf(true) }
     var landscape by rememberSaveable(instance.id) { mutableStateOf(true) }
     val activity = context.findActivity()
@@ -183,7 +195,8 @@ fun SessionScreen(
                     showMonitor = !showMonitor
                     preferences.edit().putBoolean("monitor.${instance.id}", showMonitor).apply()
                 },
-                ramBudgetMb = budgetMb
+                ramBudgetMb = budgetMb,
+                displayBackend = endpoint?.backend
             )
         }
     ) {
@@ -247,9 +260,11 @@ fun SessionScreen(
                 processGroup = processGroup,
                 enabled = showMonitor && connected,
                 sessionVisible = sessionVisible && !showLogs,
+                displayBackend = endpoint?.backend,
                 modifier = Modifier.align(Alignment.TopStart).displayCutoutPadding().statusBarsPadding()
                     .padding(start = 8.dp, top = if (fullscreen) 8.dp else 72.dp)
             )
+            SnackbarHost(displayMessages, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(12.dp))
         }
     }
     if (showLogs) LogViewerDialog(selectedInstance = instance, onDismiss = { showLogs = false })

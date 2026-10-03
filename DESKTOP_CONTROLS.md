@@ -33,8 +33,10 @@ instance. The Keyboard button opens or hides Android's keyboard.
 Toggle **Resource monitor** in the sidebar for text in the upper-left corner. Sampling
 runs only while the overlay and session are visible. It adds no guest processes.
 
-- FPS counts new desktop frames actually drawn, not the configured cap or screen refresh.
+- On RFB, FPS counts new desktop frames actually drawn, not the configured cap or screen refresh.
   A static desktop can show 0 FPS because its pixels do not need updating.
+- Native X11 frame telemetry is currently unavailable and omitted. The displayed backend
+  identifies Native X11 or RFB; the sidebar FPS target is a configured maximum.
 - RAM is aggregate resident memory (RSS) for readable processes in the guest process group.
   Android can hide processes and children can change groups; coverage is partial. Shared
   pages can be counted in more than one process, so this is not unique physical memory.
@@ -59,9 +61,12 @@ and [Android memory information](https://developer.android.com/reference/android
 ## Display motion and troubleshooting
 
 The instance FPS setting is a maximum update rate, not a promise of that many new
-frames. Enable the resource overlay and compare actual FPS while scrolling or playing
-video. The embedded display and guest video path still use software rendering; high
-resolution and refresh targets increase CPU and pixel-transfer work.
+frames. New instances default to 60 FPS; existing instances keep their saved setting.
+The sidebar identifies the active backend and target, and reports Automatic fallback.
+Native X11 presents through Android EGL/GLES; Linux application rendering and video
+decoding remain software paths. RFB still decodes and transfers pixels through the CPU.
+High resolution and refresh targets increase work. Compare measured FPS on RFB through
+the resource overlay; native frame telemetry remains pending.
 
 Incoming complete updates are coalesced to Android's animation cadence. RFB CopyRect
 can copy scrolling regions locally rather than retransmitting those pixels. Video
@@ -80,10 +85,12 @@ FPS because software compositing can add CPU work.
 
 ## Android compatibility findings
 
-Android system logs identified `Trimming phantom processes` as the cause of the
-reported PRoot/display/desktop kills. The rooted Android 13 user confirmed that
-`settings put global settings_enable_monitor_phantom_procs false` stopped the crash.
-This is a privileged, system-wide Android setting, not an APK-only fix.
+Earlier Android system logs identified `Trimming phantom processes` as the cause of
+PRoot/display/desktop kills. The latest SIGKILL has no corresponding system cause in
+the supplied log. Linex now reduces unused XFCE applets and Firefox content-process
+demand automatically, without root or changes to Android global settings. These defaults
+preserve user choices, site isolation and the browser sandbox. They cannot exempt
+unrestricted PRoot workloads from Android process management; see [process defaults](PROCESS_BUDGET.md).
 
 The user also confirmed Linux networking works with Android Private DNS Off. Guest
 libc currently does not inherit Android's encrypted resolver. Turning it off is a
@@ -91,11 +98,11 @@ workaround; an Android resolver bridge remains future work.
 
 ## Device verification
 
-79 unit tests, XFCE startup regressions and debug assembly pass; lint reports 0 errors
-and 32 warnings. APK certificate matches the installed development release. Scrolling
-and video need a phone comparison with actual FPS and compositing on/off. The earlier
-guest kill was traced to Android phantom-process trimming; the rooted workaround and
-Private DNS Off workaround are confirmed by the user.
+100 unit tests, process-default shell tests, XFCE startup regressions and clean debug
+assembly pass; lint reports 0 errors and 34 warnings. APK certificate matches previous
+development releases. Native startup, no-root process behavior, scrolling and video
+still need phone verification. Guest GPU acceleration and an Android DNS bridge remain
+pending; the Private DNS Off workaround was previously confirmed by the user.
 
 
 ## Native X11 display (0.5.0-dev)
