@@ -1,7 +1,7 @@
 # Linex progress
 
 ## Current State
-Installation diagnosis: the user reports APK v2 content-digest mismatch. The public APK verifies locally; phone download/staging hashes remain unknown. A fresh asset and checksum-verified rooted Termux installer are available, but device installation is not yet confirmed.
+Installation confirmed: the user ran the verified Termux installer; download and root-staged hashes match the release, and pm install reports Success. The earlier rejected copy was not hashed, so its failure location remains unproven.
 
 0.5.0-dev published: https://github.com/lupixele/linex/releases/tag/v0.5.0-dev (implementation commit119d74d on main). Embedded host EGL/GLES presentation replaces RFB in Automatic mode when the GPU probe and native startup succeed; RFB remains selectable. Linux application GL is still software-rendered and hardware video decoding is not implemented. Android phantom-process and Private DNS workarounds remain confirmed.
 
@@ -9,7 +9,6 @@ Installation diagnosis: the user reports APK v2 content-digest mismatch. The pub
 93 unit tests and XFCE shell regressions pass; APK assembly and lint succeed (0 errors, 34 warnings). Signing certificate matches 0.3.1-dev onward. Reviewed server isolation, authenticated sockets, lifecycle ownership, native input and EGL context cleanup. No Android device attached; actual phone FPS and visual quality remain unverified.
 
 ## Next Steps
-0. Run the verified Termux installer to isolate device download/staging corruption from PackageManager verification.
 1. Compare native display scrolling/video on Snapdragon 732G; record backend logs and compatibility fallback behavior.
 2. Implement and validate a guest GPU bridge with capability-based driver selection; keep software fallback for unsupported phones.
 3. Add native FPS telemetry and Android resolver bridging after device validation.
@@ -49,3 +48,4 @@ Installation diagnosis: the user reports APK v2 content-digest mismatch. The pub
 - [2026-10-03] User reports Android rejects v0.5.0-dev with package appears invalid. Re-downloaded GitHub APK hash matches local; apksigner v2, ZIP CRC, manifest parsing, resources/native packaging and zipalign pass. Independent packaging review found no rejection cause. Requested rooted Termux pm install -r output; device installation remains unverified and no speculative code change made.
 - [2026-10-03] Device install error is specifically APK v2 content SHA256 mismatch (INSTALL_PARSE_FAILED_NO_CERTIFICATES). Direct public browser-route download and API download both match built APK and verify for SDK33. Uploaded release checksums; requested phone original/copy hashes to localize transfer/storage/staging corruption. No signing-key rotation or app uninstall required by current evidence.
 - [2026-10-03] Uploaded byte-identical fresh APK asset linex-v0.5.0-dev-verified.apk and reviewed install-verified-v0.5.0.sh. Installer downloads over HTTPS, verifies fixed release hash before root and after stdin staging, then pm install -r; does not bypass signatures or uninstall. Six tests cover valid/corrupt download, corrupt staging, installation failure and cleanup with mocked root. Actual Android installation remains pending.
+- [2026-10-03] User confirms verified Termux installer success: downloaded and root-staged APK hashes both match 0a6b685a30b5fb7ebf15c01aed1796f7ec905e49f22ad86575f502d641d643ac, followed by pm install Success. v0.5.0-dev update is now device-confirmed. Earlier rejected-file corruption location remains unproven; native backend launch and scrolling performance remain pending.
