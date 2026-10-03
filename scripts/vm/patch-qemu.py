@@ -34,6 +34,14 @@ def patch(source: Path, shim: Path) -> None:
         raise ValueError("QEMU realtime library probe changed")
     content = content.replace(realtime_anchor,
         "  if not have_shm_open and cc.get_define('__ANDROID__') == ''\n    rt = cc.find_library('rt', required: true)")
+    # Meson's static find_library search does not use -L from c_link_args.
+    # The approved build installs the Android libfdt archive into this prefix;
+    # explicitly search that directory rather than any host architecture lib.
+    fdt_anchor = "fdt = cc.find_library('fdt', required: fdt_opt == 'system')"
+    if content.count(fdt_anchor) != 1:
+        raise ValueError("QEMU libfdt library probe changed")
+    content = content.replace(fdt_anchor,
+        "fdt = cc.find_library('fdt', dirs: [get_option('prefix') / 'lib'], required: fdt_opt == 'system')")
     meson.write_text(content)
     shutil.copyfile(shim, source / "system/linex_jni.c")
     # Bionic has no POSIX shm declarations. These backends deliberately return
