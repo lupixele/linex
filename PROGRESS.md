@@ -1,7 +1,7 @@
 # Linex progress
 
 ## Current State
-0.5.1-dev (version code20) is built and reviewed, awaiting publication. Latest phone log confirms native X11 failed before guest startup, causing VNC fallback at 15FPS; repaired JNI startup to run on Android's main Looper. Added bounded parent-owned native diagnostics, visible active backend/FPS target, installed-package version labels and permanent guest process defaults requiring no root or Android policy changes.
+0.5.1-dev (version code20) is published: https://github.com/lupixele/linex/releases/tag/v0.5.1-dev. Implementation commit8eb1753 is on main; uploaded APK and native-source digests match local files. Latest phone log confirms native X11 failed before guest startup, causing VNC fallback at 15FPS; repaired JNI startup to run on Android's main Looper. Added bounded parent-owned native diagnostics, visible active backend/FPS target, installed-package version labels and permanent guest process defaults requiring no root or Android policy changes.
 
 Linux application OpenGL remains llvmpipe/software. The latest guest SIGKILL137 is not attributed by the provided log; previous phantom-process trimming was proven, and monitoring is enabled again. Reduced process demand is mitigation, not an exemption or a guaranteed unrestricted all-phone crash fix.
 
@@ -9,8 +9,8 @@ Linux application OpenGL remains llvmpipe/software. The latest guest SIGKILL137 
 Clean build, 100 unit tests, six process-default shell scenarios and XFCE regressions pass. Lint:0errors/34warnings. APK v2 signature/alignment verified; same development signing certificate. APK SHA2562067c6877e54d6c4e6bacd903042708b772d0c866af72d85b686060f333d8efc. Scoped lifecycle/security review passes. No Android device attached; native startup, scrolling and normal-policy crash behavior require phone verification.
 
 ## Next Steps
-1. Publish code and v0.5.1-dev APK with corresponding native source.
-2. Validate native backend on Snapdragon732G at 60FPS, then inspect remaining guest exits with normal Android policy enabled.
+1. Install v0.5.1-dev normally, select60FPS for the existing instance and restart it.
+2. Validate native backend on Snapdragon732G, then inspect remaining guest exits with normal Android policy enabled.
 3. Implement capability-based guest GPU bridge and Android resolver bridge; native FPS telemetry remains pending.
 
 ## Open Questions / Blockers
@@ -56,3 +56,4 @@ Clean build, 100 unit tests, six process-default shell scenarios and XFCE regres
 - [2026-10-03] User root command confirms settings_enable_monitor_phantom_procs=true again. Recent filtered logcat was empty, so current SIGKILL remains unattributed; the previously confirmed phantom-process kill policy is active again. Restore prior rooted false workaround and verify; native startup/diagnostic fixes continue.
 - [2026-10-03] User requires permanent no-root app-side fixes and rejects device-specific temporary phantom-process setting workaround. App must not depend on privileged settings changes; investigate supported process-budget/runtime architecture, native startup repair and lightweight defaults. Do not promise that ordinary PRoot can override Android global forked-process policy.
 - [2026-10-03] Built and reviewed v0.5.1-dev/code20: native JNI starts on main Looper, parent captures bounded native errors, session shows actual backend/target, version comes from installed package, new instances default60FPS, permanent no-root Firefox/XFCE defaults reduce process demand while preserving user settings and browser isolation. Clean100tests, shell regressions, lint0errors34warnings and APK signature/alignment pass. Latest guest SIGKILL remains unattributed; device and guest GPU verification pending.
+- [2026-10-03] Published v0.5.1-dev/code20 and pushed implementation8eb1753 to main. GitHub APK digest2067c6877e54d6c4e6bacd903042708b772d0c866af72d85b686060f333d8efc and native-source digest match local files. Normal Android installation; no root requirement. Stopped build daemon. Phone no-root crash and native display verification remain pending.
