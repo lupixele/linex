@@ -1,15 +1,15 @@
 # Linex progress
 
 ## Current State
-0.4.1-dev published: coalesced animation-frame presentation, overlap-safe CopyRect scrolling, and persistent XFCE compositing preferences. Android system logs prove phantom-process trimming caused prior guest kills; the rooted user confirms disabling monitoring prevents crashes. Internet works with Private DNS Off; encrypted DNS bridging remains unimplemented.
+0.5.0-dev native X11 implementation validated and prepared for publication. Embedded host EGL/GLES presentation replaces RFB in Automatic mode when the GPU probe and native startup succeed; RFB remains selectable. Linux application GL is still software-rendered and hardware video decoding is not implemented. Android phantom-process and Private DNS workarounds remain confirmed.
 
 ## Verification
-79 unit tests and XFCE shell regressions pass; debug assembly succeeds; lint has 0 errors and 32 warnings. APK certificate matches installed 0.4.0-dev. Independent review approves frame ownership, scheduling and CopyRect overlap/bounds behavior. Device visual quality and actual FPS remain unmeasured.
+93 unit tests and XFCE shell regressions pass; APK assembly and lint succeed (0 errors, 34 warnings). Signing certificate matches 0.3.1-dev onward. Reviewed server isolation, authenticated sockets, lifecycle ownership, native input and EGL context cleanup. No Android device attached; actual phone FPS and visual quality remain unverified.
 
 ## Next Steps
-1. Compare 0.4.1-dev video/scrolling on the phone at selected 60 FPS.
-2. Compare actual overlay FPS and compositing on/off; desktop rendering remains software-based.
-3. Verify hardware input, gestures and background operation; implement Android resolver bridging separately.
+1. Compare native display scrolling/video on Snapdragon 732G; record backend logs and compatibility fallback behavior.
+2. Implement and validate a guest GPU bridge with capability-based driver selection; keep software fallback for unsupported phones.
+3. Add native FPS telemetry and Android resolver bridging after device validation.
 
 ## Open Questions / Blockers
 - Device scrolling/video artifacts remain unverified; Android guest-kill workaround is confirmed by the user.
@@ -18,7 +18,7 @@
 - Generated files already tracked excluded; raw logs remain private/untracked.
 
 ## Last Updated
-2026-10-01
+2026-10-03
 
 ## Recent Decisions
 - [2026-09-26] Work directly in the user-specified linex checkout; replace unreliable Android tar extraction with bounded streaming JVM extraction; preserve old ready roots and scope diagnostics per instance.
@@ -40,3 +40,5 @@
 - [2026-10-01] System-log diagnosis confirmed: at 13:39:09.179 Android ActivityManager killed libproot.so, Xtigervnc and xfce4-session for 'Trimming phantom processes'. Earlier Sep30 15:49:33 kill matches exit137. Rooted Android13 workaround: settings put global settings_enable_monitor_phantom_procs false (system-wide); device verification pending. No APK change can directly override this privileged policy without root/shell access.
 - [2026-10-01] User confirms Private DNS Off restores internet and disabling phantom-process monitoring prevents crashes. Severe scrolling/video artifacts remain with 60 FPS selected. Fix confirmed scheduling and raw-scrolling overhead; preserve compositor choice for controlled comparison. Phone improvement is not yet measured.
 - [2026-10-01] Published v0.4.1-dev and pushed c1f5e2d to main. 79 tests and XFCE shell regression pass; lint 0 errors/32 warnings; existing signing certificate matches. GitHub asset digest matches local 7b47dff74b6c494aa72527c6b0d370f3f9438ffcb95c13a9745d5a4bdb37736d. Device tearing improvement remains unverified.
+- [2026-10-03] User confirms v0.4.1-dev still has display artifacts and requests hardware acceleration. Feasibility audit: Android acceleration already enabled; RFB path remains CPU decoded/uploaded. Existing X11/JNI placeholders cannot activate bundled libXlorie without matching upstream classes and lifecycle integration. Recommend embedded native X11 backend plus device-compatible guest GPU rendering; video decoding separate. Exact current device/GPU confirmation pending.
+- [2026-10-03] Implemented native X11 host GPU presentation with capability probe and RFB fallback, authenticated isolated server and lifecycle/input fixes. 93 tests/shell regressions/build pass; lint 0 errors34 warnings; signing key unchanged. Guest GPU rendering/video decoding and phone performance remain unverified. Native corresponding source archive must accompany APK.

@@ -60,6 +60,10 @@
                 android:value="Rootless Linux container virtualization and background process manager" />
         </service>
 
+        <!-- Xorg may call exit(); keep its runtime outside the main app process. -->
+        <service android:name=".service.NativeX11Service"
+            android:process=":x11" android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

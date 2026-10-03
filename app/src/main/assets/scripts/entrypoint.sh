@@ -45,8 +45,10 @@ chmod 0700 "$TMP_PATH/runtime-root" 2>/dev/null || true
 
 # 2. Clean stale X11 locks from previous abnormal terminations
 echo "[Linex:Entrypoint] Purging stale X11 lock files..."
-rm -f "$TMP_PATH/.X0-lock" "$TMP_PATH/.X1-lock"
-rm -f "$TMP_PATH/.X11-unix/X0" "$TMP_PATH/.X11-unix/X1"
+if [ "${LINEX_DISPLAY_BACKEND:-rfb}" != "native_x11" ]; then
+    rm -f "$TMP_PATH/.X0-lock" "$TMP_PATH/.X1-lock"
+    rm -f "$TMP_PATH/.X11-unix/X0" "$TMP_PATH/.X11-unix/X1"
+fi
 
 # 3. Verify Rootfs Integrity
 if [ ! -d "$ROOTFS_PATH" ]; then
@@ -88,7 +90,7 @@ echo "[Linex:Entrypoint] PRoot binary resolved: $PROOT_BIN"
 
 # 6. Initialize X11 Socket Environment
 DISPLAY_NUM="${DISPLAY_NUM:-0}"
-if [ -f "$BOOTSTRAP_DIR/x11_socket_setup.sh" ]; then
+if [ "${LINEX_DISPLAY_BACKEND:-rfb}" != "native_x11" ] && [ -f "$BOOTSTRAP_DIR/x11_socket_setup.sh" ]; then
     echo "[Linex:Entrypoint] Calling x11_socket_setup.sh on display :${DISPLAY_NUM}..."
     sh "$BOOTSTRAP_DIR/x11_socket_setup.sh" "$TMP_PATH" "$DISPLAY_NUM" || {
         echo "[Linex:Entrypoint] WARNING: x11_socket_setup.sh returned non-zero status"

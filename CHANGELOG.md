@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0-dev — 2026-10-03
+
+- Add an embedded native X11 display presented through Android EGL/GLES, with per-instance Automatic, Native X11 and RFB compatibility selection.
+- Probe host GPU drawing and texture limits before choosing native presentation; Automatic falls back when native startup fails.
+- Isolate the X server in a private Android process, authenticate local X11 connections, disable TCP and incompatible MIT-SHM, and clean up stale connections and guest processes.
+- Preserve resolution, landscape/fullscreen, physical input and touchpad controls. Native FPS telemetry is unavailable and omitted.
+- Include pinned Termux:X11 license notices and corresponding native source with the release.
+
+Linux OpenGL remains software-rendered; guest GPU acceleration and hardware video decoding are separate pending work. Android phone performance and artifact reduction have not been measured. Existing phantom-process and Private DNS workarounds still apply.
+
+Validation: 93 unit tests, XFCE shell regressions and APK assembly pass; lint reports 0 errors and 34 warnings. Signing certificate matches previous development releases.
+
 ## 0.4.1-dev — 2026-10-01
 
 ### Fixed

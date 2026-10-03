@@ -137,9 +137,13 @@ while [ ! -e "/tmp/.X11-unix/X0" ] && [ $WAIT_COUNT -lt 30 ]; do
     WAIT_COUNT=$((WAIT_COUNT + 1))
 done
 
-if [ -e "/tmp/.X11-unix/X0" ]; then
+if [ -S "/tmp/.X11-unix/X0" ]; then
     echo "[Linex:ContainerInit] Connected to X11 socket successfully."
 else
+    if [ "${LINEX_DISPLAY_BACKEND:-rfb}" = "native_x11" ]; then
+        echo "[Linex:ContainerInit] ERROR: Native X11 display socket is unavailable."
+        exit 1
+    fi
     echo "[Linex:ContainerInit] WARNING: X11 socket not detected after 3s. Proceeding anyway..."
 fi
 

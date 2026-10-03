@@ -129,6 +129,9 @@ export LANG="C.UTF-8"
 export LC_ALL="C.UTF-8"
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 export DISPLAY=":${DISPLAY_NUM}"
+if [ "${LINEX_DISPLAY_BACKEND:-rfb}" = "native_x11" ]; then
+    export XAUTHORITY="/tmp/.linex-x11.auth"
+fi
 export PULSE_SERVER="tcp:127.0.0.1:4713"
 export XDG_RUNTIME_DIR="/tmp/runtime-root"
 export TMPDIR="/tmp"

@@ -10,6 +10,11 @@ class LinexApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // The disposable X server must not rotate journals or record its own intentional
+        // process exit as a crash of the main application.
+        val processName = if (Build.VERSION.SDK_INT >= 28) Application.getProcessName()
+            else runCatching { java.io.File("/proc/self/cmdline").readText().substringBefore('\u0000') }.getOrNull()
+        if (processName?.endsWith(":x11") == true) return
         AppLogger.init(applicationContext)
         AppLogger.log("LinexApp", "Linex Application initialized (Build v${BuildConfig.VERSION_NAME} code ${BuildConfig.VERSION_CODE})")
         createNotificationChannels()

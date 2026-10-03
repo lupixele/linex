@@ -96,3 +96,12 @@ and 32 warnings. APK certificate matches the installed development release. Scro
 and video need a phone comparison with actual FPS and compositing on/off. The earlier
 guest kill was traced to Android phantom-process trimming; the rooted workaround and
 Private DNS Off workaround are confirmed by the user.
+
+
+## Native X11 display (0.5.0-dev)
+
+Instance settings now include Desktop display: Automatic, Native X11 (experimental), or RFB compatibility. Stop and start the instance after changing it. Automatic probes host GLES drawing and attempts embedded native X11 before falling back on startup failure. If the native desktop fails after launch, stop the instance and choose RFB compatibility.
+
+Native X11 uses the selected desktop resolution and FPS target with the existing landscape/fullscreen, keyboard, mouse and touchpad controls. Actual native FPS is not available in the resource overlay and is omitted. This accelerates host display presentation; guest OpenGL and video decoding are not yet hardware accelerated. Phone results are unverified.
+
+The matching upstream native source archive is included in the release; provenance and build instructions are in third_party/termux-x11/README.md.

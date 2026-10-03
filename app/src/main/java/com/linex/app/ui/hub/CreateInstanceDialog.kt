@@ -26,6 +26,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.linex.app.data.DesktopEnvironment
 import com.linex.app.core.DesktopFrameRate
 import com.linex.app.core.MemoryBudget
+import com.linex.app.data.DisplayBackendPreference
 import com.linex.app.data.MemoryBudgetMode
 import com.linex.app.data.DisplayResolutionMode
 import com.linex.app.data.DistroType
@@ -48,6 +49,8 @@ fun CreateInstanceDialog(
     var customHeight by remember { mutableStateOf((existingInstance?.customHeight ?: 1080).toString()) }
     var desktopFps by remember { mutableIntStateOf(DesktopFrameRate.normalized(existingInstance?.desktopFps ?: 15)) }
     var fpsMenuExpanded by remember { mutableStateOf(false) }
+    var displayBackend by remember { mutableStateOf(existingInstance?.displayBackend ?: DisplayBackendPreference.AUTO) }
+    var displayMenuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val totalRamMb = remember(context) {
         val memory = ActivityManager.MemoryInfo()
@@ -233,6 +236,30 @@ fun CreateInstanceDialog(
                     }
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Desktop display", style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold)
+                        fun label(mode: DisplayBackendPreference) = when (mode) {
+                            DisplayBackendPreference.AUTO -> "Automatic · native with compatibility fallback"
+                            DisplayBackendPreference.NATIVE_X11 -> "Native X11 · experimental GPU presentation"
+                            DisplayBackendPreference.RFB -> "Compatibility · VNC display"
+                        }
+                        Box {
+                            OutlinedButton(onClick = { displayMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                                Text(label(displayBackend))
+                            }
+                            DropdownMenu(expanded = displayMenuExpanded, onDismissRequest = { displayMenuExpanded = false }) {
+                                DisplayBackendPreference.values().forEach { mode ->
+                                    DropdownMenuItem(text = { Text(label(mode)) },
+                                        leadingIcon = { RadioButton(selected = displayBackend == mode, onClick = null) },
+                                        onClick = { displayBackend = mode; displayMenuExpanded = false })
+                                }
+                            }
+                        }
+                        Text("Native display uses the phone GPU to present the desktop. Linux application graphics and video decoding are separate. Stop and start the instance to apply changes.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("RAM budget", style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold)
                         Box {
@@ -322,6 +349,7 @@ fun CreateInstanceDialog(
                                 customHeight = if (selectedResolution == DisplayResolutionMode.CUSTOM) customHeight.toInt() else base.customHeight,
                                 dpiScaling = dpiScaling.toInt(),
                                 desktopFps = desktopFps,
+                                displayBackend = displayBackend,
                                 memoryBudgetMode = memoryMode,
                                 ramAllocatedMb = when (memoryMode) {
                                     MemoryBudgetMode.DEFAULT -> defaultRam

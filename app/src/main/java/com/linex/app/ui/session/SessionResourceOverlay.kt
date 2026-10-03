@@ -36,18 +36,18 @@ internal fun SessionResourceOverlay(
         if (!enabled || !sessionVisible || view == null) return@LaunchedEffect
         val rate = PresentedFrameRate()
         val monitor = withContext(Dispatchers.IO) { runCatching { SessionResourceMonitor() }.getOrNull() }
-        rate.sample(view.presentedFrameCount, System.nanoTime())
+        if (view.frameMetricsAvailable) rate.sample(view.presentedFrameCount, System.nanoTime())
         while (isActive) {
             resources = withContext(Dispatchers.IO) {
                 processGroup?.let { group -> runCatching { monitor?.sample(group) }.getOrNull() }
             }
             delay(1000)
-            fps = rate.sample(view.presentedFrameCount, System.nanoTime())
+            fps = if (view.frameMetricsAvailable) rate.sample(view.presentedFrameCount, System.nanoTime()) else null
         }
     }
     if (enabled && sessionVisible && view != null) {
         val text = buildList {
-            add("FPS ${fps?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "…"}")
+            if (view.frameMetricsAvailable) add("FPS ${fps?.let { String.format(Locale.ROOT, "%.1f", it) } ?: "…"}")
             resources?.let { sample ->
                 add("RAM* ${sample.visibleRssBytes / 1048576} MiB")
                 sample.cpuPercent?.let { add("CPU* ${String.format(Locale.ROOT, "%.0f", it)}%") }

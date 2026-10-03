@@ -9,6 +9,12 @@ import android.text.InputType
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.widget.FrameLayout
+import android.view.Gravity
+import com.termux.x11.LorieView
+import com.linex.app.core.DisplayBackend
+import com.linex.app.core.EmbeddedX11Server
+import kotlinx.coroutines.runBlocking
 import android.view.ViewConfiguration
 import android.view.InputDevice
 import android.view.inputmethod.BaseInputConnection
@@ -18,12 +24,15 @@ import android.view.inputmethod.InputMethodManager
 import com.linex.app.core.DisplayEndpoint
 import com.linex.app.core.RfbClient
 import com.linex.app.core.DesktopInput
+import com.linex.app.core.NativeDesktopInput
 import com.linex.app.core.DesktopGesture
 import com.linex.app.core.LatestFrameMailbox
 import java.net.ConnectException
+import java.util.concurrent.atomic.AtomicReference
+import android.os.ParcelFileDescriptor
 
 /** An in-app desktop surface. All bitmap mutations and drawing stay on the UI thread. */
-class EmbeddedDesktopView(context: Context) : View(context) {
+class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
     var onConnection: (Boolean, String) -> Unit = { _, _ -> }
     /** Controls and dialogs must never forward typing to the desktop behind them. */
     var inputEnabled = true
@@ -33,6 +42,27 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     private var worker: Thread? = null
     @Volatile private var displayVisible = true
     private var bitmap: Bitmap? = null
+    private var nativeView: LorieView? = null
+    private val nativeDescriptor = AtomicReference<ParcelFileDescriptor?>()
+    private var nativeWidth = 0
+    private var nativeHeight = 0
+    private var nativeButtons = 0
+    private val nativeKeys = mutableMapOf<Int, Int>()
+    private val checkNativeConnection = object : Runnable {
+        override fun run() {
+            val surface = nativeView ?: return
+            if (disposed || !displayVisible) return
+            if (!surface.isConnected) {
+                releaseInput()
+                onConnection(false, "Native display disconnected. Restart the instance or select Compatibility display.")
+                return
+            }
+            postDelayed(this, 1000)
+        }
+    }
+    val frameMetricsAvailable: Boolean get() = nativeView == null
+    private val frameWidth: Int get() = bitmap?.width ?: nativeWidth
+    private val frameHeight: Int get() = bitmap?.height ?: nativeHeight
     var presentedFrameCount: Long = 0
         private set
     private var frameDirty = false
@@ -94,6 +124,7 @@ class EmbeddedDesktopView(context: Context) : View(context) {
         release = { it.release() }
     )
     init {
+        setWillNotDraw(false)
         isFocusable = true
         isFocusableInTouchMode = true
         keepScreenOn = true
@@ -101,6 +132,10 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     }
     fun connect(endpoint: DisplayEndpoint, targetFps: Int = 15) {
         if (worker != null || disposed) return
+        if (endpoint.backend == DisplayBackend.NATIVE_X11) {
+            connectNative(endpoint, targetFps)
+            return
+        }
         requestFocus()
         displayVisible = windowVisibility == VISIBLE
         worker = Thread({
@@ -130,12 +165,92 @@ class EmbeddedDesktopView(context: Context) : View(context) {
             }
         }, "linex-display-reader").apply { isDaemon = true; start() }
     }
+    private fun connectNative(endpoint: DisplayEndpoint, fps: Int) {
+        requestFocus()
+        worker = Thread({
+            try {
+                val descriptor = runBlocking { EmbeddedX11Server.obtainConnection(endpoint.sessionId ?: error("Missing display session")) }
+                    ?: error("Native display connection unavailable. Restart the instance or select Compatibility display.")
+                nativeDescriptor.getAndSet(descriptor)?.close()
+                if (disposed) { nativeDescriptor.getAndSet(null)?.close(); return@Thread }
+                post {
+                    val pendingDescriptor = nativeDescriptor.getAndSet(null) ?: return@post
+                    if (disposed) { pendingDescriptor.close(); return@post }
+                    try {
+                        nativeWidth = endpoint.width
+                        nativeHeight = endpoint.height
+                        val surface = LorieView(context)
+                        nativeView = surface
+                        surface.isFocusable = false
+                        surface.configureDesktop(nativeWidth, nativeHeight, fps)
+                        addView(surface, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT, Gravity.CENTER))
+                        updateNativeLayout()
+                        surface.attachConnection(pendingDescriptor)
+                        surface.setRenderingVisible(displayVisible)
+                        pointerX = nativeWidth / 2
+                        pointerY = nativeHeight / 2
+                        onConnection(true, "Native X11 display connected")
+                        postDelayed(checkNativeConnection, 1000)
+                    } catch (failure: Throwable) {
+                        nativeView?.release()
+                        nativeView?.let { removeView(it) }
+                        nativeView = null
+                        onConnection(false, failure.message ?: "Native display failed. Select Compatibility display and restart.")
+                    } finally { pendingDescriptor.close() }
+                }
+            } catch (failure: Exception) {
+                post { if (!disposed) onConnection(false, failure.message ?: "Native display unavailable") }
+            }
+        }, "linex-native-display-connect").apply { isDaemon = true; start() }
+    }
+
+    private fun updateNativeLayout() {
+        if (frameWidth <= 0 || frameHeight <= 0 || width <= 0 || height <= 0) return
+        val scale = minOf(width.toFloat() / frameWidth, height.toFloat() / frameHeight)
+        val w = (frameWidth * scale).toInt().coerceAtLeast(1)
+        val h = (frameHeight * scale).toInt().coerceAtLeast(1)
+        destination.set((width - w) / 2f, (height - h) / 2f, (width + w) / 2f, (height + h) / 2f)
+        nativeView?.let { surface ->
+            val current = surface.layoutParams
+            if (current.width != w || current.height != h)
+                surface.layoutParams = LayoutParams(w, h, Gravity.CENTER)
+        }
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        if (nativeView != null) updateNativeLayout()
+    }
+
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean = inputEnabled
+
+    private fun sendPointer(x: Int, y: Int, mask: Int) {
+        val surface = nativeView
+        if (surface == null) { client?.pointer(x, y, mask); return }
+        surface.pointer(x.toFloat(), y.toFloat(), 0, false, false)
+        NativeDesktopInput.buttonChanges(nativeButtons, mask).forEach { change ->
+            surface.pointer(x.toFloat(), y.toFloat(), change.button, change.down, false)
+        }
+        nativeButtons = mask and 7
+    }
+
+    private fun sendText(value: String) {
+        if (nativeView != null) nativeView?.text(value) else client?.text(value)
+    }
+
     fun disconnect() {
         releaseInput()
         disposed = true
+        removeCallbacks(checkNativeConnection)
+        nativeDescriptor.getAndSet(null)?.close()
         client?.close()
         worker?.interrupt()
         frames.close()
+        nativeView?.release()
+        nativeView?.let { removeView(it) }
+        nativeView = null
+        nativeWidth = 0; nativeHeight = 0
+        nativeButtons = 0
         bitmap = null
         keepScreenOn = false
     }
@@ -145,7 +260,12 @@ class EmbeddedDesktopView(context: Context) : View(context) {
         client?.pauseUpdates(!displayVisible)
         // View can dispatch visibility while its superclass is being constructed.
         // A client exists only after connect(), once our input state is initialized.
-        if (!displayVisible && client != null) releaseInput()
+        nativeView?.let { surface ->
+            surface.setRenderingVisible(displayVisible)
+            removeCallbacks(checkNativeConnection)
+            if (displayVisible) postDelayed(checkNativeConnection, 1000)
+        }
+        if (!displayVisible && (client != null || nativeView != null)) releaseInput()
     }
     override fun onFocusChanged(gainFocus: Boolean, direction: Int, previouslyFocusedRect: android.graphics.Rect?) {
         super.onFocusChanged(gainFocus, direction, previouslyFocusedRect)
@@ -154,13 +274,15 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     }
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
-        if (!hasWindowFocus && client != null) releaseInput()
+        if (!hasWindowFocus && (client != null || nativeView != null)) releaseInput()
     }
     fun releaseInput() {
         removeCallbacks(startDrag)
+        nativeKeys.forEach { (key, scan) -> nativeView?.key(scan, key, false) }
+        nativeKeys.clear()
         heldKeys.values.forEach { client?.key(it, false) }
         heldKeys.clear()
-        if (buttons != 0 || pressed) client?.pointer(pointerX, pointerY, 0)
+        if (buttons != 0 || pressed) sendPointer(pointerX, pointerY, 0)
         buttons = 0
         pressed = false
         multiTouch = false
@@ -168,12 +290,17 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     fun pointerButton(button: Int, down: Boolean) {
         val mask = DesktopInput.buttonMask(button)
         buttons = if (down) buttons or mask else buttons and mask.inv()
-        client?.pointer(pointerX, pointerY, buttons)
+        sendPointer(pointerX, pointerY, buttons)
         invalidate()
     }
     private fun wheel(horizontal: Boolean, positive: Boolean) {
-        client?.pointer(pointerX, pointerY, buttons or DesktopInput.wheelMask(horizontal, positive))
-        client?.pointer(pointerX, pointerY, buttons)
+        nativeView?.let { surface ->
+            val (dx, dy) = NativeDesktopInput.wheelDelta(horizontal, positive)
+            surface.pointer(dx, dy, 4, false, true)
+            return
+        }
+        sendPointer(pointerX, pointerY, buttons or DesktopInput.wheelMask(horizontal, positive))
+        sendPointer(pointerX, pointerY, buttons)
     }
     fun showKeyboard() {
         requestFocus()
@@ -188,6 +315,7 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawColor(android.graphics.Color.BLACK)
+        if (nativeView != null) return
         val image = bitmap ?: return
         val scale = minOf(width.toFloat() / image.width, height.toFloat() / image.height)
         val w = image.width * scale
@@ -202,10 +330,9 @@ class EmbeddedDesktopView(context: Context) : View(context) {
         }
     }
     private fun absolutePointer(event: MotionEvent) {
-        val image = bitmap ?: return
-        if (destination.isEmpty) return
-        pointerX = ((event.x - destination.left) * image.width / destination.width()).toInt().coerceIn(0, image.width - 1)
-        pointerY = ((event.y - destination.top) * image.height / destination.height()).toInt().coerceIn(0, image.height - 1)
+        if (frameWidth <= 0 || frameHeight <= 0 || destination.isEmpty) return
+        pointerX = ((event.x - destination.left) * frameWidth / destination.width()).toInt().coerceIn(0, frameWidth - 1)
+        pointerY = ((event.y - destination.top) * frameHeight / destination.height()).toInt().coerceIn(0, frameHeight - 1)
     }
     private fun isMouse(event: MotionEvent) = event.isFromSource(InputDevice.SOURCE_MOUSE)
     private fun mouseButtons(event: MotionEvent): Int {
@@ -217,7 +344,7 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     }
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
         if (!inputEnabled) return super.onGenericMotionEvent(event)
-        if (!isMouse(event) || bitmap == null) return super.onGenericMotionEvent(event)
+        if (!isMouse(event) || frameWidth <= 0) return super.onGenericMotionEvent(event)
         absolutePointer(event)
         buttons = mouseButtons(event)
         when (event.actionMasked) {
@@ -227,20 +354,20 @@ class EmbeddedDesktopView(context: Context) : View(context) {
                 if (vertical != 0f) repeat(kotlin.math.ceil(kotlin.math.abs(vertical)).toInt().coerceAtMost(20)) { wheel(false, vertical > 0) }
                 if (horizontal != 0f) repeat(kotlin.math.ceil(kotlin.math.abs(horizontal)).toInt().coerceAtMost(20)) { wheel(true, horizontal > 0) }
             }
-            MotionEvent.ACTION_HOVER_MOVE, MotionEvent.ACTION_BUTTON_PRESS, MotionEvent.ACTION_BUTTON_RELEASE -> client?.pointer(pointerX, pointerY, buttons)
+            MotionEvent.ACTION_HOVER_MOVE, MotionEvent.ACTION_BUTTON_PRESS, MotionEvent.ACTION_BUTTON_RELEASE -> sendPointer(pointerX, pointerY, buttons)
             else -> return super.onGenericMotionEvent(event)
         }
         return true
     }
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!inputEnabled) return false
-        val image = bitmap ?: return false
+        if (frameWidth <= 0 || frameHeight <= 0) return false
         if (destination.isEmpty) return false
         if (isMouse(event)) {
             requestFocus()
             absolutePointer(event)
             buttons = if (event.actionMasked == MotionEvent.ACTION_CANCEL) 0 else mouseButtons(event)
-            client?.pointer(pointerX, pointerY, buttons)
+            sendPointer(pointerX, pointerY, buttons)
             return true
         }
         when (event.actionMasked) {
@@ -276,11 +403,11 @@ class EmbeddedDesktopView(context: Context) : View(context) {
                     gesture.motion(dx, dy)
                     if (gesture.moved) { moved = true; removeCallbacks(startDrag) }
                     if (trackpadMode) {
-                        val scale = image.width / destination.width()
-                        val next = gesture.relative(pointerX, pointerY, dx * scale, dy * scale, image.width - 1, image.height - 1)
+                        val scale = frameWidth / destination.width()
+                        val next = gesture.relative(pointerX, pointerY, dx * scale, dy * scale, frameWidth - 1, frameHeight - 1)
                         pointerX = next.first; pointerY = next.second
                     } else absolutePointer(event)
-                    client?.pointer(pointerX, pointerY, buttons)
+                    sendPointer(pointerX, pointerY, buttons)
                     if (trackpadMode) invalidate()
                     lastX = event.x; lastY = event.y
                 }
@@ -290,7 +417,7 @@ class EmbeddedDesktopView(context: Context) : View(context) {
                 val tap = gesture.tapButton(multiTouch, event.actionMasked == MotionEvent.ACTION_CANCEL, pressed || moved, event.eventTime - gestureStart, ViewConfiguration.getLongPressTimeout().toLong())
                 if (trackpadMode && tap != 0) pointerButton(tap, true)
                 buttons = 0; pressed = false
-                client?.pointer(pointerX, pointerY, 0)
+                sendPointer(pointerX, pointerY, 0)
                 parent?.requestDisallowInterceptTouchEvent(false)
                 if (event.actionMasked == MotionEvent.ACTION_UP) performClick()
             }
@@ -349,6 +476,12 @@ class EmbeddedDesktopView(context: Context) : View(context) {
     }
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (!inputEnabled) return super.onKeyDown(keyCode, event)
+        nativeView?.let { surface ->
+            if (!NativeDesktopInput.shouldForwardKey(keyCode)) return super.onKeyDown(keyCode, event)
+            val sent = surface.key(event.scanCode, keyCode, true)
+            if (sent) nativeKeys[keyCode] = event.scanCode
+            return sent || super.onKeyDown(keyCode, event)
+        }
         val key = heldKeys[keyCode] ?: symbol(event)
         if (key == 0) return super.onKeyDown(keyCode, event)
         heldKeys[keyCode] = key
@@ -356,6 +489,7 @@ class EmbeddedDesktopView(context: Context) : View(context) {
         return true
     }
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        nativeKeys.remove(keyCode)?.let { scan -> return nativeView?.key(scan, keyCode, false) == true }
         val key = heldKeys.remove(keyCode) ?: return super.onKeyUp(keyCode, event)
         client?.key(key, false)
         return true
@@ -370,13 +504,18 @@ class EmbeddedDesktopView(context: Context) : View(context) {
                 text?.toString()?.let { value ->
                     if (value.codePointCount(0, value.length) > 4096) {
                         android.widget.Toast.makeText(context, "Paste up to 4,096 characters at a time", android.widget.Toast.LENGTH_LONG).show()
-                    } else client?.text(value)
+                    } else sendText(value)
                 }
                 return true
             }
             override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
                 if (!inputEnabled) return true
-                client?.deleteText(beforeLength, afterLength)
+                val surface = nativeView
+                if (surface == null) client?.deleteText(beforeLength, afterLength)
+                else {
+                    repeat(beforeLength.coerceIn(0, 100)) { surface.key(0, KeyEvent.KEYCODE_DEL, true); surface.key(0, KeyEvent.KEYCODE_DEL, false) }
+                    repeat(afterLength.coerceIn(0, 100)) { surface.key(0, KeyEvent.KEYCODE_FORWARD_DEL, true); surface.key(0, KeyEvent.KEYCODE_FORWARD_DEL, false) }
+                }
                 return true
             }
             override fun sendKeyEvent(event: KeyEvent): Boolean = dispatchKeyEvent(event)

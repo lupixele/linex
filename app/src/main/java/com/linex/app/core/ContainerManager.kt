@@ -102,7 +102,6 @@ class ContainerManager(
             java.nio.file.Files.deleteIfExists(File(tmpDir, "linex-vnc.passwd").toPath())
             secret.writeText(password + "\n")
             android.system.Os.chmod(secret.absolutePath, 0x180)
-            displayEndpoint = DisplayEndpoint(port, password)
             val scriptsDir = storageEngine.scriptsDir
 
             // Validate rootfs initialization before launching container
@@ -167,6 +166,27 @@ class ContainerManager(
                 }
             }
 
+            val backendPreference = instance.displayBackend
+            if (backendPreference != com.linex.app.data.DisplayBackendPreference.RFB) {
+                val capability = GpuCapabilityProbe.probe()
+                val selection = GpuPresentationPolicy.select(capability, width, height)
+                logWrapper("Host GPU: ${capability.vendor} ${capability.renderer}; ${selection.reason}")
+                if (selection.backend == GpuPresentationBackend.HOST_GLES) {
+                    try {
+                        val sessionId = EmbeddedX11Server.start(context, tmpDir, width, height, dpi, DesktopFrameRate.normalized(instance.desktopFps), logWrapper)
+                        displayEndpoint = DisplayEndpoint(0, "", DisplayBackend.NATIVE_X11, sessionId, width, height)
+                    } catch (error: CancellationException) { throw error }
+                    catch (error: Exception) {
+                        if (backendPreference == com.linex.app.data.DisplayBackendPreference.NATIVE_X11) throw error
+                        logWrapper("Native X11 unavailable: ${error.message}. Using compatible embedded VNC display.")
+                    }
+                } else {
+                    check(backendPreference != com.linex.app.data.DisplayBackendPreference.NATIVE_X11) { selection.reason }
+                    logWrapper("Using compatible embedded VNC display: ${selection.reason}")
+                }
+            }
+            if (displayEndpoint == null) displayEndpoint = DisplayEndpoint(port, password)
+
             // 4. Construct entrypoint command
             // entrypoint.sh <rootfs_path> <tmp_path> <start_command> <display_width> <display_height> <display_dpi> <extra_binds> <bootstrap_dir>
             val command = listOf(
@@ -195,7 +215,9 @@ class ContainerManager(
             env["TERM"] = "xterm-256color"
             env["HOME"] = "/root"
             env["SHELL"] = "/bin/bash"
-            env["LINEX_EMBEDDED_DISPLAY"] = "1"
+            val nativeDisplay = displayEndpoint?.backend == DisplayBackend.NATIVE_X11
+            env["LINEX_DISPLAY_BACKEND"] = if (nativeDisplay) "native_x11" else "rfb"
+            env["LINEX_EMBEDDED_DISPLAY"] = if (nativeDisplay) "0" else "1"
             env["LINEX_VNC_PORT"] = port.toString()
             env["LINEX_DESKTOP_FPS"] = DesktopFrameRate.normalized(instance.desktopFps).toString()
             pb.redirectErrorStream(true)
@@ -219,6 +241,13 @@ class ContainerManager(
             val startedAt = android.os.SystemClock.elapsedRealtime()
             val diagnosticsJob = managerScope.launch {
                 while (isActive && process.isAlive) {
+                    val endpoint = displayEndpoint
+                    if (endpoint?.backend == DisplayBackend.NATIVE_X11 &&
+                        endpoint.sessionId?.let { !EmbeddedX11Server.isAlive(it) } == true) {
+                        logWrapper("Native X11 service exited. Stopping this guest; choose the compatible display backend if this repeats.")
+                        stopActiveInstance()
+                        break
+                    }
                     logRuntimeResources(pid, startedAt, logWrapper)
                     // Capture short startup failures before the old first 30s sample.
                     delay(if (android.os.SystemClock.elapsedRealtime() - startedAt < 30_000) 5_000 else 30_000)
@@ -264,6 +293,7 @@ class ContainerManager(
                             containerProcess = null
                             activeInstance = null
                             displayEndpoint = null
+                            EmbeddedX11Server.stop()
                             processController.clearActiveProcess()
                             updateState(instance.id, ContainerState.STOPPED)
                         }
@@ -285,7 +315,7 @@ class ContainerManager(
             Log.e(TAG, "Failed to launch container", e)
             logWrapper("Failed to launch container: ${e.message}")
             if (containerProcess != null) stopActiveInstance()
-            else { activeInstance = null; displayEndpoint = null; updateState(instance.id, ContainerState.STOPPED) }
+            else { EmbeddedX11Server.stop(); activeInstance = null; displayEndpoint = null; updateState(instance.id, ContainerState.STOPPED) }
             false
         }
     } }
@@ -396,6 +426,7 @@ class ContainerManager(
                         if (stoppedProcess?.isAlive == true) stoppedProcess.destroyForcibly()
                         stoppedProcess?.waitFor()
                     } finally {
+                        EmbeddedX11Server.stop()
                         containerProcess = null
                         processController.clearActiveProcess()
                         activeInstance = null

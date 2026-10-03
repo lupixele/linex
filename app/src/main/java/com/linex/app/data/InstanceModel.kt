@@ -85,6 +85,9 @@ enum class ContainerState {
 enum class MemoryBudgetMode { DEFAULT, RECOMMENDED, CUSTOM }
 
 @Serializable
+enum class DisplayBackendPreference { AUTO, NATIVE_X11, RFB }
+
+@Serializable
 data class LinuxInstance(
     val id: String,
     val name: String,
@@ -99,5 +102,6 @@ data class LinuxInstance(
     val ramAllocatedMb: Int = 2048,
     val snapshotPath: String? = null,
     val desktopFps: Int = 15,
-    val memoryBudgetMode: MemoryBudgetMode? = null
+    val memoryBudgetMode: MemoryBudgetMode? = null,
+    val displayBackend: DisplayBackendPreference = DisplayBackendPreference.AUTO
 )
