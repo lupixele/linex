@@ -41,6 +41,7 @@ class VmBootProofTest {
         }
         val pids = mutableListOf<Int>()
         repeat(2) { launchIndex ->
+            val exitEvidence = VmExitEvidence(context, launchIndex)
             val token = UUID.randomUUID().toString().replace("-", "").take(16)
             val serialFile = File(root, "s-$token")
             val listenerSocket = LocalSocket()
@@ -61,13 +62,17 @@ class VmBootProofTest {
             var serial: LocalSocket? = null
             var capture: Capture? = null
             var bound = false
+            var testFailure: Throwable? = null
             try {
+                exitEvidence.phase = "binding"
                 context.startForegroundService(intent)
                 bound = context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
                 assertTrue("VM service bind failed", bound)
                 assertTrue("VM service bind timed out", ready.await(10, TimeUnit.SECONDS))
                 client = VmEngineClient(requireNotNull(binder), root)
                 val baseline = client.observeHost()
+                exitEvidence.pid = baseline.pid
+                exitEvidence.phase = "baseline_observed"
                 assertTrue(baseline.processes.complete)
                 assertEquals(0, baseline.processes.childCount)
                 val request = VmBootRequest(token, "boot-proof", File(root, "kernel").absolutePath,
@@ -75,22 +80,29 @@ class VmBootProofTest {
                     File(root, "boot-proof.cpio.gz").absolutePath,
                     manifest["initramfs"]!!.jsonObject["sha256"]!!.jsonPrimitive.content,
                     serialFile.absolutePath, 256, 1)
+                exitEvidence.phase = "start_requested"
                 val launch = client.start(request)
+                exitEvidence.pid = launch.pid
+                exitEvidence.phase = "awaiting_serial"
                 assertNotEquals("VM must be an isolated managed process", Process.myPid(), launch.pid)
                 if (pids.isNotEmpty()) assertNotEquals("Restart must use a fresh PID", pids.last(), launch.pid)
                 pids.add(launch.pid)
                 serial = accepted.get(15, TimeUnit.SECONDS)
                 assertEquals(Process.myUid(), serial.peerCredentials.uid)
                 capture = Capture(serial)
+                exitEvidence.phase = "awaiting_boot"
                 assertTrue("Linux boot marker missing", capture.boot.await(180, TimeUnit.SECONDS))
                 assertEquals(64, capture.children)
                 assertEquals(64, capture.guestPids.size)
                 assertEquals(64, capture.guestPids.toSet().size)
                 val status = client.status()
+                exitEvidence.lastVmState = status.state
+                exitEvidence.phase = "boot_observed"
                 assertEquals(launch.pid, status.pid)
                 assertTrue("Host process observation incomplete", status.observationComplete)
                 assertEquals("Guest forks created host children", 0, status.hostChildren)
                 assertTrue("Host thread count invalid", status.hostThreads in 1..512)
+                exitEvidence.phase = "qmp_control"
                 QmpClient.connect(launch.qmpSocket, root).use { qmp ->
                     qmp.negotiate()
                     qmp.pause()
@@ -101,18 +113,23 @@ class VmBootProofTest {
                 serial.outputStream.write("status\n".toByteArray())
                 serial.outputStream.flush()
                 Thread.sleep(500)
+                exitEvidence.phase = "host_sampling"
                 repeat(5) {
                     val sample = client.status()
+                    exitEvidence.lastVmState = sample.state
                     assertTrue(sample.observationComplete)
                     assertEquals(0, sample.hostChildren)
                     assertEquals(launch.pid, sample.pid)
                     Thread.sleep(100)
                 }
+                exitEvidence.phase = "guest_clear_requested"
                 serial.outputStream.write("clear\n".toByteArray()); serial.outputStream.flush()
                 val clearDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
                 while (capture.children != 0 && System.nanoTime() < clearDeadline) Thread.sleep(50)
                 assertEquals("Guest children did not exit", 0, capture.children)
                 val after = client.status()
+                exitEvidence.lastVmState = after.state
+                exitEvidence.phase = "guest_children_cleared"
                 assertTrue(after.observationComplete)
                 assertEquals(0, after.hostChildren)
                 val evidence = buildJsonObject {
@@ -127,21 +144,50 @@ class VmBootProofTest {
                 }
                 File(context.filesDir, "vm-proof-$launchIndex.log").writeText(capture.snapshot())
                 serial.outputStream.write("stop\n".toByteArray()); serial.outputStream.flush()
+                exitEvidence.phase = "guest_stop_requested"
                 val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
                 while (client.isAlive() && System.nanoTime() < deadline) Thread.sleep(50)
                 assertFalse("VM service survived clean guest shutdown", client.isAlive())
                 File(context.filesDir, "vm-proof-$launchIndex.json").writeText(evidence.toString())
+                exitEvidence.phase = "clean_stop_observed"
+            } catch (error: Throwable) {
+                testFailure = error
+                exitEvidence.failureClass = error.javaClass.name
+                throw error
             } finally {
-                capture?.let { File(context.filesDir, "vm-proof-$launchIndex.log").writeText(it.snapshot()) }
-                client?.let {
-                    if (it.isAlive()) runCatching { it.forceStop(); it.awaitExit(5000) }
-                    it.close()
+                var cleanupFailure: Throwable? = null
+                fun cleanup(action: String, operation: () -> Unit) {
+                    try { operation() } catch (error: Throwable) {
+                        if (cleanupFailure == null) cleanupFailure = error
+                        exitEvidence.cleanupError(action, error)
+                    }
                 }
-                serial?.close(); listener.close(); listenerSocket.close()
-                accepted.cancel(true); executor.shutdownNow()
-                if (bound) context.unbindService(connection)
-                context.stopService(intent)
-                serialFile.delete()
+                cleanup("serial_log") {
+                    capture?.let { File(context.filesDir, "vm-proof-$launchIndex.log").writeText(it.snapshot()) }
+                }
+                client?.let { active ->
+                    exitEvidence.binderAliveBeforeCleanup = active.isAlive()
+                    // Observe the final available service state without masking an earlier failure.
+                    if (active.isAlive()) runCatching { active.status() }
+                        .onSuccess { exitEvidence.lastVmState = it.state }
+                    cleanup("force_stop") {
+                        if (active.isAlive()) {
+                            exitEvidence.forceStopAccepted = active.forceStop()
+                            exitEvidence.cleanupExitObserved = active.awaitExit(5000)
+                        }
+                    }
+                    exitEvidence.binderAliveAfterCleanup = active.isAlive()
+                    cleanup("client_close") { active.close() }
+                }
+                cleanup("serial_close") { serial?.close() }
+                cleanup("listener_close") { listener.close() }
+                cleanup("listener_socket_close") { listenerSocket.close() }
+                cleanup("accept_cancel") { accepted.cancel(true); executor.shutdownNow() }
+                cleanup("unbind") { if (bound) context.unbindService(connection) }
+                cleanup("stop_service") { context.stopService(intent) }
+                cleanup("serial_unlink") { serialFile.delete() }
+                exitEvidence.write()
+                if (testFailure == null) cleanupFailure?.let { throw it }
             }
         }
     }
