@@ -14,6 +14,7 @@ data class VmHostObservation(val pid: Int, val processes: VmHostProcessSnapshot)
 data class VmEngineStatus(
     val state: String, val failure: String?, val pid: Int,
     val hostThreads: Int, val hostChildren: Int, val observationComplete: Boolean,
+    val observationMethod: VmHostObservationMethod, val observationDetail: String?,
 )
 
 /** Blocking typed Binder commands. Each client belongs to exactly one launch. */
@@ -27,7 +28,8 @@ class VmEngineClient(private val binder: IBinder, private val privateRoot: File)
     init { binder.linkToDeath(deathRecipient, 0) }
 
     fun observeHost(): VmHostObservation = transact(NativeVmService.HOST_OBSERVE, {}) {
-        VmHostObservation(it.readInt(), VmHostProcessSnapshot(it.readInt(), it.readInt(), it.readInt() == 1))
+        VmHostObservation(it.readInt(), VmHostProcessSnapshot(it.readInt(), it.readInt(), it.readInt() == 1,
+            VmHostObservationMethod.fromWire(it.readString()), it.readString()))
     }
 
     @Synchronized fun start(request: VmBootRequest): VmEngineLaunch {
@@ -54,7 +56,8 @@ class VmEngineClient(private val binder: IBinder, private val privateRoot: File)
         it.writeString(requireNotNull(sessionToken) { "No VM launch" })
     }) {
         VmEngineStatus(requireNotNull(it.readString()), it.readString(), it.readInt(),
-            it.readInt(), it.readInt(), it.readInt() == 1)
+            it.readInt(), it.readInt(), it.readInt() == 1,
+            VmHostObservationMethod.fromWire(it.readString()), it.readString())
     }
 
     @Synchronized fun forceStop(): Boolean = transact(NativeVmService.FORCE_STOP, {

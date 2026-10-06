@@ -118,10 +118,16 @@ X11 acceleration does not imply guest GPU acceleration.
    remain pending rather than being replaced with success-returning stubs.
 2. Real Linux boot using a verified kernel and generated initramfs, reporting
    kernel architecture/version and `LINEX_VM_BOOT_OK` from guest `/init`.
-3. Guest creates 64 simultaneous persistent children. Observe all service host
-   threads' child-PID lists before/during/after; no Android children appear.
-   Record service PID, guest child count and bounded host thread count. Audit
-   enabled QEMU backends for helper spawn: periodic sampling alone is not proof.
+3. Guest creates 64 simultaneous persistent children. Observe service host
+   children before/during/after using every thread's child-PID list when the
+   kernel supports it. Android's optional PROC_CHILDREN capability may be absent;
+   a bounded PID-stat/parent-TGID scan is an alternative only with verified
+   process visibility, stable identities and complete readable snapshots.
+   Record the method, service PID, guest child count and bounded host thread count.
+   A separate instrumentation positive control must detect one real host child
+   and its removal, outside the VM service. Unsupported, unreadable or racing
+   observations fail verification. Audit enabled QEMU backends for helper spawn:
+   periodic sampling cannot exclude short-lived or deliberately hidden helpers.
 4. Pause/resume, bounded stop, process death and a second boot with a fresh PID
    work under instrumentation. Reject corrupt assets, invalid limits/paths and
    concurrent starts. No lingering owned service after stop.

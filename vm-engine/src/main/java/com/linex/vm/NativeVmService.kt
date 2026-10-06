@@ -15,6 +15,8 @@ import android.os.Parcel
 import android.os.Process
 import android.system.Os
 import android.system.OsConstants
+import android.system.ErrnoException
+import android.util.Log
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -45,7 +47,7 @@ class NativeVmService : Service() {
                 }
                 STATUS -> {
                     requireSession(data.readString())
-                    val observation = VmHostProcessStats().sample()
+                    val observation = sampleHostProcesses()
                     reply?.writeNoException()
                     reply?.writeString(state)
                     reply?.writeString(failure)
@@ -53,6 +55,8 @@ class NativeVmService : Service() {
                     reply?.writeInt(observation.threadCount)
                     reply?.writeInt(observation.childCount)
                     reply?.writeInt(if (observation.complete) 1 else 0)
+                    reply?.writeString(observation.method.wireValue)
+                    reply?.writeString(observation.detail)
                 }
                 FORCE_STOP -> {
                     requireSession(data.readString())
@@ -64,17 +68,40 @@ class NativeVmService : Service() {
                 }
                 HOST_OBSERVE -> {
                     require(data.dataAvail() == 0) { "Unexpected host observation payload" }
-                    val observation = VmHostProcessStats().sample()
+                    val observation = sampleHostProcesses()
                     reply?.writeNoException()
                     reply?.writeInt(Process.myPid())
                     reply?.writeInt(observation.threadCount)
                     reply?.writeInt(observation.childCount)
                     reply?.writeInt(if (observation.complete) 1 else 0)
+                    reply?.writeString(observation.method.wireValue)
+                    reply?.writeString(observation.detail)
                 }
                 else -> return super.onTransact(code, data, reply, flags)
             }
             return true
         }
+    }
+
+    private fun sampleHostProcesses(): VmHostProcessSnapshot {
+        var dumpability: Int? = null
+        var dumpabilityErrno: Int? = null
+        val observation = VmHostProcessStats(readDumpability = {
+            try {
+                Os.prctl(OsConstants.PR_GET_DUMPABLE, 0L, 0L, 0L, 0L).also { dumpability = it }
+            } catch (error: ErrnoException) {
+                dumpabilityErrno = error.errno
+                throw error
+            }
+        }).sample()
+        val childrenErrno = try {
+            Os.lstat("/proc/self/task/${Process.myTid()}/children"); 0
+        } catch (error: ErrnoException) { error.errno }
+        Log.i("LinexVmHost", "pid=${Process.myPid()} method=${observation.method.wireValue} " +
+            "complete=${observation.complete} threads=${observation.threadCount} children=${observation.childCount} " +
+            "detail=${observation.detail} threadChildrenErrno=$childrenErrno " +
+            "dumpability=$dumpability dumpabilityErrno=$dumpabilityErrno")
+        return observation
     }
 
     private fun requireSession(supplied: String?) {
