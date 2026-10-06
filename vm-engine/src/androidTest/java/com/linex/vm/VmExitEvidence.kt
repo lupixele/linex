@@ -3,7 +3,6 @@ package com.linex.vm
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
-import androidx.annotation.RequiresApi
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -58,8 +57,8 @@ internal class VmExitEvidence(private val context: Context, private val launchIn
         }
     }
 
-    @RequiresApi(30)
     private fun collectHistory(): JsonArray {
+        if (Build.VERSION.SDK_INT < 30) return JsonArray(emptyList())
         val manager = requireNotNull(context.getSystemService(ActivityManager::class.java))
         val processName = "${context.packageName}:vm"
         // ActivityManager records death asynchronously. Three reads add at most 500ms delay.
