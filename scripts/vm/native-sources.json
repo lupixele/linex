@@ -55,6 +55,13 @@
       "sha256": "74b50bb19134f6562490afea53e59953dd6c4afb17e5ccb60be32221262d3390",
       "license": "BSD-2-Clause OR GPL-2.0-or-later (libfdt)"
     },
+    "libslirp": {
+      "version": "4.9.5",
+      "commit": "390848f47391f412451b2d259d8527fabb51e5e3",
+      "url": "https://github.com/qemu/libslirp/archive/390848f47391f412451b2d259d8527fabb51e5e3.tar.gz",
+      "sha256": "d24a96218da87de89c6e26b8a94bb26e629fdb3fb180f5deb6f1e7fab0ba72cc",
+      "license": "BSD-3-Clause; preserve per-file notices and LICENSE/COPYRIGHT"
+    },
     "android-shmem": {
       "version": "0.7",
       "url": "https://github.com/termux/libandroid-shmem/archive/refs/tags/v0.7.tar.gz",
@@ -62,7 +69,7 @@
       "license": "BSD-3-Clause"
     }
   },
-  "slice": "serial-only full-system ARM64 TCG; display/network pending",
+  "slice": "full-system ARM64 TCG with static SLIRP compiled; serial launch remains NIC-less; Android DNS/display pending",
   "patches": {
     "scripts/vm/patches/qemu/0014-disable-signalfd.patch": "b00e02b746f74b886d39e6769e09f952293902452b17808b2e82acc24c93619f",
     "scripts/vm/patches/setjmp-aarch64/private-bionic_asm.h": "253d038709ce871463ae47aa4b339476074fde22e8aff5ab241da9d2b7b582fb",

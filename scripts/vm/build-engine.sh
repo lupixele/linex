@@ -144,6 +144,14 @@ meson setup "$VM_WORK/glib-build" "$VM_WORK/src/glib" --cross-file "$VM_WORK/and
   -Dtests=false -Dinstalled_tests=false -Ddocumentation=false -Dman-pages=disabled \
   -Dnls=disabled -Dsysprof=disabled -Dlibelf=disabled
 ninja -C "$VM_WORK/glib-build" -j"$VM_JOBS" install
+# Build only the PIC library target. Upstream's -Dstatic option is intended
+# for standalone static test executables; default_library=static is the
+# Android archive setting. The isolated pkg-config path resolves our GLib.
+meson setup "$VM_WORK/slirp-build" "$VM_WORK/src/libslirp" --cross-file "$VM_WORK/android.ini" \
+  --prefix "$VM_PREFIX" --libdir lib --wrap-mode=nodownload \
+  -Ddefault_library=static -Db_staticpic=true -Dprefer_static=true
+ninja -C "$VM_WORK/slirp-build" -j"$VM_JOBS" libslirp.a
+meson install -C "$VM_WORK/slirp-build" --no-rebuild
 make -C "$VM_WORK/src/dtc" -j"$VM_JOBS" CC="$CC" AR="$AR" CFLAGS="$CFLAGS" libfdt/libfdt.a
 cp "$VM_WORK/src/dtc/libfdt/libfdt.a" "$VM_PREFIX/lib/"
 cp "$VM_WORK/src/dtc/libfdt/"{fdt.h,libfdt.h,libfdt_env.h} "$VM_PREFIX/include/"
@@ -175,10 +183,11 @@ mkdir "$VM_WORK/qemu-build"
   --cross-prefix="$VM_TRIPLE-" --cc="$CC" --cxx="$CXX" --host-cc=gcc \
   --extra-cflags="$CFLAGS" --extra-cxxflags="$CXXFLAGS" \
   --extra-ldflags="$LDFLAGS $VM_SETJMP -llog -landroid $VM_WRAP" \
-  --enable-tcg --enable-fdt=system --enable-iconv --disable-rust --disable-modules \
+  --enable-tcg --enable-fdt=system --enable-iconv --enable-slirp --disable-rust --disable-modules \
   --disable-tools --disable-guest-agent --disable-docs --audio-drv-list= \
   -Db_staticpic=true -Dprefer_static=true --prefix="$VM_PREFIX")
 ninja -C "$VM_WORK/qemu-build" -j"$VM_JOBS" liblinex_qemu_aarch64.so
+grep -Eq '^#define CONFIG_SLIRP 1$' "$VM_WORK/qemu-build/config-host.h" || { echo 'QEMU user networking was not compiled.' >&2; exit 1; }
 cp "$VM_WORK/qemu-build/liblinex_qemu_aarch64.so" "$VM_OUTPUT/$VM_ABI/"
 python3 "$VM_ROOT/scripts/vm/verify-engine.py" --library "$VM_OUTPUT/$VM_ABI/liblinex_qemu_aarch64.so" \
   --abi "$VM_ABI" --tools "$VM_TOOLS" --output "$VM_OUTPUT/$VM_ABI/elf-evidence.json"

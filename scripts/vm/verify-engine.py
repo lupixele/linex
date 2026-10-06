@@ -26,6 +26,9 @@ def verify(library: Path, abi: str, tools: Path) -> dict:
         raise ValueError("ELF LOAD segments must support 16KiB page alignment")
     if not re.search(r"^\s*[a-fA-F0-9]+\s+[TW]\s+Java_com_linex_vm_NativeVm_run$", symbols, re.MULTILINE):
         raise ValueError("Missing JNI entry point")
+    for entry in ("slirp_new", "slirp_input"):
+        if not re.search(r"^\s*[a-fA-F0-9]+\s+[TW]\s+" + entry + "$", symbols, re.MULTILINE):
+            raise ValueError("Missing statically linked SLIRP backend entry: " + entry)
     imports = [line.split()[-1].split("@")[0] for line in symbols.splitlines() if re.search(r"\bU\b", line)]
     # daemon() forks within libc; wrapping fork at our ELF boundary cannot
     # intercept that internal call. It must itself be wrapped and absent here.
@@ -39,7 +42,9 @@ def verify(library: Path, abi: str, tools: Path) -> dict:
     return {"abi": abi, "sha256": hashlib.sha256(library.read_bytes()).hexdigest(),
             "needed": needed, "load_alignments": alignments, "imports": imports,
             "jni_entry": "Java_com_linex_vm_NativeVm_run", "kernel_boot": "pending",
-            "scope": "serial-only TCG; network/display pending"}
+            "scope": "TCG with static SLIRP; typed serial launch remains NIC-less",
+            "user_network": "compiled; launch activation pending Android DNS bridge",
+            "android_dns_bridge": "pending"}
 
 
 if __name__ == "__main__":

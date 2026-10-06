@@ -20,6 +20,7 @@ class ElfBoundaryTests(unittest.TestCase):
         self.dynamic = "(NEEDED) Shared library: [libc.so]\n"
         self.program = "LOAD 0x0 0x0 0x0 0x1 0x1 R E 0x4000\n"
         self.symbols = "00001000 T Java_com_linex_vm_NativeVm_run\n                 U pthread_create\n"
+        self.symbols += "00002000 T slirp_new\n00003000 T slirp_input\n"
 
     def inspect(self):
         with patch.object(VERIFIER.subprocess, "check_output", side_effect=[self.header, self.dynamic, self.program, self.symbols]):
@@ -31,6 +32,16 @@ class ElfBoundaryTests(unittest.TestCase):
     def test_unpackaged_shared_dependency_fails(self):
         self.dynamic += "(NEEDED) Shared library: [libglib-2.0.so]\n"
         with self.assertRaisesRegex(ValueError, "Unpackaged"):
+            self.inspect()
+
+    def test_enabled_user_network_must_link_actual_slirp(self):
+        self.symbols = self.symbols.replace("00002000 T slirp_new\n", "")
+        with self.assertRaisesRegex(ValueError, "SLIRP"):
+            self.inspect()
+
+    def test_imported_slirp_cannot_satisfy_static_network_backend(self):
+        self.symbols = self.symbols.replace("00003000 T slirp_input", "                 U slirp_input")
+        with self.assertRaisesRegex(ValueError, "SLIRP"):
             self.inspect()
 
     def test_four_kib_segment_is_rejected(self):
