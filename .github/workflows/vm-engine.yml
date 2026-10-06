@@ -1,4 +1,4 @@
-name: Native DNS boundary review proof
+name: VM engine build and boot evidence
 on:
   workflow_dispatch:
 permissions:
@@ -9,8 +9,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Execute real C tests with sanitizers
+      - name: Execute real C core and endpoint tests with sanitizers
         run: |
           mkdir -p build/test-scratch
           gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -g -Ivm-engine/src/main/jni vm-engine/src/main/jni/linex_dns.c scripts/vm/test_native_dns.c -o build/test-scratch/linex-native-dns
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/test-scratch/linex-native-dns
+          gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -g -Ivm-engine/src/main/jni vm-engine/src/main/jni/linex_dns_transport.c scripts/vm/test_native_dns_transport.c -o build/test-scratch/linex-native-dns-transport
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/test-scratch/linex-native-dns-transport

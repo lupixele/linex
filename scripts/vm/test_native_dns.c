@@ -142,6 +142,10 @@ static void tcp_timeout_delivers_failure_before_idle_cleanup(void) {
     f->clock=11000; linex_dns_tick(d);
     assert(!linex_dns_pending(d)); assert(f->tcp_size==sizeof(query)+2);
     assert((f->tcp[5]&15)==2 && f->frame[f->frames-1][5]==4 && f->frame[f->frames-1][7]==4);
+    f->clock=11001; linex_dns_tick(d);
+    assert(linex_dns_connections(d)==1 && f->closed==0);
+    f->clock=20999; linex_dns_tick(d); assert(linex_dns_connections(d)==1);
+    f->clock=21000; linex_dns_tick(d); assert(!linex_dns_connections(d) && f->closed==1);
     release(d,f);
 
     d=create(&f); assert(linex_dns_tcp_open(d,22)); tcp_query(d,22);

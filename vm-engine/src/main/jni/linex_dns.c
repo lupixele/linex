@@ -266,6 +266,10 @@ void linex_dns_tick(LinexDns *d) {
         size_t consumed=d->cb.tcp_reply(r->connection,r->bytes+r->offset,r->size-r->offset,d->cb.opaque);
         d->in_callback=false;
         if(consumed>r->size-r->offset) { uint64_t id=r->connection; close_tcp(d,id); p=&d->responses; continue; }
+        Connection *c=connection(d,r->connection);
+        /* Successfully delivered bytes are connection activity. Do not extend
+         * the separate deadline of a partial incoming length/body. */
+        if(consumed && c && !c->used) c->deadline=deadline(d);
         r->offset+=consumed;
         if(r->offset==r->size) { *p=r->next; d->queued-=r->charge; free(r); }
         else { if(count<LINEX_DNS_CONNECTION_MAX) blocked[count++]=r->connection; p=&r->next; }
