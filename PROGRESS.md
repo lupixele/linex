@@ -3,18 +3,19 @@
 ## Current State
 Full VM direction, module map and SPEC-vm-engine.md explicitly approved for implementation. Added verified kernel/initramfs tooling, a real QEMU JNI cross-build, private Android-managed service and typed control/boot proof. The VM is not selectable or released; existing PRoot instances/data remain unchanged.
 
-Linux CI fixture proof passes: ARM64 Linux 6.8.0-142, 64 distinct guest PIDs, no host children observed before/during/after, pause/resume, guest-child cleanup and clean shutdown. Run37415996410 builds both Android libraries and runs five Android tests: two launch-rejection tests pass; three boot tests fail because AAPT transforms the gzip asset. Fixed packaging and verified actual APK bytes; run37417801412 retries. No Android JNI kernel boot has passed yet.
+Actual Android-managed boot/isolation/lifecycle proof passes all six tests in run37421056855 at source b811069. ARM64 Linux boots twice inside an API33/target34 x86 Android service, with fresh PIDs4470/5058,64 distinct guest children and zero observed host children before/during/after. QMP pause/resume, guest-child cleanup, clean poweroff, owned stop and launch/control rejection pass; a real host-child positive control verifies0→1→0. Networking has started but is unfinished; agents reached the account usage limit.
 
 ## Verification
-112 existing app tests,22 VM unit tests and30 Python regressions pass; VM lint:0errors5warnings. Native builds pass the strengthened helper audit,16KiB LOAD alignment and Android system dependency checks. Actual APK verification confirms exact manifest/kernel/compressed initramfs and x86 JNI bytes. Neutral initramfs asset alias plus explicit Sync input fixes clean/incremental packaging. API33/target34 remote Binder invalid-launch checks pass; genuine boot/concurrent-start/control tests await runtime proof. Bounded correlated exit diagnostics are included; no phone is attached.
+Last verified code b811069:112app tests,31VM unit tests,39Python checks and6actual Android tests pass; build/lint:0errors5warnings. Native builds pass helper/16KiB/dependency audits; final APK bytes match verified assets/JNI. Evidence saved in dist/vm-android-run15, with immutable native source identity in native-provenance.json. Uncommitted RED networking tests now exist locally and are not implemented; they must not be reported as passing or shipped. No ARM64 phone runtime/performance proof exists.
 
 ## Next Steps
-1. Finish native cross-build, ELF/JNI/dependency verification and source packaging.
-2. Run genuine Android-managed boot/fork64/control/stop/freshPID tests onAPI33emulator withtarget34; physical ARM64 verification separate.
-3. Implement and validate rootless network/Android DNS bridge; then images/embedded console/app controls in approved dependency order.
+1. Resume networking from tasks/pending-network.md after account capacity returns; implement the preserved RED tests before claiming a green workspace.
+2. Pin/build SLIRP, implement private Android DNS bridge and verified DHCP/TCP/HTTPS/Private DNS fixtures.
+3. Begin images/embedded console/app controls after engine acceptance, in the approved dependency order.
 
 ## Open Questions / Blockers
-- No Android device attached. JNI load/kernel/service proof and Snapdragon CPU/GPU performance remain unmeasured.
+- Account usage limit interrupted all three networking agents; no networking implementation is verified.
+- No Android device attached. Emulator JNI/kernel/service proof passes; Snapdragon CPU/GPU performance remains unmeasured.
 - Full VM avoids guest fork multiplication; Android/OEM may still reclaim the managed process. No all-phone performance guarantee.
 - Latest PRoot Firefox crash remains unattributed; full VM development does not establish an already fixed APK.
 - Existing build/generated tracked files and raw logs remain excluded. Source/engine artifacts are not public app releases.
@@ -66,3 +67,5 @@ Linux CI fixture proof passes: ARM64 Linux 6.8.0-142, 64 distinct guest PIDs, no
 - [2026-10-06] Continued approved engine: run11 built both native ABIs, Android job failed before tests. Fixed official Gradle launcher and CI status/evidence handling6178fab; blocked newly found Bionic daemon helper0474c7d; added correlated bounded exit diagnostics0f0960f.22Python+22VMunit tests and real-JNI testAPK build pass. Run37415996410 verifies; actual Android boot and network remain pending.
 - [2026-10-06] Run37415996410 native builds pass for ARM64/x86 with daemon helper blocked; repaired wrapper and runner regression checks pass in Linux CI. Android emulator boot-proof step now running. Existing112app+22VMunit+22Python tests and VMlint0errors5warnings pass; actual Android boot still awaits result.
 - [2026-10-06] Run12 executes5Androidtests:2invalid-launch tests pass,3boot tests fail before launch due to AAPT gzip asset transformation. Fixed neutral alias and incremental Sync input91b2333; exact APK fixture/JNI byte guard75cef79 passes locally,30Python tests pass,VMlint0errors5warnings. Run37417801412 retries real boot; no boot/network release claim.
+- [2026-10-06] Run13 reaches guestBOOT_OK64 but full tests fail on host-observation completeness. Added bounded PID-stat/dumpability-read alternative and real instrumentation host-child0→1→0 positive control; no root/settings change or fake zero.31VM+39Python pass,APK/lint pass. Source/provenance-checked native reuse now runs37420219442; full acceptance remains pending.
+- [2026-10-06] Actualmanagedproof run37421056855 passes6/6: two realARM64Linux boots in Android, freshPIDs4470/5058,64guestchildren,host0before/during/after,QMPpause/resume,cleanstop and realhost-childcontrol0→1→0. Networking agents then hit account usage limit; unfinished RED tests preserved uncommitted; tasks/pending-network.md records resume point. No VM desktop/network release.
