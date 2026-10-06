@@ -9,12 +9,18 @@ val prepareVmFixtureAssets by tasks.registering(Sync::class) {
     // Copy/Sync renaming rules are not fingerprinted automatically. Changing
     // the packaged alias must invalidate previously copied fixture assets.
     inputs.property("initramfsAssetName", initramfsAssetName)
+    inputs.property("networkInitramfsAssetName", "network-proof.initramfs")
     from(rootProject.file("dist/vm-fixture")) {
         include("kernel", "boot-proof.cpio.gz", "manifest.json")
         // Android asset packaging interprets .gz as a precompressed asset,
         // removes the suffix and exposes decompressed bytes. Preserve the
         // original compressed fixture and its pinned SHA under an opaque name.
         rename("boot-proof\\.cpio\\.gz", initramfsAssetName)
+    }
+    from(rootProject.file("dist/vm-network-fixture")) {
+        into("network")
+        include("kernel", "network-proof.cpio.gz", "manifest.json")
+        rename("network-proof\\.cpio\\.gz", "network-proof.initramfs")
     }
     into(fixtureAssets)
 }

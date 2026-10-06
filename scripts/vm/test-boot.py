@@ -3,9 +3,11 @@
 import argparse
 from collections import deque
 import hashlib
+from itertools import islice
 import json
 from pathlib import Path
 import platform
+import re
 import socket
 import subprocess
 import tempfile
@@ -99,12 +101,32 @@ class SerialCapture:
 
 def host_process_sample(pid):
     children = set()
-    tasks = list((Path("/proc") / str(pid) / "task").iterdir())
+    observed = 0
+    tasks = list(islice((Path("/proc") / str(pid) / "task").iterdir(), 513))
+    if not tasks or len(tasks) > 512:
+        raise RuntimeError("Host task observation is empty or exceeds limit")
     for task in tasks:
         try:
-            children.update(int(value) for value in (task / "children").read_text().split())
+            with (task / "children").open("r", encoding="ascii") as stream:
+                payload = stream.read(4097)
         except FileNotFoundError:
-            continue  # A worker thread may exit while sampling.
+            # ENOENT is a valid race only if this worker thread really exited.
+            # A live task without readable child evidence cannot prove zero.
+            try:
+                task.stat()
+            except FileNotFoundError:
+                continue
+            raise RuntimeError("Child evidence missing for a live host thread")
+        if len(payload) > 4096:
+            raise RuntimeError("Host child observation exceeds limit")
+        values = payload.split()
+        if any(not re.fullmatch(r"[0-9]{1,10}", value) or not 1 <= int(value) <= 2147483647
+               for value in values):
+            raise RuntimeError("Invalid host child PID evidence")
+        observed += 1
+        children.update(int(value) for value in values)
+    if observed == 0:
+        raise RuntimeError("No live host thread supplied child evidence")
     return {"threadCount": len(tasks), "hostChildPids": sorted(children)}
 
 

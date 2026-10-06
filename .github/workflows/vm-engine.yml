@@ -6,6 +6,41 @@ permissions:
   contents: read
 
 jobs:
+  native-bridge-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Execute the actual native DNS boundary with address/undefined sanitizers
+        run: |
+          mkdir -p build/test-scratch
+          gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -g -Ivm-engine/src/main/jni vm-engine/src/main/jni/linex_dns.c scripts/vm/test_native_dns.c -o build/test-scratch/linex-native-dns
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/test-scratch/linex-native-dns
+          gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -g -Ivm-engine/src/main/jni vm-engine/src/main/jni/linex_dns_transport.c scripts/vm/test_native_dns_transport.c -o build/test-scratch/linex-native-dns-transport
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/test-scratch/linex-native-dns-transport
+
+  network-fixture-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install host proof tools
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm python3
+      - name: Verify and boot the real networking fixture
+        run: |
+          python3 -m unittest discover -s scripts/vm -p 'test_network_*.py'
+          python3 scripts/vm/build-network-fixture.py --output dist/vm-network-fixture
+          python3 scripts/vm/test-network.py --qemu qemu-system-aarch64 --fixture dist/vm-network-fixture --evidence dist/vm-network-host-proof --timeout 180
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: vm-network-host-evidence
+          path: |
+            dist/vm-network-fixture/manifest.json
+            dist/vm-network-host-proof
+          if-no-files-found: error
+          retention-days: 14
+
   fixture-proof:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -113,7 +148,9 @@ jobs:
           name: vm-runtime-x86_64
           path: dist/vm-engine/x86_64
       - name: Generate verified Android instrumentation assets
-        run: python3 scripts/vm/build-fixture.py --output dist/vm-fixture
+        run: |
+          python3 scripts/vm/build-fixture.py --output dist/vm-fixture
+          python3 scripts/vm/build-network-fixture.py --output dist/vm-network-fixture
       - name: Verify the wrapper and Android proof failure reporting
         run: |
           echo '0336f591bc0ec9aa0c9988929b93ecc916b3c1d52aed202c7381db144aa0ef15  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
@@ -123,7 +160,7 @@ jobs:
       - name: Build and verify the exact APK proof assets and JNI before boot
         run: |
           ./gradlew :vm-engine:assembleDebugAndroidTest -PvmNativeDir=dist/vm-engine --no-daemon
-          python3 scripts/vm/verify-proof-apk.py --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --fixture dist/vm-fixture --native dist/vm-engine --abi x86_64 --evidence dist/vm-android-proof/apk-evidence.json
+          python3 scripts/vm/verify-proof-apk.py --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --fixture dist/vm-fixture --network-fixture dist/vm-network-fixture --native dist/vm-engine --abi x86_64 --evidence dist/vm-android-proof/apk-evidence.json
       - name: Enable KVM for the Android emulator on the CI host
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-linex-ci-kvm.rules

@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location("test_boot", Path(__file__).with_name("test-boot.py"))
 harness = importlib.util.module_from_spec(spec)
@@ -14,6 +15,56 @@ spec.loader.exec_module(harness)
 
 
 class BootHarnessTest(unittest.TestCase):
+    def test_missing_child_evidence_for_live_thread_cannot_report_zero(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "123/task/123").mkdir(parents=True)
+            with patch.object(harness, "Path", return_value=root), self.assertRaises(RuntimeError):
+                harness.host_process_sample(123)
+
+    def test_host_child_samples_are_bounded_and_validate_pid_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            thread = root / "123/task/123"
+            thread.mkdir(parents=True)
+            children = thread / "children"
+            with patch.object(harness, "Path", return_value=root):
+                children.write_text("456 789")
+                self.assertEqual(harness.host_process_sample(123), {
+                    "threadCount": 1, "hostChildPids": [456, 789],
+                })
+                for invalid in ("x" * 4097, "-1", "0", "2147483648", "malformed"):
+                    children.write_text(invalid)
+                    with self.subTest(invalid=invalid[:20]), self.assertRaises(RuntimeError):
+                        harness.host_process_sample(123)
+
+    def test_thread_that_exits_during_child_read_is_ignored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            thread = root / "123/task/123"
+            thread.mkdir(parents=True)
+            stable = root / "123/task/124"
+            stable.mkdir()
+            (stable / "children").write_text("")
+            original_open = Path.open
+            def exited_thread(path, *args, **kwargs):
+                if path == thread / "children":
+                    thread.rmdir()
+                    raise FileNotFoundError("Thread exited")
+                return original_open(path, *args, **kwargs)
+            with patch.object(harness, "Path", return_value=root), patch.object(Path, "open", exited_thread):
+                self.assertEqual(harness.host_process_sample(123)["hostChildPids"], [])
+
+    def test_too_many_threads_are_rejected_before_child_reads(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tasks = root / "123/task"
+            tasks.mkdir(parents=True)
+            for pid in range(513):
+                (tasks / str(pid)).mkdir()
+            with patch.object(harness, "Path", return_value=root), self.assertRaisesRegex(RuntimeError, "limit"):
+                harness.host_process_sample(123)
+
     def test_records_distinct_guest_pid_proof_and_clear_reply(self):
         pids = tuple(range(2, 66))
         serial = ("LINEX_VM_GUEST_CHILDREN count=0\nLINEX_VM_GUEST_PIDS "

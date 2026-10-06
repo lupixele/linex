@@ -44,6 +44,7 @@ class VmEngineClient(private val binder: IBinder, private val privateRoot: File)
             data.writeString(request.serialPath)
             data.writeInt(request.memoryMiB)
             data.writeInt(request.vcpuCount)
+            data.writeInt(request.network.wireValue)
         }) { reply -> VmEngineLaunch(reply.readInt(), File(requireNotNull(reply.readString()))) }
         sessionToken = request.sessionToken
         val expected = File(privateRoot.canonicalFile, "session-${request.sessionToken}/qmp.sock")

@@ -14,13 +14,12 @@ def digest(stream):
     return result.hexdigest()
 
 
-def verify(apk: Path, fixture: Path, native: Path, abis: list[str]) -> dict:
-    manifest_bytes = (fixture / "manifest.json").read_bytes()
-    manifest = json.loads(manifest_bytes)
-    expected_assets = {
-        "assets/kernel": (fixture / "kernel", manifest["kernel"]),
-        "assets/boot-proof.initramfs": (fixture / "boot-proof.cpio.gz", manifest["initramfs"]),
-    }
+def verify(apk: Path, fixture: Path, native: Path, abis: list[str],
+           network_fixture: Path | None = None) -> dict:
+    fixture_sets = [(fixture, "assets/", "boot-proof.cpio.gz", "boot-proof.initramfs")]
+    if network_fixture is not None:
+        fixture_sets.append((network_fixture, "assets/network/", "network-proof.cpio.gz",
+                             "network-proof.initramfs"))
     result = {"assets": {}, "native": {}, "kernel_boot": "pending"}
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
@@ -33,22 +32,31 @@ def verify(apk: Path, fixture: Path, native: Path, abis: list[str]) -> dict:
                 raise ValueError(f"Packaged bytes/size changed: {name}")
             return entry
 
-        require_entry("assets/manifest.json", len(manifest_bytes))
-        if archive.read("assets/manifest.json") != manifest_bytes:
-            raise ValueError("Packaged fixture manifest changed")
-        for name, (source, item) in expected_assets.items():
-            size = item["bytes"]
-            expected_hash = item["sha256"]
-            if source.stat().st_size != size:
-                raise ValueError(f"Source fixture size mismatch: {source}")
-            with source.open("rb") as stream:
-                if digest(stream) != expected_hash:
-                    raise ValueError(f"Source fixture hash mismatch: {source}")
-            require_entry(name, size)
-            with archive.open(name) as stream:
-                if digest(stream) != expected_hash:
-                    raise ValueError(f"Packaged fixture hash mismatch: {name}")
-            result["assets"][name] = expected_hash
+        for directory, prefix, initramfs_source, initramfs_asset in fixture_sets:
+            manifest_bytes = (directory / "manifest.json").read_bytes()
+            manifest = json.loads(manifest_bytes)
+            manifest_name = prefix + "manifest.json"
+            require_entry(manifest_name, len(manifest_bytes))
+            if archive.read(manifest_name) != manifest_bytes:
+                raise ValueError(f"Packaged fixture manifest changed: {manifest_name}")
+            result["assets"][manifest_name] = hashlib.sha256(manifest_bytes).hexdigest()
+            expected_assets = {
+                prefix + "kernel": (directory / "kernel", manifest["kernel"]),
+                prefix + initramfs_asset: (directory / initramfs_source, manifest["initramfs"]),
+            }
+            for name, (source, item) in expected_assets.items():
+                size = item["bytes"]
+                expected_hash = item["sha256"]
+                if source.stat().st_size != size:
+                    raise ValueError(f"Source fixture size mismatch: {source}")
+                with source.open("rb") as stream:
+                    if digest(stream) != expected_hash:
+                        raise ValueError(f"Source fixture hash mismatch: {source}")
+                require_entry(name, size)
+                with archive.open(name) as stream:
+                    if digest(stream) != expected_hash:
+                        raise ValueError(f"Packaged fixture hash mismatch: {name}")
+                result["assets"][name] = expected_hash
         for abi in abis:
             evidence = json.loads((native / abi / "elf-evidence.json").read_text())
             expected_hash = evidence["sha256"]
@@ -71,10 +79,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--apk", type=Path, required=True)
     parser.add_argument("--fixture", type=Path, required=True)
+    parser.add_argument("--network-fixture", type=Path)
     parser.add_argument("--native", type=Path, required=True)
     parser.add_argument("--abi", action="append", choices=["x86_64", "arm64-v8a"], required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     args = parser.parse_args()
-    evidence = verify(args.apk, args.fixture, args.native, args.abi)
+    evidence = verify(args.apk, args.fixture, args.native, args.abi, args.network_fixture)
     args.evidence.parent.mkdir(parents=True, exist_ok=True)
     args.evidence.write_text(json.dumps(evidence, indent=2) + "\n")

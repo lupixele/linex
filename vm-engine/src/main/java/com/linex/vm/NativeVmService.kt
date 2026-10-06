@@ -117,6 +117,7 @@ class NativeVmService : Service() {
                 requireNotNull(data.readString()), requireNotNull(data.readString()),
                 requireNotNull(data.readString()), requireNotNull(data.readString()),
                 requireNotNull(data.readString()), data.readInt(), data.readInt(),
+                VmNetworkMode.fromWire(data.readInt()),
             )
             require(data.dataAvail() == 0) { "Unexpected VM launch payload" }
             prepare(request)
@@ -155,7 +156,7 @@ class NativeVmService : Service() {
             "-accel", "tcg,thread=multi", "-smp", request.vcpuCount.toString(), "-m", request.memoryMiB.toString(),
             "-kernel", request.kernelPath, "-initrd", request.initramfsPath,
             "-append", "console=ttyAMA0 rdinit=/init panic=-1", "-display", "none", "-monitor", "none",
-            "-nic", "none", "-no-reboot",
+            *request.network.qemuArguments(), "-no-reboot",
             "-chardev", "socket,id=linexserial,path=${optionPath(request.serialPath)},server=off",
             "-serial", "chardev:linexserial", "-qmp", "unix:${optionPath(qmp)},server=on,wait=off",
         )

@@ -16,6 +16,7 @@ data class VmBootRequest(
     val serialPath: String,
     val memoryMiB: Int,
     val vcpuCount: Int,
+    val network: VmNetworkMode = VmNetworkMode.DISABLED,
 ) {
     /** Hashes actual private regular files; caller declarations alone are not verification. */
     fun validated(privateRoots: List<File>): VmBootRequest {

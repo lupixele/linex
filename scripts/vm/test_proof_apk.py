@@ -24,6 +24,8 @@ class ProofApkTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.fixture = self.root / "fixture"
         self.fixture.mkdir()
+        self.network_fixture = self.root / "network"
+        self.network_fixture.mkdir()
         self.native = self.root / "native/x86_64"
         self.native.mkdir(parents=True)
         kernel = b"pinned-kernel-fixture"
@@ -43,13 +45,54 @@ class ProofApkTests(unittest.TestCase):
             "assets/kernel": kernel, "assets/boot-proof.initramfs": initramfs,
             "lib/x86_64/liblinex_qemu_aarch64.so": library,
         }
+        network_initramfs = gzip.compress(b"network-userspace-with-dhcp")
+        network_manifest = {
+            "kernel": manifest["kernel"],
+            "initramfs": {"file": "network-proof.cpio.gz", "bytes": len(network_initramfs),
+                          "sha256": hashlib.sha256(network_initramfs).hexdigest()},
+        }
+        (self.network_fixture / "kernel").write_bytes(kernel)
+        (self.network_fixture / "network-proof.cpio.gz").write_bytes(network_initramfs)
+        network_bytes = json.dumps(network_manifest).encode()
+        (self.network_fixture / "manifest.json").write_bytes(network_bytes)
+        self.entries.update({
+            "assets/network/manifest.json": network_bytes,
+            "assets/network/kernel": kernel,
+            "assets/network/network-proof.initramfs": network_initramfs,
+        })
 
     def verify(self):
         apk = self.root / "proof.apk"
         with zipfile.ZipFile(apk, "w") as archive:
             for name, data in self.entries.items():
                 archive.writestr(name, data)
-        return VERIFIER.verify(apk, self.fixture, self.native.parent, ["x86_64"])
+        return VERIFIER.verify(apk, self.fixture, self.native.parent, ["x86_64"], self.network_fixture)
+
+    def test_verified_network_bytes_are_included_in_evidence(self):
+        self.assertIn("assets/network/network-proof.initramfs", self.verify()["assets"])
+
+    def test_missing_network_kernel_is_rejected(self):
+        self.entries.pop("assets/network/kernel")
+        with self.assertRaisesRegex(ValueError, "assets/network/kernel"):
+            self.verify()
+
+    def test_changed_network_manifest_is_rejected(self):
+        name = "assets/network/manifest.json"
+        self.entries[name] = b" " * len(self.entries[name])
+        with self.assertRaisesRegex(ValueError, "manifest changed"):
+            self.verify()
+
+    def test_network_gzip_asset_transformation_is_rejected(self):
+        source = self.entries.pop("assets/network/network-proof.initramfs")
+        self.entries["assets/network/network-proof.cpio"] = gzip.decompress(source)
+        with self.assertRaisesRegex(ValueError, "network-proof.initramfs"):
+            self.verify()
+
+    def test_same_size_network_corruption_is_rejected(self):
+        name = "assets/network/network-proof.initramfs"
+        self.entries[name] = b"x" * len(self.entries[name])
+        with self.assertRaisesRegex(ValueError, "fixture hash"):
+            self.verify()
 
     def test_verified_bytes_preserve_pending_boot_status(self):
         self.assertEqual("pending", self.verify()["kernel_boot"])
