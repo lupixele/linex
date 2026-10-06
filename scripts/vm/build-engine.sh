@@ -187,7 +187,9 @@ mkdir "$VM_WORK/qemu-build"
   --disable-tools --disable-guest-agent --disable-docs --audio-drv-list= \
   -Db_staticpic=true -Dprefer_static=true --prefix="$VM_PREFIX")
 ninja -C "$VM_WORK/qemu-build" -j"$VM_JOBS" liblinex_qemu_aarch64.so
-grep -Eq '^#define CONFIG_SLIRP 1$' "$VM_WORK/qemu-build/config-host.h" || { echo 'QEMU user networking was not compiled.' >&2; exit 1; }
+# Meson boolean .set() emits a bare define; integer .set10() emits 1/0.
+# Accept the two enabled encodings while still rejecting undef and value 0.
+grep -Eq '^#define CONFIG_SLIRP([[:space:]]+1)?[[:space:]]*$' "$VM_WORK/qemu-build/config-host.h" || { echo 'QEMU user networking was not compiled.' >&2; exit 1; }
 cp "$VM_WORK/qemu-build/liblinex_qemu_aarch64.so" "$VM_OUTPUT/$VM_ABI/"
 python3 "$VM_ROOT/scripts/vm/verify-engine.py" --library "$VM_OUTPUT/$VM_ABI/liblinex_qemu_aarch64.so" \
   --abi "$VM_ABI" --tools "$VM_TOOLS" --output "$VM_OUTPUT/$VM_ABI/elf-evidence.json"
