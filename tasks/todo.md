@@ -7,9 +7,9 @@
   - Acceptance: pinned assets verified, deterministic safe initramfs, actual
     guest init handshake and64 persistent children; no unsafe host extraction.
   - Verify: Python unit tests; Linux host QEMU boot (fixture evidence only).
-- [ ] Native Android engine build (independent)
-  - Run37129138600 builds both ABIs. Newly strengthened daemon-helper audit
-    rejects those prior binaries; guard0474c7d is rebuilding in run37415996410.
+- [x] Native Android engine build (independent)
+  - Run37415996410 builds both ABIs and passes the strengthened daemon-helper
+    audit. The separate Android-managed JNI/kernel runtime gate remains pending.
   - Files: scripts/vm/build-engine.sh, embedding shim/patch, source manifest,
     .github/workflows/vm-engine.yml.
   - Acceptance: genuine QEMU11 ARM64guest JNI library for both host ABIs,
@@ -17,7 +17,8 @@
   - Verify: Linux CI cross-build, ELF/JNI/dependency inspection.
 - [ ] Managed boot service (depends on native build and fixture for runtime)
   - Implemented and source reviewed; fourteen request/host observation tests pass.
-    Actual JNI-backed service boot remains pending native build.
+    Actual remote invalid-launch Binder tests pass onAPI33/target34 (run12).
+    Genuine JNI-backed kernel boot remains pending after fixing AAPT gzip packaging.
   - Files: vm-engine/build.gradle.kts, manifest, NativeVm.kt,
     NativeVmService.kt, VmBootRequest.kt (+ focused request tests).
   - Acceptance: nonexported :vm service, sameUID controls, independently validated
@@ -37,6 +38,9 @@
     owned force stop and concurrent valid first STARTs; test APK compilation passes.
     Run11 never reached tests due to broken Unix Gradle launcher. Official wrapper
     and single-process proof runner repaired; bounded exit-history evidence added.
+    Run12 executes tests but AAPT strips/decompresses the fixture .gz asset;
+    opaque asset alias and incremental Sync input91b2333 preserve pinned bytes.
+    Actual packaged asset/JNI preflight75cef79 passes locally; run37417801412 retries.
   - Files: QMP protocol/client and tests, service instrumentation tests.
   - Acceptance: bounded framing/timeouts, valid capabilities, pause/resume,
     owned stop, stale-session rejection, fresh PID restart and failure cleanup.
