@@ -119,6 +119,11 @@ jobs:
           echo '0336f591bc0ec9aa0c9988929b93ecc916b3c1d52aed202c7381db144aa0ef15  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
           ./gradlew --version --no-daemon
           python3 -m unittest discover -s scripts/vm -p 'test_android_proof.py'
+          python3 -m unittest discover -s scripts/vm -p 'test_proof_apk.py'
+      - name: Build and verify the exact APK proof assets and JNI before boot
+        run: |
+          ./gradlew :vm-engine:assembleDebugAndroidTest -PvmNativeDir=dist/vm-engine --no-daemon
+          python3 scripts/vm/verify-proof-apk.py --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --fixture dist/vm-fixture --native dist/vm-engine --abi x86_64 --evidence dist/vm-android-proof/apk-evidence.json
       - name: Enable KVM for the Android emulator on the CI host
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-linex-ci-kvm.rules
