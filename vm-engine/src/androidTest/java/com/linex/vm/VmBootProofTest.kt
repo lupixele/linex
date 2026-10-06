@@ -73,7 +73,7 @@ class VmBootProofTest {
                 val baseline = client.observeHost()
                 exitEvidence.pid = baseline.pid
                 exitEvidence.phase = "baseline_observed"
-                assertTrue(baseline.processes.complete)
+                assertTrue("Baseline host observation incomplete: ${baseline.processes}", baseline.processes.complete)
                 assertEquals(0, baseline.processes.childCount)
                 val request = VmBootRequest(token, "boot-proof", File(root, "kernel").absolutePath,
                     manifest["kernel"]!!.jsonObject["sha256"]!!.jsonPrimitive.content,
@@ -99,7 +99,7 @@ class VmBootProofTest {
                 exitEvidence.lastVmState = status.state
                 exitEvidence.phase = "boot_observed"
                 assertEquals(launch.pid, status.pid)
-                assertTrue("Host process observation incomplete", status.observationComplete)
+                assertTrue("Host process observation incomplete: $status", status.observationComplete)
                 assertEquals("Guest forks created host children", 0, status.hostChildren)
                 assertTrue("Host thread count invalid", status.hostThreads in 1..512)
                 exitEvidence.phase = "qmp_control"
@@ -138,6 +138,10 @@ class VmBootProofTest {
                     put("distinctGuestPids", capture.guestPids.toSet().size)
                     put("hostChildrenBefore", baseline.processes.childCount)
                     put("hostChildrenDuring", status.hostChildren); put("hostChildrenAfter", after.hostChildren)
+                    put("hostObservationBefore", baseline.processes.method.wireValue)
+                    put("hostObservationDuring", status.observationMethod.wireValue)
+                    put("hostObservationAfter", after.observationMethod.wireValue)
+                    put("hostObservationDetail", status.observationDetail)
                     put("hostThreads", status.hostThreads); put("bootMarker", true)
                     put("pauseResume", true); put("androidSdk", android.os.Build.VERSION.SDK_INT)
                     put("abi", android.os.Build.SUPPORTED_ABIS.first())

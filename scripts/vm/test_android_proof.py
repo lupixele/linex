@@ -52,6 +52,7 @@ printf 'bounded device evidence\\n'
         self.assertEqual(str(status), (evidence / "test-exit-status.txt").read_text().strip())
         self.assertTrue((evidence / "processes-after.txt").is_file())
         self.assertTrue((evidence / "logcat.txt").is_file())
+        self.assertTrue((evidence / "vm-proof-host-control.json").is_file())
         for launch in (0, 1):
             for name in (f"vm-proof-{launch}.json", f"vm-proof-{launch}.log", f"vm-proof-{launch}-exit.json"):
                 self.assertTrue((evidence / name).is_file(), name)

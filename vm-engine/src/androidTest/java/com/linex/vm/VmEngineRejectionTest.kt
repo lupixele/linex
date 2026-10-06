@@ -123,7 +123,7 @@ class VmEngineRejectionTest {
                     val status = client.status()
                     assertEquals(launch.pid, status.pid)
                     assertEquals("EMULATING", status.state)
-                    assertTrue("Host process observation is incomplete", status.observationComplete)
+            assertTrue("Host process observation is incomplete: $status", status.observationComplete)
                     assertEquals("Guest workloads leaked into host child processes", 0, status.hostChildren)
                 }
                 assertTrue("Owned force stop was rejected", client.forceStop())

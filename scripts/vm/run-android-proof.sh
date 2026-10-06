@@ -18,6 +18,8 @@ capture_evidence() {
         > "$PROOF_DIR/$file" 2> "$PROOF_DIR/$file.error" || true
     done
   done
+  timeout 10s adb exec-out run-as com.linex.vm.test cat files/vm-proof-host-control.json \
+    > "$PROOF_DIR/vm-proof-host-control.json" 2> "$PROOF_DIR/vm-proof-host-control.json.error" || true
   exit "$proof_status"
 }
 trap capture_evidence EXIT

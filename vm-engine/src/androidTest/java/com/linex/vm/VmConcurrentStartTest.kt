@@ -77,7 +77,7 @@ class VmConcurrentStartTest {
             repeat(2) { clients += VmEngineClient(remote, storage) }
             val before = clients[0].observeHost()
             assertNotEquals("Race must target a real remote service", Process.myPid(), before.pid)
-            assertTrue("Initial host observation is incomplete", before.processes.complete)
+            assertTrue("Initial host observation is incomplete: ${before.processes}", before.processes.complete)
             assertEquals(0, before.processes.childCount)
 
             val attempts = clients.mapIndexed { index, client ->
@@ -118,7 +118,7 @@ class VmConcurrentStartTest {
             val running = winningClient.status()
             assertEquals(launch.pid, running.pid)
             assertEquals("EMULATING", running.state)
-            assertTrue("Running host observation is incomplete", running.observationComplete)
+            assertTrue("Running host observation is incomplete: $running", running.observationComplete)
             assertEquals("Guest forks became Android child processes", 0, running.hostChildren)
             assertTrue("Owned stop was rejected", winningClient.forceStop())
             assertTrue("Managed VM process remained after stop", winningClient.awaitExit(5000))
