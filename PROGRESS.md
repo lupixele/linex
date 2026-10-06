@@ -3,10 +3,10 @@
 ## Current State
 Full VM direction, module map and SPEC-vm-engine.md explicitly approved for implementation. Added verified kernel/initramfs tooling, a real QEMU JNI cross-build, private Android-managed service and typed control/boot proof. The VM is not selectable or released; existing PRoot instances/data remain unchanged.
 
-Linux CI fixture proof passes: ARM64 Linux 6.8.0-142, 64 distinct guest PIDs, no host children observed before/during/after, pause/resume, guest-child cleanup and clean shutdown. Both Android native architectures compile the dependencies and reach final QEMU/JNI linking; run37127951054 failed on executable-only static linker flags. Those flags are repaired in e96c085; run37128625180 verifies linking. No Android JNI boot has passed yet.
+Linux CI fixture proof passes: ARM64 Linux 6.8.0-142, 64 distinct guest PIDs, no host children observed before/during/after, pause/resume, guest-child cleanup and clean shutdown. Run37129138600 built both Android libraries, but Android tests could not start because gradlew lacked APP_HOME. Fixed the official launcher and CI failure propagation; a newly found libc daemon helper is blocked. Run37415996410 verifies the strengthened build and actual Android boot. No Android JNI boot has passed yet.
 
 ## Verification
-112 existing app tests, 22 VM unit tests and 17 Python regressions pass. VM AAR, Android test APK and existing app debug APK compile; instrumentation target SDK 34 verified. VM lint: 0 errors, 5 warnings. Assets match pinned SHA256; deterministic initramfs: 6f0f353616c4524c33cfa11d4b0459412171c2fbec74b7bc353787feb5082f5b. Run37127951054 compiles2015 QEMU/shim objects on x86 before link failure; expanded host proof passes. Native portability/configuration errors repaired from actual CI logs. Remote Binder rejection and concurrent valid-start instrumentation compile, but actual Android execution remains pending.
+112 existing app tests previously passed; 22 VM unit tests and 22 Python regressions pass. Actual run11 JNI libraries package into the instrumentation APK for both ABIs with target SDK34; no device is attached. Each native library has three16KiB LOAD alignments and only libc/libm dependencies. The strengthened verifier rejects run11's daemon import; its rebuilt replacement must pass. Added bounded correlated Android exit diagnostics; remote Binder rejection/concurrent-start/boot tests compile but actual Android execution is pending. VM lint previously0errors5warnings.
 
 ## Next Steps
 1. Finish native cross-build, ELF/JNI/dependency verification and source packaging.
@@ -20,7 +20,7 @@ Linux CI fixture proof passes: ARM64 Linux 6.8.0-142, 64 distinct guest PIDs, no
 - Existing build/generated tracked files and raw logs remain excluded. Source/engine artifacts are not public app releases.
 
 ## Last Updated
-2026-10-03
+2026-10-06
 
 ## Recent Decisions
 - [2026-09-26] Work directly in the user-specified linex checkout; replace unreliable Android tar extraction with bounded streaming JVM extraction; preserve old ready roots and scope diagnostics per instance.
@@ -63,3 +63,4 @@ Linux CI fixture proof passes: ARM64 Linux 6.8.0-142, 64 distinct guest PIDs, no
 
 - [2026-10-03] User approved VM map and engine specification for implementation. Built private managed-service/control/boot-proof foundations;22VM+112app tests and17Python checks pass, testAPK compiles. Real Linux-host kernel/fork64/pause/stop proof passes; Android native portability builds and actual JNI proof remain pending. Existing instances preserved, no VM release/option claimed.
 - [2026-10-03] Run37127951054 compiles native QEMU/JNI for both ABIs to final linking; Android-only static-pie repair e96c085 now in run37128625180. Added real Binder rejection/concurrent-start proof tests, compiled but unexecuted. Private socketpair Android DNS design recorded; actual managed boot and network remain pending.
+- [2026-10-06] Continued approved engine: run11 built both native ABIs, Android job failed before tests. Fixed official Gradle launcher and CI status/evidence handling6178fab; blocked newly found Bionic daemon helper0474c7d; added correlated bounded exit diagnostics0f0960f.22Python+22VMunit tests and real-JNI testAPK build pass. Run37415996410 verifies; actual Android boot and network remain pending.

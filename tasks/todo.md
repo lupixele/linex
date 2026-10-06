@@ -8,8 +8,8 @@
     guest init handshake and64 persistent children; no unsafe host extraction.
   - Verify: Python unit tests; Linux host QEMU boot (fixture evidence only).
 - [ ] Native Android engine build (independent)
-  - Run37127951054 reaches final QEMU/JNI linking for both ABIs; x86 compiles2015
-    objects. Android dynamic-link fix e96c085 is under verification in run37128625180.
+  - Run37129138600 builds both ABIs. Newly strengthened daemon-helper audit
+    rejects those prior binaries; guard0474c7d is rebuilding in run37415996410.
   - Files: scripts/vm/build-engine.sh, embedding shim/patch, source manifest,
     .github/workflows/vm-engine.yml.
   - Acceptance: genuine QEMU11 ARM64guest JNI library for both host ABIs,
@@ -35,6 +35,8 @@
     two-boot/control/fork64 proof is compiled and awaits Android emulator execution.
     Separate remote Binder tests cover rejected launch, stale/duplicate controls,
     owned force stop and concurrent valid first STARTs; test APK compilation passes.
+    Run11 never reached tests due to broken Unix Gradle launcher. Official wrapper
+    and single-process proof runner repaired; bounded exit-history evidence added.
   - Files: QMP protocol/client and tests, service instrumentation tests.
   - Acceptance: bounded framing/timeouts, valid capabilities, pause/resume,
     owned stop, stale-session rejection, fresh PID restart and failure cleanup.
