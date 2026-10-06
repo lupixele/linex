@@ -14,15 +14,36 @@ typedef struct {
     uint8_t udp[LINEX_DNS_ANSWER_MAX], tcp[LINEX_DNS_ANSWER_MAX + 2];
     LinexDnsPeer peer;
     LinexDns *engine;
-    bool reenter_emit, reenter_udp, inside_callback, reentered;
+    bool reenter_emit, reenter_udp, inside_callback, reentered, probe_callbacks;
+    size_t callback_probes;
     uint8_t incoming[64];
     size_t incoming_size;
 } Fake;
 static const uint8_t query[] = {0x12,0x34,1,0,0,1,0,0,0,0,0,0,1,'a',0,0,1,0,1};
-static uint64_t clock_ms(void *p) { return ((Fake *)p)->clock; }
+static void probe_reentry(Fake *f) {
+    if(!f->probe_callbacks || f->inside_callback) return;
+    f->inside_callback=true;
+    LinexDnsPeer peer={1,2,3,4};
+    size_t pending=linex_dns_pending(f->engine), connections=linex_dns_connections(f->engine);
+    size_t queued=linex_dns_queued_bytes(f->engine);
+    assert(!linex_dns_udp(f->engine,&peer,query,sizeof(query)));
+    assert(!linex_dns_tcp_open(f->engine,55));
+    assert(!linex_dns_tcp_feed(f->engine,55,query,sizeof(query)));
+    assert(!linex_dns_receive(f->engine,f->incoming,f->incoming_size));
+    linex_dns_tcp_close(f->engine,55);
+    linex_dns_tick(f->engine);
+    linex_dns_free(f->engine);
+    assert(pending==linex_dns_pending(f->engine));
+    assert(connections==linex_dns_connections(f->engine));
+    assert(queued==linex_dns_queued_bytes(f->engine));
+    f->callback_probes++;
+    f->inside_callback=false;
+}
+static uint64_t clock_ms(void *p) { Fake *f=p; probe_reentry(f); return f->clock; }
 static bool emit(const uint8_t *w,size_t n,void *p) {
     Fake *f=p; assert(f->frames<512 && n<=sizeof(f->frame[0]));
     memcpy(f->frame[f->frames],w,n); f->frame_size[f->frames++]=n;
+    probe_reentry(f);
     if(f->reenter_emit && !f->inside_callback) {
         f->inside_callback=true; LinexDnsPeer peer={1,2,3,4};
         f->reentered=linex_dns_udp(f->engine,&peer,query,sizeof(query));
@@ -32,6 +53,7 @@ static bool emit(const uint8_t *w,size_t n,void *p) {
 }
 static void udp_reply(const LinexDnsPeer *peer,const uint8_t *w,size_t n,void *p) {
     Fake *f=p; assert(n<=sizeof(f->udp)); memcpy(f->udp,w,n); f->udp_size=n; f->udp_count++; f->peer=*peer;
+    probe_reentry(f);
     if(f->reenter_udp && !f->inside_callback) {
         f->inside_callback=true;
         f->reentered=linex_dns_receive(f->engine,f->incoming,f->incoming_size);
@@ -39,11 +61,11 @@ static void udp_reply(const LinexDnsPeer *peer,const uint8_t *w,size_t n,void *p
     }
 }
 static size_t tcp_reply(uint64_t id,const uint8_t *w,size_t n,void *p) {
-    Fake *f=p; assert(id>0); if(f->block_tcp) return 0;
+    Fake *f=p; assert(id>0); probe_reentry(f); if(f->block_tcp) return 0;
     if(f->partial && n>f->partial) n=f->partial;
     assert(n<=sizeof(f->tcp)-f->tcp_size); memcpy(f->tcp+f->tcp_size,w,n); f->tcp_size+=n; return n;
 }
-static void closed(uint64_t id,void *p) { assert(id>0); ((Fake *)p)->closed++; }
+static void closed(uint64_t id,void *p) { assert(id>0); Fake *f=p; f->closed++; probe_reentry(f); }
 static LinexDns *create(Fake **f) {
     *f=calloc(1,sizeof(**f)); assert(*f); (*f)->allow_emit=true; (*f)->clock=1000;
     LinexDnsCallbacks cb={clock_ms,emit,udp_reply,tcp_reply,closed,*f};
@@ -121,6 +143,14 @@ static void tcp_timeout_delivers_failure_before_idle_cleanup(void) {
     assert(!linex_dns_pending(d)); assert(f->tcp_size==sizeof(query)+2);
     assert((f->tcp[5]&15)==2 && f->frame[f->frames-1][5]==4 && f->frame[f->frames-1][7]==4);
     release(d,f);
+
+    d=create(&f); assert(linex_dns_tcp_open(d,22)); tcp_query(d,22);
+    f->block_tcp=true; f->clock=11000; linex_dns_tick(d);
+    assert(!linex_dns_pending(d) && linex_dns_connections(d)==1);
+    assert(linex_dns_queued_bytes(d)>0 && f->closed==0);
+    f->clock=12000; f->block_tcp=false; linex_dns_tick(d);
+    assert(f->tcp_size==sizeof(query)+2 && (f->tcp[5]&15)==2);
+    assert(linex_dns_queued_bytes(d)==0); release(d,f);
 }
 static void all_callback_reentry_is_refused(void) {
     Fake *f; LinexDns *d=create(&f); LinexDnsPeer peer={1,2,3,4}; uint8_t body[sizeof(query)];
@@ -129,6 +159,20 @@ static void all_callback_reentry_is_refused(void) {
     answer_query(body); f->incoming_size=response(f,0,f->incoming,body,sizeof(body),2,0);
     f->reenter_udp=true; assert(linex_dns_receive(d,f->incoming,f->incoming_size));
     assert(!f->reentered && f->udp_count==1 && !linex_dns_pending(d)); release(d,f);
+
+    d=create(&f); f->probe_callbacks=true;
+    assert(linex_dns_tcp_open(d,55)); tcp_query(d,55);
+    f->incoming_size=response(f,0,f->incoming,body,sizeof(body),2,0);
+    assert(linex_dns_receive(d,f->incoming,f->incoming_size)); linex_dns_tick(d);
+    assert(f->tcp_size==sizeof(query)+2 && linex_dns_connections(d)==1);
+    assert(linex_dns_udp(d,&peer,query,sizeof(query)));
+    f->incoming_size=response(f,1,f->incoming,body,sizeof(body),2,0);
+    assert(linex_dns_receive(d,f->incoming,f->incoming_size));
+    const uint8_t oversized[]={4,209}; assert(!linex_dns_tcp_feed(d,55,oversized,2));
+    assert(f->closed==1 && !linex_dns_connections(d));
+    assert(linex_dns_udp(d,&peer,query,sizeof(query)));
+    size_t before=f->callback_probes; linex_dns_free(d);
+    assert(f->callback_probes>before); free(f);
 }
 static void udp_truncation_tcp_queue_charge_and_stop(void) {
     Fake *f; LinexDns *d=create(&f); LinexDnsPeer peer={1,2,3,4};

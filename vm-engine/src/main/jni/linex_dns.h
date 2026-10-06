@@ -20,6 +20,8 @@ typedef struct {
     uint16_t client_port, server_port;
 } LinexDnsPeer;
 typedef struct {
+    /* Every callback is nonreentrant: mutating core APIs called from a callback
+     * are refused. Schedule lifecycle/input work after the callback returns. */
     uint64_t (*now_ms)(void *opaque);
     /* Borrowed frame: copy/send synchronously without blocking; false rejects admission. */
     bool (*send_frame)(const uint8_t *frame, size_t size, void *opaque);
