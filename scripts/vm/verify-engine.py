@@ -27,7 +27,9 @@ def verify(library: Path, abi: str, tools: Path) -> dict:
     if not re.search(r"^\s*[a-fA-F0-9]+\s+[TW]\s+Java_com_linex_vm_NativeVm_run$", symbols, re.MULTILINE):
         raise ValueError("Missing JNI entry point")
     imports = [line.split()[-1].split("@")[0] for line in symbols.splitlines() if re.search(r"\bU\b", line)]
-    forbidden = {"fork", "vfork", "clone", "clone3", "forkpty", "posix_spawn", "posix_spawnp",
+    # daemon() forks within libc; wrapping fork at our ELF boundary cannot
+    # intercept that internal call. It must itself be wrapped and absent here.
+    forbidden = {"fork", "vfork", "clone", "clone3", "daemon", "forkpty", "posix_spawn", "posix_spawnp",
                  "system", "popen", "execve", "execvp", "execv", "execl", "execlp", "execle", "execvpe", "fexecve",
                  "shmat", "shmget", "shmdt", "shmctl"}
     if set(imports) & forbidden:

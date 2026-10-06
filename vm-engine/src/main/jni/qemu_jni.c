@@ -111,6 +111,10 @@ invalid:
  */
 pid_t __wrap_fork(void) { errno = ENOTSUP; return -1; }
 pid_t __wrap_vfork(void) { errno = ENOTSUP; return -1; }
+/* Bionic's daemon() forks internally, beyond this object's --wrap=fork.
+ * Reject daemonization itself before it can escape the managed service. */
+int __wrap_daemon(int nochdir, int noclose)
+{ (void)nochdir; (void)noclose; errno = ENOTSUP; return -1; }
 int __wrap_posix_spawn(pid_t *p, const char *s, const posix_spawn_file_actions_t *a,
                       const posix_spawnattr_t *b, char *const v[], char *const e[])
 { (void)p; (void)s; (void)a; (void)b; (void)v; (void)e; return ENOTSUP; }

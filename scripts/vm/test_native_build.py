@@ -43,6 +43,17 @@ class ElfBoundaryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "host helper"):
             self.inspect()
 
+    def test_libc_daemon_import_is_rejected(self):
+        # daemon() can fork inside libc without an ELF import of fork().
+        self.symbols += "                 U daemon\n"
+        with self.assertRaisesRegex(ValueError, "host helper"):
+            self.inspect()
+
+    def test_versioned_libc_daemon_import_is_rejected(self):
+        self.symbols += "                 U daemon@LIBC\n"
+        with self.assertRaisesRegex(ValueError, "host helper"):
+            self.inspect()
+
     def test_imported_jni_symbol_cannot_satisfy_entry_point(self):
         self.symbols = "                 U Java_com_linex_vm_NativeVm_run\n"
         with self.assertRaisesRegex(ValueError, "JNI"):

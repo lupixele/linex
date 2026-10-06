@@ -166,7 +166,7 @@ if [[ $VM_ABI == arm64-v8a ]]; then
   VM_SETJMP='-landroid-setjmp'
 fi
 VM_WRAP=''
-for VM_SYMBOL in fork vfork forkpty posix_spawn posix_spawnp system popen execve execvp execv execvpe execl execlp execle fexecve; do
+for VM_SYMBOL in fork vfork daemon forkpty posix_spawn posix_spawnp system popen execve execvp execv execvpe execl execlp execle fexecve; do
   VM_WRAP+=" -Wl,--wrap=$VM_SYMBOL"
 done
 mkdir "$VM_WORK/qemu-build"
