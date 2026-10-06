@@ -4,6 +4,11 @@ User-approved scope: SPEC-vm-engine.md rootless SLIRP and Android resolver bridg
 The Android serial engine gate is complete: run37421056855, source b811069,
 all6instrumentation tests pass. The full VM desktop and networking remain pending.
 
+User explicitly requested checkpoint and stop after packaging. Resume only on a
+new user request. Packaged current PRoot APK at dist/packaged-2026-10-06/
+linex-v0.5.2-dev-current.apk with checksum/build notes; no new VM release because
+VM desktop/networking are not integrated. No device/account reset was requested.
+
 All three networking agents reached the account usage limit. No network feature
 is implemented or verified. Preserve these unfinished, uncommitted RED tests:
 
