@@ -91,7 +91,8 @@ static bool same_question(const Pending *a,const Pending *b) {
     size_t labels=a->question_size-4;
     for(size_t i=0;i<labels;i++) {
         uint8_t x=a->question[i],y=b->question[i];
-        if(x>='A'&&x<='Z') x+=32; if(y>='A'&&y<='Z') y+=32;
+        if(x>='A'&&x<='Z') x+=32;
+        if(y>='A'&&y<='Z') y+=32;
         if(x!=y) return false;
     }
     return !memcmp(a->question+labels,b->question+labels,4);
@@ -104,7 +105,8 @@ static bool answer(const uint8_t *w,size_t n,const Pending *q) {
     for(uint32_t i=0;i<records;i++) {
         if(!name(w,n,p,&end,NULL,NULL) || end+10>n) return false;
         size_t bytes=be16(w+end+8); p=end+10;
-        if(bytes>n-p) return false; p+=bytes;
+        if(bytes>n-p) return false;
+        p+=bytes;
     }
     return p==n;
 }

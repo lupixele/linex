@@ -53,7 +53,8 @@ static void release(LinexDns *d,Fake *f) { linex_dns_free(d); free(f); }
 static void put32(uint8_t *w,uint32_t n) { w[0]=(uint8_t)(n>>24); w[1]=(uint8_t)(n>>16); w[2]=(uint8_t)(n>>8); w[3]=(uint8_t)n; }
 static size_t response(Fake *f,size_t i,uint8_t *w,const uint8_t *body,size_t n,uint8_t kind,uint8_t status) {
     memcpy(w,f->frame[i],LINEX_DNS_HEADER); w[5]=kind; w[7]=status; put32(w+24,(uint32_t)n);
-    if(n) memcpy(w+LINEX_DNS_HEADER,body,n); return LINEX_DNS_HEADER+n;
+    if(n) memcpy(w+LINEX_DNS_HEADER,body,n);
+    return LINEX_DNS_HEADER+n;
 }
 static void answer_query(uint8_t *w) { memcpy(w,query,sizeof(query)); w[2]=0x81; w[3]=0x80; }
 static void tcp_query(LinexDns *d,uint64_t id) {
@@ -107,6 +108,8 @@ static void malformed_lengths_names_and_connection_bound(void) {
     assert(!linex_dns_udp(d,&peer,bad,sizeof(bad))); assert(!linex_dns_pending(d));
     const uint8_t forward[]={0x12,0x34,1,0,0,1,0,0,0,0,0,0,0xc0,16,0,1,0,1};
     assert(!linex_dns_udp(d,&peer,forward,sizeof(forward))); assert(!linex_dns_pending(d));
+    const uint8_t interior[]={0x12,0x34,1,0,0,1,0,0,0,0,0,0,3,'a',0,'b',0xc0,14,0,1,0,1};
+    assert(!linex_dns_udp(d,&peer,interior,sizeof(interior))); assert(!linex_dns_pending(d));
     for(uint64_t i=1;i<=64;i++) assert(linex_dns_tcp_open(d,i));
     assert(!linex_dns_tcp_open(d,65)); assert(linex_dns_connections(d)==64);
     uint8_t oversized[]={4,209}; assert(!linex_dns_tcp_feed(d,1,oversized,2));
