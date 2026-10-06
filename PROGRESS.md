@@ -17,6 +17,7 @@ Packaged dist/packaged-2026-10-06/linex-v0.5.2-dev-current.apk (versionCode21),2
 
 ## Open Questions / Blockers
 - User requested checkpoint and stop after packaging. Earlier account usage limit interrupted all three networking agents; no networking implementation is verified.
+- Latest packaging checkpoint is committed locally; push failed because this PC could not connect to github.com:443. Push the pending documentation commits on the next user-authorized resume.
 - No Android device attached. Emulator JNI/kernel/service proof passes; Snapdragon CPU/GPU performance remains unmeasured.
 - Full VM avoids guest fork multiplication; Android/OEM may still reclaim the managed process. No all-phone performance guarantee.
 - Latest PRoot Firefox crash remains unattributed; full VM development does not establish an already fixed APK.
@@ -72,3 +73,4 @@ Packaged dist/packaged-2026-10-06/linex-v0.5.2-dev-current.apk (versionCode21),2
 - [2026-10-06] Run13 reaches guestBOOT_OK64 but full tests fail on host-observation completeness. Added bounded PID-stat/dumpability-read alternative and real instrumentation host-child0→1→0 positive control; no root/settings change or fake zero.31VM+39Python pass,APK/lint pass. Source/provenance-checked native reuse now runs37420219442; full acceptance remains pending.
 - [2026-10-06] Actualmanagedproof run37421056855 passes6/6: two realARM64Linux boots in Android, freshPIDs4470/5058,64guestchildren,host0before/during/after,QMPpause/resume,cleanstop and realhost-childcontrol0→1→0. Networking agents then hit account usage limit; unfinished RED tests preserved uncommitted; tasks/pending-network.md records resume point. No VM desktop/network release.
 - [2026-10-06] User clarified reset means checkpoint and stop after packaging. Built currentPRoot v0.5.2-dev APK,unit/build/signature/alignment/manifest checks pass; packagedwithSHA256 fde1c55cbf9cc810b08e467bdd24ad5e3d3ee4b2eb37fa779209e37a0fa5812c. No newVMrelease:desktop/networkintegration unfinished. Stoppedperuser;preservednetworkREDdrafts;resumeonlyonrequest.
+- [2026-10-06] Packaging checkpoint4d02503 is local; GitHub HTTPS push failed with connection timeout. APK/checksums/build notes remain available locally. Pending docs push recorded; stopped after packaging peruser.
