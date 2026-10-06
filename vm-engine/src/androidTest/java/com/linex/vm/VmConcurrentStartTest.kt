@@ -56,7 +56,7 @@ class VmConcurrentStartTest {
         var owner: VmEngineClient? = null
         var serial: LocalSocket? = null
         try {
-            for ((name, file) in listOf("kernel" to kernel, "boot-proof.cpio.gz" to initramfs)) {
+            for ((name, file) in listOf("kernel" to kernel, "boot-proof.initramfs" to initramfs)) {
                 instrumentation.context.assets.open(name).use { input -> file.outputStream().use { input.copyTo(it) } }
                 Os.chmod(file.absolutePath, 384)
             }

@@ -82,8 +82,8 @@ class VmEngineRejectionTest {
         val storage = root()
         val manifest = Json.parseToJsonElement(instrumentation.context.assets.open("manifest.json")
             .bufferedReader().use { it.readText() }).jsonObject
-        for (name in listOf("kernel", "boot-proof.cpio.gz")) {
-            instrumentation.context.assets.open(name).use { source ->
+        for ((asset, name) in listOf("kernel" to "kernel", "boot-proof.initramfs" to "boot-proof.cpio.gz")) {
+            instrumentation.context.assets.open(asset).use { source ->
                 File(storage, name).outputStream().use { source.copyTo(it) }
             }
         }
