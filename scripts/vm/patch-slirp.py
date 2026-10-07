@@ -77,6 +77,10 @@ def patch(source: Path, jni: Path) -> None:
             "           !(linex_address[12] | linex_address[13] |\n"
             "             linex_address[14] | linex_address[15]))))) {\n"
             "        return false;\n    }")
+    # Isolation rejection exercises ICMP errors. Upstream constructs this
+    # network mask with an overflowing signed shift; use the identical unsigned
+    # bits rather than weakening the UBSan gate for this previously unused path.
+    replace(source, "src/ip_icmp.c", "htonl(~(0xf << 28))", "htonl(~(0xfu << 28))")
     names = ["linex_dns.c", "linex_dns.h", "linex_slirp_dns.c", "linex_slirp_dns.h"]
     for name in names:
         if not (jni / name).is_file():

@@ -91,7 +91,7 @@
     "scripts/vm/patches/qemu/0006-fix-sem.h-location.patch": "40aaf64ad5df0b7031b63786139a355a360ee29910542146c02c70cbc2e469c4",
     "scripts/vm/patches/qemu/0019-no-timespec_get.patch": "d61308f9b68c3e39c956e2208bb5e53ba3d517afa91a22cf0b01d7ff814b8084",
     "scripts/vm/patches/qemu/0011-mmap_min_addr-fallback.patch": "5eca8f412c0e50ffb210e9865fa6d041193bfb157c80ceff8ba415c770d99c30",
-    "scripts/vm/patch-slirp.py": "e3515078c1b6ff1895801684df666f22877947b7bdd4ed852a18161cfe16d984",
+    "scripts/vm/patch-slirp.py": "539ec312439cc170addb516b8945772bc314845103e1f339d42f876ec18dd405",
     "scripts/vm/patch-qemu.py": "932ccb20b11e419a855a96f75f8bc97a169d9823249cab2c0e1fef22d3a63402",
     "vm-engine/src/main/jni/linex_slirp_dns.c": "da867e3616a1cadf7a88103d9e89823ba33774cff8549499f94061996e90cb3a",
     "vm-engine/src/main/jni/linex_slirp_dns.h": "cdc0216f646a26f16fb8175770bfbf2e8ec943e48a5f3e9c0821abe8a0ec4357",
