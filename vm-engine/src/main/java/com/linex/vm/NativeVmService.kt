@@ -161,8 +161,11 @@ class NativeVmService : Service() {
         }
         require(Os.lstat(request.diskPath).st_nlink == 1L) { "Instance disk cannot have multiple hard links" }
         val lockFile = File(instance, "engine.lock")
+        // Android 8 exposes Os.open but not the Java O_CLOEXEC field. Public NDK
+        // asm-generic/fcntl.h defines 02000000 for both supported 64-bit ABIs.
+        val closeOnExec = if (Build.VERSION.SDK_INT >= 27) OsConstants.O_CLOEXEC else ANDROID26_OPEN_CLOEXEC
         val descriptor = Os.open(lockFile.absolutePath,
-            OsConstants.O_CREAT or OsConstants.O_RDWR or OsConstants.O_CLOEXEC or OsConstants.O_NOFOLLOW, 384)
+            OsConstants.O_CREAT or OsConstants.O_RDWR or closeOnExec or OsConstants.O_NOFOLLOW, 384)
         val stream = FileOutputStream(descriptor)
         try {
             val metadata = Os.fstat(descriptor)
@@ -172,6 +175,13 @@ class NativeVmService : Service() {
             desktopLockStream = stream
             desktopLock = lock
         } catch (failure: Exception) { stream.close(); throw failure }
+        val heldLock = Os.fstat(descriptor)
+        val currentLock = Os.lstat(lockFile.absolutePath)
+        require(heldLock.st_dev == currentLock.st_dev && heldLock.st_ino == currentLock.st_ino &&
+            heldLock.st_nlink == 1L && currentLock.st_nlink == 1L &&
+            OsConstants.S_ISREG(currentLock.st_mode) && currentLock.st_uid == Process.myUid()) {
+            "Instance lock changed while acquiring disk ownership"
+        }
         val lockedDisk = Os.lstat(request.diskPath)
         require(OsConstants.S_ISREG(lockedDisk.st_mode) && lockedDisk.st_uid == Process.myUid() &&
             lockedDisk.st_nlink == 1L && lockedDisk.st_size == request.diskBytes) { "Instance disk changed before launch ownership" }
@@ -365,6 +375,7 @@ class NativeVmService : Service() {
     }
 
     companion object {
+        private const val ANDROID26_OPEN_CLOEXEC = 0x80000
         const val DESCRIPTOR = "com.linex.vm.Engine"
         const val START = IBinder.FIRST_CALL_TRANSACTION
         const val STATUS = START + 1

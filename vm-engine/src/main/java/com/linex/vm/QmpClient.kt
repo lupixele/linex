@@ -33,10 +33,11 @@ class QmpClient private constructor(private val socket: LocalSocket) : Closeable
             }
             val socket = LocalSocket()
             try {
-                socket.connect(LocalSocketAddress(path.absolutePath, LocalSocketAddress.Namespace.FILESYSTEM))
-                // LocalSocket creates its native descriptor lazily on connect.
-                // Options cannot be applied until that descriptor exists.
+                // Android creates the descriptor lazily. Initializing the stream
+                // lets SO_SNDTIMEO bound a saturated Unix connect as well as I/O.
+                socket.outputStream
                 socket.soTimeout = 2000
+                socket.connect(LocalSocketAddress(path.absolutePath, LocalSocketAddress.Namespace.FILESYSTEM))
                 require(socket.peerCredentials.uid == Process.myUid()) { "Unexpected QMP peer UID" }
                 return QmpClient(socket)
             } catch (error: Throwable) {
