@@ -16,6 +16,7 @@ android {
         targetSdk = 34
         versionCode = 21
         versionName = "0.5.2-dev"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
             abiFilters.addAll(setOf("arm64-v8a", "x86_64"))
@@ -44,6 +45,7 @@ android {
 
     packaging {
         jniLibs {
+            keepDebugSymbols += "**/liblinex_qemu_aarch64.so"
             // Required so libproot.so and native binaries are extracted to nativeLibraryDir
             // with executable permissions rather than kept inside the uncompressed APK.
             useLegacyPackaging = true
@@ -88,6 +90,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":vm-engine"))
+    implementation(project(":vm-images"))
     implementation(project(":vm-console"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -103,5 +107,7 @@ dependencies {
     implementation("org.apache.commons:commons-compress:1.28.0")
     implementation("org.tukaani:xz:1.10")
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
     implementation(libs.kotlinx.serialization.json)
 }

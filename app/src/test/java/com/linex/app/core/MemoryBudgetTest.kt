@@ -32,4 +32,14 @@ class MemoryBudgetTest {
         val instance = Json.decodeFromString<LinuxInstance>(legacy).copy(memoryBudgetMode = MemoryBudgetMode.RECOMMENDED)
         assertEquals(instance, Json.decodeFromString<LinuxInstance>(Json.encodeToString(instance)))
     }
+    @Test fun vmAllocationsAreBoundedAndKeepTheRequestedCustomValue() {
+        val instance = Json.decodeFromString<LinuxInstance>(legacy).copy(runtime = InstanceRuntime.FULL_VM)
+        assertEquals(3072, MemoryBudget.resolveMb(instance, 8192))
+        assertEquals(1024, MemoryBudget.resolveMb(instance.copy(memoryBudgetMode = MemoryBudgetMode.DEFAULT), 6144))
+        assertEquals(1536, MemoryBudget.resolveMb(instance.copy(memoryBudgetMode = MemoryBudgetMode.RECOMMENDED), 6144))
+        assertEquals(2048, MemoryBudget.resolveMb(instance.copy(memoryBudgetMode = MemoryBudgetMode.RECOMMENDED), 24000))
+        assertNotNull(MemoryBudget.error("4097", 8192, InstanceRuntime.FULL_VM))
+        assertNull(MemoryBudget.error("4096", 8192, InstanceRuntime.FULL_VM))
+        assertEquals(5000, MemoryBudget.resolveMb(instance.copy(ramAllocatedMb = 5000), 8192))
+    }
 }

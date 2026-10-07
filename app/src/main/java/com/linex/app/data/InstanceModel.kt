@@ -23,6 +23,13 @@ enum class DistroType(
         rootfsDownloadUrl = "https://github.com/RandomCoderOrg/udroid-download/releases/download/V3R115/jammy-raw-arm64.tar.gz",
         sha256 = "0ab96cbeebc5d8fc86a9baf7d1127f28ac7ea7a2ff862ac31fd7ac8768877b82",
         estimatedSizeMb = 172
+    ),
+    DEBIAN_TRIXIE_VM(
+        displayName = "Debian 13 · XFCE virtual machine",
+        description = "A complete Linux kernel with XFCE and Firefox ESR. Runs without root.",
+        rootfsDownloadUrl = "",
+        sha256 = "",
+        estimatedSizeMb = 4096
     )
 }
 
@@ -88,6 +95,9 @@ enum class MemoryBudgetMode { DEFAULT, RECOMMENDED, CUSTOM }
 enum class DisplayBackendPreference { AUTO, NATIVE_X11, RFB }
 
 @Serializable
+enum class InstanceRuntime { PROOT, FULL_VM }
+
+@Serializable
 data class LinuxInstance(
     val id: String,
     val name: String,
@@ -103,5 +113,7 @@ data class LinuxInstance(
     val snapshotPath: String? = null,
     val desktopFps: Int = 15,
     val memoryBudgetMode: MemoryBudgetMode? = null,
-    val displayBackend: DisplayBackendPreference = DisplayBackendPreference.AUTO
+    val displayBackend: DisplayBackendPreference = DisplayBackendPreference.AUTO,
+    val runtime: InstanceRuntime = InstanceRuntime.PROOT,
+    val vmImageId: String? = null
 )

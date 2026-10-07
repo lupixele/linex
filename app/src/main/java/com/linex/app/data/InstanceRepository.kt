@@ -33,6 +33,14 @@ class InstanceRepository(private val context: Context) {
         get() = File(context.filesDir, FILE_NAME)
 
     fun getDefaultInstances(): List<LinuxInstance> {
+        com.linex.app.core.VmImageCatalogue.current(context)?.let { image ->
+            return listOf(LinuxInstance(
+                id = UUID.randomUUID().toString(), name = "Debian Workstation",
+                distro = DistroType.DEBIAN_TRIXIE_VM, desktop = DesktopEnvironment.XFCE4,
+                resolutionMode = DisplayResolutionMode.HD_720P, desktopFps = 60,
+                ramAllocatedMb = 1024, memoryBudgetMode = MemoryBudgetMode.DEFAULT,
+                runtime = InstanceRuntime.FULL_VM, vmImageId = image.imageId))
+        }
         return listOf(
             LinuxInstance(
                 id = UUID.randomUUID().toString(),
