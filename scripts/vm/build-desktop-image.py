@@ -21,7 +21,7 @@ KEYS = (
 )
 PACKAGES = (
     "busybox-static", "ca-certificates", "curl", "dbus", "dbus-x11", "e2fsprogs",
-    "firefox-esr", "fonts-dejavu-core", "iproute2", "libavcodec61", "procps",
+    "firefox-esr", "fonts-dejavu-core", "iproute2", "libavcodec61", "procps", "python3-minimal", "util-linux",
     "tigervnc-standalone-server", "tigervnc-tools", "xfce4", "xfce4-terminal",
 )
 BROWSER_MINIMUM = "153.4.0esr"
@@ -116,6 +116,8 @@ class Builder:
     def trusted_keyring(self):
         key_directory = self.output / "keys"
         key_directory.mkdir()
+        gpg_home = key_directory / "gnupg"
+        gpg_home.mkdir(mode=0o700)
         imported = []
         for name, fingerprint, digest in KEYS:
             source = "https://ftp-master.debian.org/keys/" + name + ".asc"
@@ -125,7 +127,7 @@ class Builder:
                 raise ValueError("Pinned Debian archive key digest mismatch")
             key = key_directory / (name + ".asc")
             key.write_bytes(payload)
-            listing = self.run(["gpg", "--batch", "--no-options", "--with-colons", "--show-keys", str(key)])
+            listing = self.run(["gpg", "--homedir", str(gpg_home), "--batch", "--no-options", "--with-colons", "--show-keys", str(key)])
             primary = []
             next_primary = False
             for line in listing.splitlines():
@@ -141,7 +143,7 @@ class Builder:
         combined = key_directory / "trusted.asc"
         combined.write_bytes(b"\n".join((key_directory / (name + ".asc")).read_bytes() for name, _, _ in KEYS))
         keyring = key_directory / "trusted.gpg"
-        self.run(["gpg", "--batch", "--no-options", "--dearmor", "--output", str(keyring), str(combined)])
+        self.run(["gpg", "--homedir", str(gpg_home), "--batch", "--no-options", "--dearmor", "--output", str(keyring), str(combined)])
         return keyring, imported
 
     def provision(self):
