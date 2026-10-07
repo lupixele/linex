@@ -1,0 +1,161 @@
+name: VM Android13 Private DNS off and strict proof
+on:
+  workflow_dispatch:
+    inputs:
+      native_run_id:
+        description: 'Verified full native engine producer run'
+        required: true
+        default: '37648306873'
+        type: string
+      native_source_sha:
+        description: 'Exact source commit of that native producer'
+        required: true
+        default: '6f27c7123f89251048be272e6ce6e0bbd4095a92'
+        type: string
+      strict_provider:
+        description: 'Certificate hostname for strict Private DNS on disposable CI emulators only'
+        required: true
+        default: dns.google
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI_NATIVE_RUN: ${{ inputs.native_run_id }}
+      CI_NATIVE_SOURCE: ${{ inputs.native_source_sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Validate matrix acceptance and exact immutable native producer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_STRICT_PROVIDER: ${{ inputs.strict_provider }}
+        run: |
+          python3 -m unittest discover -s scripts/vm -p 'test_private_dns_proof.py'
+          python3 - <<'PY'
+          import importlib.util, os
+          spec = importlib.util.spec_from_file_location('acceptance', 'scripts/vm/verify-private-dns-proof.py')
+          acceptance = importlib.util.module_from_spec(spec); spec.loader.exec_module(acceptance)
+          acceptance.validate_provider(os.environ['CI_STRICT_PROVIDER'])
+          PY
+          python3 scripts/vm/verify-native-provenance.py --repository "$GITHUB_REPOSITORY" --run-id "$CI_NATIVE_RUN" --evidence dist/private-dns-subject/native-provenance.json
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          producer = json.loads(Path('dist/private-dns-subject/native-provenance.json').read_text())
+          expected = os.environ['CI_NATIVE_SOURCE']
+          if not re.fullmatch('[0-9a-f]{40}', expected) or producer['head_sha'] != expected:
+              raise SystemExit('Unexpected immutable native producer')
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: vm-runtime-x86_64
+          path: dist/vm-engine/x86_64
+          run-id: ${{ inputs.native_run_id }}
+          github-token: ${{ github.token }}
+      - name: Select Java17 and the installed Android SDK
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          chmod +x gradlew
+      - name: Build one APK with verified guest assets and exact JNI
+        run: |
+          python3 scripts/vm/build-fixture.py --output dist/vm-fixture
+          python3 scripts/vm/build-network-fixture.py --output dist/vm-network-fixture
+          python3 scripts/vm/build-https-fixture.py --output dist/vm-https-fixture
+          echo '0336f591bc0ec9aa0c9988929b93ecc916b3c1d52aed202c7381db144aa0ef15  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
+          ./gradlew :vm-engine:testDebugUnitTest :vm-engine:assembleDebugAndroidTest -PvmNativeDir=dist/vm-engine --no-daemon
+          python3 scripts/vm/verify-proof-apk.py --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --fixture dist/vm-fixture --network-fixture dist/vm-network-fixture --https-fixture dist/vm-https-fixture --native dist/vm-engine --abi x86_64 --evidence dist/private-dns-subject/apk-evidence.json
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          apk = Path('vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk')
+          digest = hashlib.sha256()
+          with apk.open('rb') as stream:
+              for block in iter(lambda: stream.read(1024*1024), b''): digest.update(block)
+          subject = {'apkSha256': digest.hexdigest(), 'proofCheckout': os.environ['GITHUB_SHA'],
+                     'nativeSource': os.environ['CI_NATIVE_SOURCE'], 'nativeRunId': int(os.environ['CI_NATIVE_RUN'])}
+          Path('dist/private-dns-subject/subject.json').write_text(json.dumps(subject, indent=2) + '\n')
+          PY
+      - name: Preserve the identical proof APK for both fresh emulator jobs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: private-dns-proof-subject
+          path: |
+            vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk
+            dist/private-dns-subject
+          if-no-files-found: error
+          retention-days: 14
+
+  policy:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [off, strict]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: private-dns-proof-subject
+      - name: Enable host KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-linex-ci-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify real guest DNS and TLS under the selected system policy
+        uses: reactivecircus/android-emulator-runner@4c44018e59b437e86cdfc41da381398f93ed8808
+        env:
+          CI_STRICT_PROVIDER: ${{ inputs.strict_provider }}
+          CI_PRIVATE_DNS_MODE: ${{ matrix.mode }}
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          ram-size: 2048M
+          heap-size: 256M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: python3 scripts/vm/run-private-dns-proof.py --mode "$CI_PRIVATE_DNS_MODE" --provider "$CI_STRICT_PROVIDER" --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --subject dist/private-dns-subject/subject.json --evidence "dist/private-dns-$CI_PRIVATE_DNS_MODE"
+      - name: Retain successful or failed policy evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: private-dns-${{ matrix.mode }}
+          path: dist/private-dns-${{ matrix.mode }}
+          if-no-files-found: error
+          retention-days: 14
+
+  accept-matrix:
+    needs: policy
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: private-dns-off
+          path: dist/private-dns-off
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: private-dns-strict
+          path: dist/private-dns-strict
+      - name: Require both explicit policies on fresh boots of the identical verified APK
+        run: python3 scripts/vm/verify-private-dns-proof.py --off dist/private-dns-off/private-dns-run.json --strict dist/private-dns-strict/private-dns-run.json --output dist/private-dns-matrix.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: private-dns-matrix
+          path: dist/private-dns-matrix.json
+          if-no-files-found: error
+          retention-days: 14
