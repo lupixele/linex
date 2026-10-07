@@ -90,6 +90,8 @@ def stop_owned(children):
 
 def wait_display_ready(vnc):
     deadline = time.monotonic() + 20
+    last_errno = None
+    last_failure = "none"
     while time.monotonic() < deadline:
         if vnc.poll() is not None:
             raise RuntimeError("Guest display process exited before readiness")
@@ -107,10 +109,12 @@ def wait_display_ready(vnc):
                     if vnc.poll() is not None:
                         raise RuntimeError("Guest display process exited during readiness")
                     return
-            except OSError:
+            except OSError as error:
                 # X11 can be created before TigerVNC binds its RFB port.
-                pass
+                last_errno = error.errno
+                last_failure = type(error).__name__
         time.sleep(0.1)
+    print(f"LINEX_VM_DESKTOP_DISPLAY_NOT_READY probeFailure={last_failure} probeErrno={last_errno} x11Socket={Path('/tmp/.X11-unix/X1').exists()}", flush=True)
     raise RuntimeError("Guest display did not become ready before deadline")
 
 
@@ -177,8 +181,12 @@ def main():
     Path("/run/dbus").mkdir()
     ensure_machine_identity(Path("/etc/machine-id"))
     run(["dbus-daemon", "--system", "--fork", "--nopidfile"])
+    run(["/bin/busybox", "ifconfig", "lo", "up"])
     run(["/bin/busybox", "ifconfig", "eth0", "up"])
     run(["/bin/busybox", "udhcpc", "-i", "eth0", "-q", "-n", "-t", "5", "-T", "2", "-s", "/linex-dhcp"])
+    run(["ip", "-brief", "address", "show", "lo"])
+    run(["ip", "-brief", "address", "show", "eth0"])
+    run(["ip", "route", "show"])
     environment = {**os.environ, "HOME": "/home/linex", "USER": "linex", "LOGNAME": "linex",
                    "DISPLAY": ":1", "XDG_RUNTIME_DIR": "/run/user/1000"}
     children, session, buffered, dropping = [], None, bytearray(), False
