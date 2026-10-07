@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import select
 import signal
+import socket
 import secrets
 import stat
 import subprocess
@@ -87,6 +88,32 @@ def stop_owned(children):
             child.wait(timeout=2)
 
 
+def wait_display_ready(vnc):
+    deadline = time.monotonic() + 20
+    while time.monotonic() < deadline:
+        if vnc.poll() is not None:
+            raise RuntimeError("Guest display process exited before readiness")
+        if Path("/tmp/.X11-unix/X1").exists():
+            try:
+                with socket.create_connection(("10.0.2.15", 5901), timeout=0.5) as probe:
+                    banner = bytearray()
+                    while len(banner) < 12:
+                        chunk = probe.recv(12 - len(banner))
+                        if not chunk:
+                            raise ConnectionError("Guest RFB listener closed before its banner")
+                        banner.extend(chunk)
+                    if bytes(banner) != b"RFB 003.008\n":
+                        raise RuntimeError("Guest listener is not the expected authenticated desktop protocol")
+                    if vnc.poll() is not None:
+                        raise RuntimeError("Guest display process exited during readiness")
+                    return
+            except OSError:
+                # X11 can be created before TigerVNC binds its RFB port.
+                pass
+        time.sleep(0.1)
+    raise RuntimeError("Guest display did not become ready before deadline")
+
+
 def launch(value, environment):
     owned = []
     credential = Path("/run/linex/passwd")
@@ -114,11 +141,7 @@ def launch(value, environment):
             env=environment, start_new_session=True)
         vnc.linex_kind = "vnc"
         owned.append(vnc)
-        deadline = time.monotonic() + 20
-        while not Path("/tmp/.X11-unix/X1").exists():
-            if vnc.poll() is not None or time.monotonic() > deadline:
-                raise RuntimeError("Guest X display failed")
-            time.sleep(0.1)
+        wait_display_ready(vnc)
         desktop = subprocess.Popen(nonroot(["dbus-run-session", "--", "xfce4-session"]),
                                    env=environment, start_new_session=True)
         desktop.linex_kind = "xfce"

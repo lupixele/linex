@@ -63,6 +63,7 @@ class DesktopGuestTest(unittest.TestCase):
                     mock.patch.object(guest.os, "chown", create=True), \
                     mock.patch.object(guest.time, "clock_settime", create=True) as clock, \
                     mock.patch.object(guest.time, "CLOCK_REALTIME", 0, create=True), \
+                    mock.patch.object(guest, "wait_display_ready"), \
                     mock.patch.object(guest.os, "killpg", create=True) as kill:
                 with self.assertRaises(RuntimeError):
                     guest.launch(value, {})
@@ -78,6 +79,30 @@ class DesktopGuestTest(unittest.TestCase):
                 with self.assertRaises(FileExistsError):
                     guest.launch(value, {})
             self.assertEqual(b"existing", credential.read_bytes())
+
+    def test_readiness_requires_actual_rfb_banner_and_a_live_guest_process(self):
+        child = mock.Mock()
+        child.poll.return_value = None
+        probe = mock.MagicMock()
+        probe.__enter__.return_value = probe
+        probe.recv.side_effect = [b"RFB 003.", b"008\n"]
+        with mock.patch.object(guest, "Path") as path, \
+                mock.patch.object(guest.socket, "create_connection", side_effect=[ConnectionRefusedError(), probe]) as connect, \
+                mock.patch.object(guest.time, "sleep"):
+            path.return_value.exists.return_value = True
+            guest.wait_display_ready(child)
+            self.assertEqual(2, connect.call_count)
+            self.assertEqual((("10.0.2.15", 5901),), connect.call_args.args)
+        probe.recv.side_effect = [b"NOT-RFB-0000"]
+        with mock.patch.object(guest, "Path") as path, mock.patch.object(guest.socket, "create_connection", return_value=probe):
+            path.return_value.exists.return_value = True
+            with self.assertRaises(RuntimeError):
+                guest.wait_display_ready(child)
+        child.poll.return_value = 1
+        with mock.patch.object(guest.socket, "create_connection") as connect:
+            with self.assertRaises(RuntimeError):
+                guest.wait_display_ready(child)
+            connect.assert_not_called()
 
     def test_initramfs_busybox_rejects_dynamic_or_foreign_elf(self):
         elf = bytearray(120)

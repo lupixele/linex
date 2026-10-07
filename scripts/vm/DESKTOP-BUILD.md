@@ -58,7 +58,7 @@ the proven SLIRP address/gateway/DNS contract, and reads private serial JSON lin
 with a512-byte bound. A launch request has exactly these typed fields:
 
 ```json
-{"command":"launch","session":"32 lowercase hexadecimal characters","password":"8 random characters from A-Z a-z 0-9 _ -","width":1280,"height":720,"fps":30}
+{"command":"launch","session":"32 lowercase hexadecimal characters","password":"8 random characters from A-Z a-z 0-9 _ -","width":1280,"height":720,"fps":30,"epochSeconds":1791349200}
 ```
 
 The service must generate a fresh credential for each launch and keep it out of
@@ -67,6 +67,11 @@ logs. PID1 returns `LINEX_VM_DESKTOP_CONTROL_READY` before configuration and
 Credentials are encrypted into VNC's legacy eight-byte password file stored in
 private tmpfs; private Unix transport isolation remains essential. XFCE and
 VNC execute as UID1000. Firefox's sandbox is not disabled.
+The app supplies its current Unix wall-clock seconds, bounded from1700000000
+through4102444800 (2100). Guest PID1 sets this clock before launching the desktop;
+the minimal guest kernel need not load a virtual RTC. HTTPS certificate expiry
+and not-before checks remain enabled. An incorrect phone clock must be corrected
+normally, rather than bypassing TLS validation.
 
 Stop uses exactly `{"command":"stop","session":"<current token>"}`. Guest
 control stops owned session process groups, syncs, remounts ext4 read-only, emits
