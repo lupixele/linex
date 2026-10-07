@@ -32,6 +32,22 @@ def patch(source: Path, jni: Path) -> None:
     anchor = "    union {\n        struct {\n            struct in_addr ih_src;"
     replace(source, "src/tcpip.h", anchor,
             "    union {\n        uint64_t linex_header_alignment;\n        struct {\n            struct in_addr ih_src;")
+    # IPv6's wire IP/TCP headers are 60 bytes, versus IPv4's 40. A 72-byte
+    # overlay therefore needs a 12-byte prefix and can put its pointer queue
+    # four bytes off alignment. Move the packet within its existing reserved
+    # headroom before creating the overlay; preserve every wire byte and m_len.
+    anchor = "    ip = mtod(m, struct ip *);\n    ip6 = mtod(m, struct ip6 *);"
+    replace(source, "src/tcp_input.c", anchor,
+            "    if (af == AF_INET6) {\n"
+            "        const size_t linex_prefix = sizeof(struct tcpiphdr) -\n"
+            "            sizeof(struct ip6) - sizeof(struct tcphdr);\n"
+            "        const size_t linex_shift = ((uintptr_t)m->m_data -\n"
+            "            linex_prefix - sizeof(struct qlink)) % _Alignof(struct qlink);\n"
+            "        g_assert(M_ROOMBEFORE(m) >= linex_shift + linex_prefix + sizeof(struct qlink));\n"
+            "        if (linex_shift) {\n"
+            "            memmove(m->m_data - linex_shift, m->m_data, m->m_len);\n"
+            "            m->m_data -= linex_shift;\n"
+            "        }\n    }\n\n" + anchor)
     # Checksum validation and reassembly precede this interception. The original
     # packet remains owned/freed by udp_input; only bounded bytes are copied.
     anchor = "    lhost.ss_family = AF_INET;"
