@@ -8,6 +8,7 @@ import android.net.LocalServerSocket
 import android.net.LocalSocket
 import android.net.LocalSocketAddress
 import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.IBinder
 import android.os.Process
@@ -45,7 +46,9 @@ class VmHttpsProofTest {
         val context = instrumentation.targetContext
         val assets = instrumentation.context.assets
         val expectedPrivateDns = InstrumentationRegistry.getArguments().getString("expectedPrivateDns")
+        val expectedPrivateDnsHostname = InstrumentationRegistry.getArguments().getString("expectedPrivateDnsHostname")
         require(expectedPrivateDns == null || expectedPrivateDns in listOf("off", "strict"))
+        require(expectedPrivateDns != "strict" || !expectedPrivateDnsHostname.isNullOrBlank())
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         fun privateDnsState(): Pair<Boolean, Boolean> {
             if (Build.VERSION.SDK_INT < 28) return false to false
@@ -53,13 +56,24 @@ class VmHttpsProofTest {
             return properties.isPrivateDnsActive to !properties.privateDnsServerName.isNullOrEmpty()
         }
         fun checkPrivateDnsState(): Pair<Boolean, Boolean> {
-            val state = privateDnsState()
-            if (expectedPrivateDns == "off") assertFalse("Expected system Private DNS off", state.first)
-            if (expectedPrivateDns == "strict") {
-                assertTrue("Strict system Private DNS not active", state.first)
-                assertTrue("Strict system Private DNS hostname absent", state.second)
+            if (expectedPrivateDns == null) return privateDnsState()
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60)
+            while (System.nanoTime() < deadline) {
+                val active = connectivity.activeNetwork
+                val properties = active?.let(connectivity::getLinkProperties)
+                val validated = active?.let(connectivity::getNetworkCapabilities)
+                    ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+                if (validated && properties != null) {
+                    val matches = if (expectedPrivateDns == "off") {
+                        !properties.isPrivateDnsActive && properties.privateDnsServerName.isNullOrEmpty()
+                    } else {
+                        properties.isPrivateDnsActive && properties.privateDnsServerName == expectedPrivateDnsHostname
+                    }
+                    if (matches) return properties.isPrivateDnsActive to !properties.privateDnsServerName.isNullOrEmpty()
+                }
+                Thread.sleep(250)
             }
-            return state
+            error("System network did not validate Private DNS mode $expectedPrivateDns within 60 seconds")
         }
         val privateDnsBefore = checkPrivateDnsState()
         val root = File(context.filesDir, "vm-proof").apply { mkdirs(); Os.chmod(absolutePath, 448) }
@@ -227,6 +241,7 @@ class VmHttpsProofTest {
                 put("hostChildrenAfter", after.hostChildren); put("hostObservationComplete", after.observationComplete)
                 put("privateDnsMatrixVerified", false)
                 put("expectedPrivateDnsMode", expectedPrivateDns ?: "unspecified")
+                put("expectedPrivateDnsHostname", expectedPrivateDnsHostname ?: "unspecified")
                 put("privateDnsActiveBefore", privateDnsBefore.first); put("privateDnsStrictBefore", privateDnsBefore.second)
                 put("privateDnsActiveAfter", privateDnsAfter.first); put("privateDnsStrictAfter", privateDnsAfter.second)
             }.toString())
