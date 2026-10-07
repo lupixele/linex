@@ -33,6 +33,16 @@ static bool emit(const uint8_t *p,size_t n,void *opaque) {
 }
 static slirp_ssize_t output(const void *p,size_t n,void *opaque) {
     Fixture *f=opaque; assert(f->packets<256 && n<=sizeof(f->packet[0]));
+    const uint8_t *wire=p;
+    if(n>=34 && be16(wire+12)==0x0800 && (wire[23]==6 || wire[23]==17)) {
+        size_t ip_size=be16(wire+16), header=4*(wire[14]&15);
+        assert(header==20 && ip_size>=header && ip_size+14<=n);
+        assert(checksum(wire+14,header,0)==0);
+        size_t transport=ip_size-header;
+        uint32_t pseudo=be16(wire+26)+be16(wire+28)+be16(wire+30)+be16(wire+32)+
+                        wire[23]+transport;
+        assert(checksum(wire+34,transport,pseudo)==0);
+    }
     memcpy(f->packet[f->packets],p,n); f->packet_size[f->packets++]=n; return n;
 }
 static void registered(slirp_os_socket fd,void *opaque) {
