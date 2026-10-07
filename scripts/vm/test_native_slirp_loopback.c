@@ -43,8 +43,8 @@ static void timer_free(void *timer,void *opaque) { (void)opaque; free(timer); }
 static void timer_mod(void *timer,int64_t expiration,void *opaque) {
     (void)timer; (void)expiration; (void)opaque;
 }
-static Slirp *create_policy(Fixture *f,bool blocked) {
-    SlirpConfig c={.version=6,.in_enabled=true,.in6_enabled=true,.disable_host_loopback=blocked};
+static Slirp *create_policy(Fixture *f,bool blocked,bool ipv6) {
+    SlirpConfig c={.version=6,.in_enabled=true,.in6_enabled=ipv6,.disable_host_loopback=blocked};
     c.vnetwork.s_addr=htonl(0x0a000200); c.vnetmask.s_addr=htonl(0xffffff00);
     c.vhost.s_addr=htonl(0x0a000202); c.vdhcp_start.s_addr=htonl(0x0a00020f);
     c.vnameserver.s_addr=htonl(0x0a000203); c.vprefix_len=64;
@@ -55,7 +55,9 @@ static Slirp *create_policy(Fixture *f,bool blocked) {
         .register_poll_socket=registered,.unregister_poll_socket=unregistered,
         .notify=notify,.timer_new=timer_new,.timer_free=timer_free,.timer_mod=timer_mod};
     Slirp *s=slirp_new(&c,&cb,f); assert(s);
-    assert(slirp_linex_dns_install(s,99,now_ms,emit,f));
+    /* The approved DNS bridge intentionally rejects IPv6 stacks. IPv6 policy
+     * probes exercise upstream sockets separately; production remains IPv4. */
+    if(!ipv6) assert(slirp_linex_dns_install(s,99,now_ms,emit,f));
     uint8_t mac[]={0x52,0x54,0,0,0,0x15}; struct in6_addr guest;
     assert(inet_pton(AF_INET6,"fec0::15",&guest)==1);
     arp_table_add(s,c.vdhcp_start.s_addr,mac); ndp_table_add(s,guest,mac);
@@ -116,7 +118,7 @@ static int loopback_listener(bool ipv6,bool udp_socket,uint16_t *port,const char
     return fd;
 }
 static void check_destination(const char *destination,bool packet_ipv6,bool listener_ipv6,bool blocked) {
-    Fixture f={.now=1000}; Slirp *s=create_policy(&f,blocked);
+    Fixture f={.now=1000}; Slirp *s=create_policy(&f,blocked,packet_ipv6);
     for(int protocol=0;protocol<2;protocol++) {
         uint16_t port; int listener=loopback_listener(listener_ipv6,protocol==1,&port,destination);
         if(protocol==0) tcp_to(s,destination,packet_ipv6,41000,port,1000,0,TH_SYN,NULL,0);
@@ -132,12 +134,14 @@ static void check_destination(const char *destination,bool packet_ipv6,bool list
         close(listener);
     }
     /* Disabling host loopback does not bypass or disable the private DNS broker. */
-    size_t before=f.frames; udp(s,43000,false); assert(f.frames==before+1);
-    answer(s,&f,before); payload_packet(&f,0,17);
+    if(!packet_ipv6) {
+        size_t before=f.frames; udp(s,43000,false); assert(f.frames==before+1);
+        answer(s,&f,before); payload_packet(&f,0,17);
+    }
     slirp_cleanup(s);
 }
 static void unix_forward(void) {
-    Fixture f={.now=1000}; Slirp *s=create_policy(&f,true);
+    Fixture f={.now=1000}; Slirp *s=create_policy(&f,true,false);
     char directory[]="/tmp/linexunixXXXXXXXX"; assert(mkdtemp(directory));
     assert(chmod(directory,0700)==0);
     struct sockaddr_un host={.sun_family=AF_UNIX};
