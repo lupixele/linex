@@ -69,7 +69,7 @@
       "license": "BSD-3-Clause"
     }
   },
-  "slice": "full-system ARM64 TCG with static SLIRP compiled; serial launch remains NIC-less; Android DNS/display pending",
+  "slice": "full-system ARM64 TCG with private Android resolver UDP/TCP bridge; serial and network runtime gates required",
   "patches": {
     "scripts/vm/patches/qemu/0014-disable-signalfd.patch": "b00e02b746f74b886d39e6769e09f952293902452b17808b2e82acc24c93619f",
     "scripts/vm/patches/setjmp-aarch64/private-bionic_asm.h": "253d038709ce871463ae47aa4b339476074fde22e8aff5ab241da9d2b7b582fb",
@@ -90,6 +90,16 @@
     "scripts/vm/patches/qemu/0009-disable-glob.h-include.patch": "236740261891e45f7cc134f24d18227a6ec90cc66348ab9db0d8ae2a5c66f2e6",
     "scripts/vm/patches/qemu/0006-fix-sem.h-location.patch": "40aaf64ad5df0b7031b63786139a355a360ee29910542146c02c70cbc2e469c4",
     "scripts/vm/patches/qemu/0019-no-timespec_get.patch": "d61308f9b68c3e39c956e2208bb5e53ba3d517afa91a22cf0b01d7ff814b8084",
-    "scripts/vm/patches/qemu/0011-mmap_min_addr-fallback.patch": "5eca8f412c0e50ffb210e9865fa6d041193bfb157c80ceff8ba415c770d99c30"
+    "scripts/vm/patches/qemu/0011-mmap_min_addr-fallback.patch": "5eca8f412c0e50ffb210e9865fa6d041193bfb157c80ceff8ba415c770d99c30",
+    "scripts/vm/patch-slirp.py": "7f7305289889004727cb68edab95b30a7eead9c7946a928bbe0b21e81c42dc25",
+    "scripts/vm/patch-qemu.py": "3f219aa385729c34ed700409c645d3c61a153498313e9f5cb7058ee81fc247a7",
+    "vm-engine/src/main/jni/linex_slirp_dns.c": "da867e3616a1cadf7a88103d9e89823ba33774cff8549499f94061996e90cb3a",
+    "vm-engine/src/main/jni/linex_slirp_dns.h": "cdc0216f646a26f16fb8175770bfbf2e8ec943e48a5f3e9c0821abe8a0ec4357",
+    "vm-engine/src/main/jni/linex_slirp.inc": "d09799aaa1dcf26ff5d04dc02d65ca8c32742b16f45f1b15e9384279337222c2",
+    "vm-engine/src/main/jni/linex_dns.c": "8390276da756d98b1acb8af9b0ec13d3ecbe6f657e55c75ddc766bb7dc0c00b5",
+    "vm-engine/src/main/jni/linex_dns.h": "1b5d786fdbd73c029d833f25eabc358d4b0e0df4b32724784af906a1ac219a70",
+    "vm-engine/src/main/jni/linex_dns_transport.c": "4814ab12aa3debd01a27ac335fe6ae9ea6fa4491386576c197433477ca104cfb",
+    "vm-engine/src/main/jni/linex_dns_transport.h": "2c961d65f581a9e1046894accde1ca398233bc78fb3f060f158ce9213946f402",
+    "vm-engine/src/main/jni/qemu_jni.c": "e41b195ba02a280be8cbe488251de592bda69aabdd6cde0373207bff24fed9dd"
   }
 }

@@ -7,6 +7,7 @@
 struct LinexSlirpDns {
     LinexDns *core;
     uint64_t next_connection;
+    size_t owned_connections;
     uint64_t (*now_ms)(void *);
     bool (*send_frame)(const uint8_t *, size_t, void *);
     void *opaque;
@@ -93,8 +94,12 @@ int slirp_linex_dns_tcp_connect(struct socket *so,unsigned short af)
     Slirp *slirp=so->slirp;
     if(!slirp->linex_dns || af!=AF_INET || so->so_faddr.s_addr!=slirp->vnameserver_addr.s_addr || so->so_fport!=htons(53)) return 0;
     struct LinexSlirpDns *adapter=slirp->linex_dns;
-    if(adapter->next_connection>INT64_MAX || !linex_dns_tcp_open(adapter->core,adapter->next_connection)) return -1;
+    if(adapter->owned_connections>=LINEX_DNS_CONNECTION_MAX ||
+       adapter->next_connection>INT64_MAX ||
+       !linex_dns_tcp_open(adapter->core,adapter->next_connection)) return -1;
     so->linex_dns_id=adapter->next_connection++;
+    so->linex_dns_owned=true;
+    adapter->owned_connections++;
     soisfconnected(so);
     return 1;
 }
@@ -110,8 +115,13 @@ slirp_ssize_t slirp_linex_dns_tcp_send(struct socket *so,const void *wire,size_t
 }
 void slirp_linex_dns_socket_free(struct socket *so)
 {
-    if(so->linex_dns_id && so->slirp->linex_dns)
-        linex_dns_tcp_close(so->slirp->linex_dns->core,so->linex_dns_id);
+    if(so->linex_dns_owned && so->slirp->linex_dns) {
+        assert(so->slirp->linex_dns->owned_connections>0);
+        so->slirp->linex_dns->owned_connections--;
+        if(so->linex_dns_id)
+            linex_dns_tcp_close(so->slirp->linex_dns->core,so->linex_dns_id);
+    }
+    so->linex_dns_owned=false;
     so->linex_dns_id=0;
 }
 bool slirp_linex_dns_receive(Slirp *slirp,const uint8_t *frame,size_t size)

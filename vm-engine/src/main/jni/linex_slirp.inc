@@ -11,6 +11,7 @@ struct LinexVmPacket {
 #define LINEX_PACKET_QUEUE_MAX (512u * 1024u)
 #define LINEX_PACKET_COUNT_MAX 512u
 #define LINEX_PACKET_MAX 65536u
+static bool linex_slirp_attached;
 
 static uint64_t linex_slirp_now_ms(void *opaque)
 {
@@ -119,7 +120,7 @@ static void linex_slirp_enqueue(SlirpState *s, const uint8_t *buf, size_t size)
 static bool linex_slirp_start(SlirpState *s, Error **errp)
 {
     assert(bql_locked() && qemu_in_main_thread());
-    if (linex_vm_dns_fd < 0 || !linex_vm_dns_generation ||
+    if (linex_slirp_attached || linex_vm_dns_fd < 0 || !linex_vm_dns_generation ||
         !slirp_linex_dns_install(s->slirp, linex_vm_dns_generation,
                                 linex_slirp_now_ms, linex_slirp_send_frame, s)) {
         error_setg(errp, "SLIRP requires the managed Android DNS bridge");
@@ -128,6 +129,7 @@ static bool linex_slirp_start(SlirpState *s, Error **errp)
     s->linex_input_bh = aio_bh_new(qemu_get_aio_context(), linex_slirp_drain, s);
     s->linex_dns_timer = timer_new_ms(QEMU_CLOCK_REALTIME, linex_slirp_timer, s);
     s->linex_active = true;
+    linex_slirp_attached = true;
     aio_set_fd_handler(qemu_get_aio_context(), linex_vm_dns_fd,
                        linex_slirp_read, NULL, NULL, NULL, s);
     timer_mod(s->linex_dns_timer, qemu_clock_get_ms(QEMU_CLOCK_REALTIME) + 100);
@@ -146,6 +148,7 @@ static void linex_slirp_stop(SlirpState *s)
         qemu_bh_cancel(s->linex_input_bh);
         qemu_bh_delete(s->linex_input_bh);
         s->linex_active = false;
+        linex_slirp_attached = false;
     }
     while (s->linex_head) {
         struct LinexVmPacket *next = s->linex_head->next;

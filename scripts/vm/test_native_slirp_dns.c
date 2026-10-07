@@ -38,13 +38,14 @@ static slirp_ssize_t output(const void *p,size_t n,void *opaque) {
 static void registered(slirp_os_socket fd,void *opaque) {
     (void)fd; ((Fixture *)opaque)->polls++;
 }
+static void unregistered(slirp_os_socket fd,void *opaque) { (void)fd; (void)opaque; }
 static Slirp *create(Fixture *f) {
     SlirpConfig c={.version=6,.in_enabled=true};
     c.vnetwork.s_addr=htonl(0x0a000200); c.vnetmask.s_addr=htonl(0xffffff00);
     c.vhost.s_addr=htonl(0x0a000202); c.vdhcp_start.s_addr=htonl(0x0a00020f);
     c.vnameserver.s_addr=htonl(0x0a000203);
     static const SlirpCb cb={.send_packet=output,.clock_get_ns=clock_ns,
-                            .register_poll_socket=registered};
+                            .register_poll_socket=registered,.unregister_poll_socket=unregistered};
     Slirp *s=slirp_new(&c,&cb,f); assert(s);
     assert(slirp_linex_dns_install(s,99,now_ms,emit,f));
     const uint8_t mac[]={0x52,0x54,0,0,0,0x15};
@@ -137,6 +138,14 @@ int main(void) {
     assert(sockets(s)==64);
     tcp(s,42000,9000,0,TH_SYN,NULL,0); assert(sockets(s)==64);
     assert((f.packet[f.packets-1][47]&TH_RST)!=0 && f.polls==0);
+    /* Core IDs retire at the real-time deadline, but a peer can withhold FIN.
+     * The independent socket budget must remain charged until actual sofree. */
+    f.now+=10001; slirp_linex_dns_tick(s);
+    assert(sockets(s)==64);
+    for(struct socket *so=s->tcb.so_next;so!=&s->tcb;so=so->so_next)
+        assert(!so->linex_dns_id && so->linex_dns_owned);
+    for(unsigned j=0;j<64;j++) tcp(s,43000+j,10000+j,0,TH_SYN,NULL,0);
+    assert(sockets(s)==64 && f.polls==0);
     slirp_cleanup(s);
     puts("Real SLIRP UDP/TCP bridge, checksum, partial framing, timeout and capacity passed");
     return 0;

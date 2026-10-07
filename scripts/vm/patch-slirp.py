@@ -24,7 +24,7 @@ def patch(source: Path, jni: Path) -> None:
     # so_next/so_prev at offset zero; moving them corrupts every TCP/UDP queue.
     anchor = "    struct socket *so_next, *so_prev; /* For a linked list of sockets */"
     replace(source, "src/socket.h", anchor,
-            anchor + "\n    uint64_t linex_dns_id;\n    bool linex_dns_closing;")
+            anchor + "\n    uint64_t linex_dns_id;\n    bool linex_dns_closing, linex_dns_owned;")
     # Upstream's 64-bit tcpiphdr has a 36-byte IPv6 union and a packed mbuf
     # pointer: sizeof=68, so subtracting its IP/TCP delta misaligns the preceding
     # qlink. Force padding inside the prefix, not after the on-wire TCP header.
