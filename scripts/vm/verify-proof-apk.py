@@ -15,11 +15,14 @@ def digest(stream):
 
 
 def verify(apk: Path, fixture: Path, native: Path, abis: list[str],
-           network_fixture: Path | None = None) -> dict:
+           network_fixture: Path | None = None, https_fixture: Path | None = None) -> dict:
     fixture_sets = [(fixture, "assets/", "boot-proof.cpio.gz", "boot-proof.initramfs")]
     if network_fixture is not None:
         fixture_sets.append((network_fixture, "assets/network/", "network-proof.cpio.gz",
                              "network-proof.initramfs"))
+    if https_fixture is not None:
+        fixture_sets.append((https_fixture, "assets/https/", "https-proof.cpio.gz",
+                             "https-proof.initramfs"))
     result = {"assets": {}, "native": {}, "kernel_boot": "pending"}
     with zipfile.ZipFile(apk) as archive:
         names = archive.namelist()
@@ -44,6 +47,10 @@ def verify(apk: Path, fixture: Path, native: Path, abis: list[str],
                 prefix + "kernel": (directory / "kernel", manifest["kernel"]),
                 prefix + initramfs_asset: (directory / initramfs_source, manifest["initramfs"]),
             }
+            if prefix == "assets/https/":
+                for tls_name in ("ca.pem", "server.pem", "server-key.pk8"):
+                    expected_assets[prefix + tls_name] = (directory / tls_name,
+                                                         manifest["testTlsAssets"][tls_name])
             for name, (source, item) in expected_assets.items():
                 size = item["bytes"]
                 expected_hash = item["sha256"]
@@ -80,10 +87,11 @@ if __name__ == "__main__":
     parser.add_argument("--apk", type=Path, required=True)
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--network-fixture", type=Path)
+    parser.add_argument("--https-fixture", type=Path)
     parser.add_argument("--native", type=Path, required=True)
     parser.add_argument("--abi", action="append", choices=["x86_64", "arm64-v8a"], required=True)
     parser.add_argument("--evidence", type=Path, required=True)
     args = parser.parse_args()
-    evidence = verify(args.apk, args.fixture, args.native, args.abi, args.network_fixture)
+    evidence = verify(args.apk, args.fixture, args.native, args.abi, args.network_fixture, args.https_fixture)
     args.evidence.parent.mkdir(parents=True, exist_ok=True)
     args.evidence.write_text(json.dumps(evidence, indent=2) + "\n")

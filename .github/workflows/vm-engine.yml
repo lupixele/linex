@@ -19,6 +19,21 @@ jobs:
           gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -g -Ivm-engine/src/main/jni vm-engine/src/main/jni/linex_dns_transport.c scripts/vm/test_native_dns_transport.c -o build/test-scratch/linex-native-dns-transport
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/test-scratch/linex-native-dns-transport
 
+  actual-slirp-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Exercise the patched pinned network stack with sanitizers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev ninja-build pkg-config python3-venv gcc
+          python3 -m venv "$RUNNER_TEMP/vm-build-tools"
+          "$RUNNER_TEMP/vm-build-tools/bin/pip" install --only-binary=:all: --require-hashes -r scripts/vm/build-tools.txt
+          export PATH="$RUNNER_TEMP/vm-build-tools/bin:$PATH"
+          python3 -m unittest discover -s scripts/vm -p 'test_slirp_patch.py'
+          bash scripts/vm/test-slirp-dns.sh
+
   network-fixture-proof:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -64,6 +79,7 @@ jobs:
           retention-days: 14
 
   native-engine:
+    needs: [native-bridge-tests, actual-slirp-tests]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
@@ -151,6 +167,7 @@ jobs:
         run: |
           python3 scripts/vm/build-fixture.py --output dist/vm-fixture
           python3 scripts/vm/build-network-fixture.py --output dist/vm-network-fixture
+          python3 scripts/vm/build-https-fixture.py --output dist/vm-https-fixture
       - name: Verify the wrapper and Android proof failure reporting
         run: |
           echo '0336f591bc0ec9aa0c9988929b93ecc916b3c1d52aed202c7381db144aa0ef15  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
@@ -160,7 +177,7 @@ jobs:
       - name: Build and verify the exact APK proof assets and JNI before boot
         run: |
           ./gradlew :vm-engine:assembleDebugAndroidTest -PvmNativeDir=dist/vm-engine --no-daemon
-          python3 scripts/vm/verify-proof-apk.py --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --fixture dist/vm-fixture --network-fixture dist/vm-network-fixture --native dist/vm-engine --abi x86_64 --evidence dist/vm-android-proof/apk-evidence.json
+          python3 scripts/vm/verify-proof-apk.py --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --fixture dist/vm-fixture --network-fixture dist/vm-network-fixture --https-fixture dist/vm-https-fixture --native dist/vm-engine --abi x86_64 --evidence dist/vm-android-proof/apk-evidence.json
       - name: Enable KVM for the Android emulator on the CI host
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-linex-ci-kvm.rules

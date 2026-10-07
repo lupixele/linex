@@ -60,13 +60,45 @@ class ProofApkTests(unittest.TestCase):
             "assets/network/kernel": kernel,
             "assets/network/network-proof.initramfs": network_initramfs,
         })
+        self.https_fixture = self.root / "https"
+        self.https_fixture.mkdir()
+        tls_assets = {"ca.pem": b"test-ca", "server.pem": b"test-leaf", "server-key.pk8": b"public-test-key"}
+        https_manifest = {"kernel": manifest["kernel"], "initramfs": network_manifest["initramfs"],
+                          "testTlsAssets": {name: {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+                                            for name, data in tls_assets.items()}}
+        (self.https_fixture / "kernel").write_bytes(kernel)
+        (self.https_fixture / "https-proof.cpio.gz").write_bytes(network_initramfs)
+        https_bytes = json.dumps(https_manifest).encode()
+        (self.https_fixture / "manifest.json").write_bytes(https_bytes)
+        self.entries.update({"assets/https/manifest.json": https_bytes, "assets/https/kernel": kernel,
+                             "assets/https/https-proof.initramfs": network_initramfs})
+        for name, data in tls_assets.items():
+            (self.https_fixture / name).write_bytes(data)
+            self.entries["assets/https/" + name] = data
 
-    def verify(self):
+    def verify(self, https=False):
         apk = self.root / "proof.apk"
         with zipfile.ZipFile(apk, "w") as archive:
             for name, data in self.entries.items():
                 archive.writestr(name, data)
-        return VERIFIER.verify(apk, self.fixture, self.native.parent, ["x86_64"], self.network_fixture)
+        return VERIFIER.verify(apk, self.fixture, self.native.parent, ["x86_64"], self.network_fixture,
+                               self.https_fixture if https else None)
+
+    def test_https_assets_include_verified_ca_leaf_and_key(self):
+        evidence = self.verify(https=True)["assets"]
+        for name in ("https-proof.initramfs", "ca.pem", "server.pem", "server-key.pk8"):
+            self.assertIn("assets/https/" + name, evidence)
+
+    def test_missing_https_key_is_rejected(self):
+        self.entries.pop("assets/https/server-key.pk8")
+        with self.assertRaisesRegex(ValueError, "server-key.pk8"):
+            self.verify(https=True)
+
+    def test_corrupted_packaged_https_ca_is_rejected(self):
+        name = "assets/https/ca.pem"
+        self.entries[name] = b"x" * len(self.entries[name])
+        with self.assertRaisesRegex(ValueError, "fixture hash"):
+            self.verify(https=True)
 
     def test_verified_network_bytes_are_included_in_evidence(self):
         self.assertIn("assets/network/network-proof.initramfs", self.verify()["assets"])

@@ -10,6 +10,7 @@ val prepareVmFixtureAssets by tasks.registering(Sync::class) {
     // the packaged alias must invalidate previously copied fixture assets.
     inputs.property("initramfsAssetName", initramfsAssetName)
     inputs.property("networkInitramfsAssetName", "network-proof.initramfs")
+    inputs.property("httpsInitramfsAssetName", "https-proof.initramfs")
     from(rootProject.file("dist/vm-fixture")) {
         include("kernel", "boot-proof.cpio.gz", "manifest.json")
         // Android asset packaging interprets .gz as a precompressed asset,
@@ -21,6 +22,11 @@ val prepareVmFixtureAssets by tasks.registering(Sync::class) {
         into("network")
         include("kernel", "network-proof.cpio.gz", "manifest.json")
         rename("network-proof\\.cpio\\.gz", "network-proof.initramfs")
+    }
+    from(rootProject.file("dist/vm-https-fixture")) {
+        into("https")
+        include("kernel", "https-proof.cpio.gz", "manifest.json", "ca.pem", "server.pem", "server-key.pk8")
+        rename("https-proof\\.cpio\\.gz", "https-proof.initramfs")
     }
     into(fixtureAssets)
 }

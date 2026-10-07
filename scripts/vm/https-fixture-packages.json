@@ -1,0 +1,388 @@
+{
+  "indexSha256": "deba6ed1f16f58252eb126d0094d4cc5547b2832d9e7d75255a3dec815e847f7",
+  "packages": [
+    {
+      "architecture": "aarch64",
+      "bytes": 1269737,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1",
+        "so:libcrypto.so.3",
+        "so:libfstrm.so.0",
+        "so:libgssapi_krb5.so.2",
+        "so:libjson-c.so.5",
+        "so:libkrb5.so.3",
+        "so:libnghttp2.so.14",
+        "so:libprotobuf-c.so.1",
+        "so:libssl.so.3",
+        "so:liburcu-cds.so.8",
+        "so:liburcu-common.so.8",
+        "so:liburcu.so.8",
+        "so:libuv.so.1",
+        "so:libxml2.so.2",
+        "so:libz.so.1"
+      ],
+      "license": "MPL-2.0",
+      "name": "bind-libs",
+      "origin": "bind",
+      "provides": [
+        "so:libdns-9.20.29.so=0",
+        "so:libisc-9.20.29.so=0",
+        "so:libisccc-9.20.29.so=0",
+        "so:libisccfg-9.20.29.so=0",
+        "so:libns-9.20.29.so=0"
+      ],
+      "sha256": "0d705cf1dfb04def05a556a2a3019a8025e39618aebf46a8749ea46f193e7ec8",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/bind-libs-9.20.29-r0.apk",
+      "version": "9.20.29-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 244242,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1",
+        "so:libdns-9.20.29.so",
+        "so:libisc-9.20.29.so",
+        "so:libisccfg-9.20.29.so",
+        "so:libkrb5.so.3",
+        "so:libns-9.20.29.so",
+        "so:libprotobuf-c.so.1"
+      ],
+      "license": "MPL-2.0",
+      "name": "bind-tools",
+      "origin": "bind",
+      "provides": [
+        "cmd:arpaname=9.20.29-r0",
+        "cmd:ddns-confgen=9.20.29-r0",
+        "cmd:delv=9.20.29-r0",
+        "cmd:dig=9.20.29-r0",
+        "cmd:dnstap-read=9.20.29-r0",
+        "cmd:host=9.20.29-r0",
+        "cmd:mdig=9.20.29-r0",
+        "cmd:named-checkzone=9.20.29-r0",
+        "cmd:named-compilezone=9.20.29-r0",
+        "cmd:named-journalprint=9.20.29-r0",
+        "cmd:named-rrchecker=9.20.29-r0",
+        "cmd:nslookup=9.20.29-r0",
+        "cmd:nsupdate=9.20.29-r0",
+        "cmd:rndc-confgen=9.20.29-r0",
+        "cmd:tsig-keygen=9.20.29-r0"
+      ],
+      "sha256": "79bf254651ccf6d014921d7ce18cc0ab478e88ad2078e6acb3adcfc744d71be6",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/bind-tools-9.20.29-r0.apk",
+      "version": "9.20.29-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 17492,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "MIT",
+      "name": "fstrm",
+      "origin": "fstrm",
+      "provides": [
+        "so:libfstrm.so.0=0.1.0"
+      ],
+      "sha256": "f6885902161ef845e633739c49109304b2310cb0b9dfd5f36ed2d0857234c3c4",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/fstrm-0.6.1-r4.apk",
+      "version": "0.6.1-r4"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 28760,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "MIT",
+      "name": "json-c",
+      "origin": "json-c",
+      "provides": [
+        "so:libjson-c.so.5=5.4.0"
+      ],
+      "sha256": "4bb767260319877a85d3d86946c50641dd3bb06e632741b3ec39e5f0052b2635",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/json-c-0.18-r1.apk",
+      "version": "0.18-r1"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 8194,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "GPL-2.0-or-later AND LGPL-2.0-or-later",
+      "name": "keyutils-libs",
+      "origin": "keyutils",
+      "provides": [
+        "so:libkeyutils.so.1=1.10"
+      ],
+      "sha256": "08ca5337737b7b6a1d649e316634796265857c2113a956734ca808675c3bd45d",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/keyutils-libs-1.6.3-r4.apk",
+      "version": "1.6.3-r4"
+    },
+    {
+      "architecture": "noarch",
+      "bytes": 1733,
+      "dependencies": [],
+      "license": "MIT",
+      "name": "krb5-conf",
+      "origin": "krb5-conf",
+      "provides": [],
+      "sha256": "870b7e6133418a077b727daa7eb532c1cd5815d4aa3e1e68d4e11ed88140fd2a",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/krb5-conf-1.0-r2.apk",
+      "version": "1.0-r2"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 785289,
+      "dependencies": [
+        "krb5-conf",
+        "so:libc.musl-aarch64.so.1",
+        "so:libcom_err.so.2",
+        "so:libcrypto.so.3",
+        "so:libkeyutils.so.1",
+        "so:libssl.so.3",
+        "so:libverto.so.1"
+      ],
+      "license": "MIT",
+      "name": "krb5-libs",
+      "origin": "krb5",
+      "provides": [
+        "so:libgssapi_krb5.so.2=2.2",
+        "so:libgssrpc.so.4=4.2",
+        "so:libk5crypto.so.3=3.1",
+        "so:libkadm5clnt_mit.so.12=12.0",
+        "so:libkadm5srv_mit.so.12=12.0",
+        "so:libkdb5.so.10=10.0",
+        "so:libkrad.so.0=0.0",
+        "so:libkrb5.so.3=3.3",
+        "so:libkrb5support.so.0=0.1"
+      ],
+      "sha256": "782d5166429e0079b302b8d5961fe12e301f18f52a2ff9bd44e0dd2c86717fac",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/krb5-libs-1.21.3-r0.apk",
+      "version": "1.21.3-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 6583,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "GPL-2.0-or-later AND LGPL-2.0-or-later AND BSD-3-Clause AND MIT",
+      "name": "libcom_err",
+      "origin": "e2fsprogs",
+      "provides": [
+        "so:libcom_err.so.2=2.1"
+      ],
+      "sha256": "f0f5ea8a160fe0ff6d0b18eff222f80a6a83eb1ca6abb913db7a902d5bd25c43",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/libcom_err-1.47.2-r2.apk",
+      "version": "1.47.2-r2"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 2293157,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "Apache-2.0",
+      "name": "libcrypto3",
+      "origin": "openssl",
+      "provides": [
+        "so:libcrypto.so.3=3"
+      ],
+      "sha256": "ede2ef7eca3b65a42e902aaf7890f9c5647dca0c55123a817179ad9f3bc6ef24",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/libcrypto3-3.5.9-r0.apk",
+      "version": "3.5.9-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 374074,
+      "dependencies": [
+        "libcrypto3=3.5.9-r0",
+        "so:libc.musl-aarch64.so.1",
+        "so:libcrypto.so.3"
+      ],
+      "license": "Apache-2.0",
+      "name": "libssl3",
+      "origin": "openssl",
+      "provides": [
+        "so:libssl.so.3=3"
+      ],
+      "sha256": "338c9f6154582b4b76455a59f95538bcea8df039c5c72916dd2d8d0d844c9583",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/libssl3-3.5.9-r0.apk",
+      "version": "3.5.9-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 96728,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "MIT",
+      "name": "libuv",
+      "origin": "libuv",
+      "provides": [
+        "so:libuv.so.1=1.0.0"
+      ],
+      "sha256": "730714e5032c7a16c34ac97c778bdd8a770f7927f3b1689616e331599226952c",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/libuv-1.51.0-r0.apk",
+      "version": "1.51.0-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 9608,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "MIT",
+      "name": "libverto",
+      "origin": "libverto",
+      "provides": [
+        "so:libverto.so.1=1.0.0"
+      ],
+      "sha256": "03ff077aa23e4458e0df02826362b56c3221c62ee4691177aa98272e7ebedf85",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/libverto-0.3.2-r2.apk",
+      "version": "0.3.2-r2"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 497173,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1",
+        "so:liblzma.so.5",
+        "so:libz.so.1"
+      ],
+      "license": "MIT",
+      "name": "libxml2",
+      "origin": "libxml2",
+      "provides": [
+        "so:libxml2.so.2=2.13.9"
+      ],
+      "sha256": "e358e1c32ba6923386263dd641a6e4bcb56a0345fecadef9ef1103892cf3d81d",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/libxml2-2.13.9-r1.apk",
+      "version": "2.13.9-r1"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 418039,
+      "dependencies": [],
+      "license": "MIT",
+      "name": "musl",
+      "origin": "musl",
+      "provides": [
+        "so:libc.musl-aarch64.so.1=1"
+      ],
+      "sha256": "ac281d1e7f9e9c447c51e309317b975f48be6edaf3ab91ae73b959cf86703782",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/musl-1.2.5-r12.apk",
+      "version": "1.2.5-r12"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 63594,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "MIT",
+      "name": "nghttp2-libs",
+      "origin": "nghttp2",
+      "provides": [
+        "so:libnghttp2.so.14=14.29.4"
+      ],
+      "sha256": "19db967a36f1e041e96240484d94063354f5c837e36d50daa017c2e96393a5e7",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/nghttp2-libs-1.69.0-r0.apk",
+      "version": "1.69.0-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 332065,
+      "dependencies": [
+        "libssl3=3.5.9-r0",
+        "libcrypto3=3.5.9-r0",
+        "so:libc.musl-aarch64.so.1",
+        "so:libcrypto.so.3",
+        "so:libssl.so.3"
+      ],
+      "license": "Apache-2.0",
+      "name": "openssl",
+      "origin": "openssl",
+      "provides": [
+        "openssl3=3.5.9-r0",
+        "cmd:openssl=3.5.9-r0"
+      ],
+      "sha256": "a7d5b0233cefe16cbbbbd864cd9f4277e0459899c5bf81a9993574bfa5867928",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/openssl-3.5.9-r0.apk",
+      "version": "3.5.9-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 13952,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "BSD-2-Clause",
+      "name": "protobuf-c",
+      "origin": "protobuf-c",
+      "provides": [
+        "so:libprotobuf-c.so.1=1.0.0"
+      ],
+      "sha256": "efe6c85dcc50c5eba73f32914e08507ea5b27eb9ccff83450448dd2b2c23818b",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/protobuf-c-1.5.2-r0.apk",
+      "version": "1.5.2-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 94064,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "LGPL-2.1-or-later",
+      "name": "userspace-rcu",
+      "origin": "userspace-rcu",
+      "provides": [
+        "so:liburcu-bp.so.8=8.1.0",
+        "so:liburcu-cds.so.8=8.1.0",
+        "so:liburcu-common.so.8=8.1.0",
+        "so:liburcu-mb.so.8=8.1.0",
+        "so:liburcu-memb.so.8=8.1.0",
+        "so:liburcu-qsbr.so.8=8.1.0",
+        "so:liburcu.so.8=8.1.0"
+      ],
+      "sha256": "e4966bf6895d7da5ca7e2edd840b4b8fa3dc12cd45b626843714e654e4a69d35",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/userspace-rcu-0.15.2-r0.apk",
+      "version": "0.15.2-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 117354,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "GPL-2.0-or-later AND 0BSD AND Public-Domain AND LGPL-2.1-or-later",
+      "name": "xz-libs",
+      "origin": "xz",
+      "provides": [
+        "so:liblzma.so.5=5.8.4"
+      ],
+      "sha256": "8a64b55223f29e24f934ccbc8167d535b913bf923dab5e14de7946a7c36091a7",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/xz-libs-5.8.4-r0.apk",
+      "version": "5.8.4-r0"
+    },
+    {
+      "architecture": "aarch64",
+      "bytes": 54452,
+      "dependencies": [
+        "so:libc.musl-aarch64.so.1"
+      ],
+      "license": "Zlib",
+      "name": "zlib",
+      "origin": "zlib",
+      "provides": [
+        "so:libz.so.1=1.3.2"
+      ],
+      "sha256": "2d274cb1b2a36d0e8347d802e6dea8648cab952ea5fae1989ab72e725842a2c3",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/aarch64/zlib-1.3.2-r1.apk",
+      "version": "1.3.2-r1"
+    }
+  ],
+  "repository": "Alpine v3.22 main aarch64",
+  "schema": 1
+}

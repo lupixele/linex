@@ -40,6 +40,7 @@ jobs:
         run: |
           python3 scripts/vm/build-fixture.py --output dist/vm-fixture
           python3 scripts/vm/build-network-fixture.py --output dist/vm-network-fixture
+          python3 scripts/vm/build-https-fixture.py --output dist/vm-https-fixture
       - name: Verify wrapper and proof guards
         run: |
           echo '0336f591bc0ec9aa0c9988929b93ecc916b3c1d52aed202c7381db144aa0ef15  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
@@ -50,7 +51,7 @@ jobs:
       - name: Build and verify the exact APK proof assets and JNI before boot
         run: |
           ./gradlew :vm-engine:assembleDebugAndroidTest -PvmNativeDir=dist/vm-engine --no-daemon
-          python3 scripts/vm/verify-proof-apk.py --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --fixture dist/vm-fixture --network-fixture dist/vm-network-fixture --native dist/vm-engine --abi x86_64 --evidence dist/vm-android-proof/apk-evidence.json
+          python3 scripts/vm/verify-proof-apk.py --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --fixture dist/vm-fixture --network-fixture dist/vm-network-fixture --https-fixture dist/vm-https-fixture --native dist/vm-engine --abi x86_64 --evidence dist/vm-android-proof/apk-evidence.json
       - name: Enable KVM for the Android emulator on the CI host
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-linex-ci-kvm.rules

@@ -12,13 +12,13 @@ capture_evidence() {
   printf '%s\n' "$proof_status" > "$PROOF_DIR/test-exit-status.txt"
   timeout 15s adb shell ps -A > "$PROOF_DIR/processes-after.txt" 2> "$PROOF_DIR/processes-after.error" || true
   timeout 15s adb logcat -b all -d -v threadtime -t 5000 > "$PROOF_DIR/logcat.txt" 2> "$PROOF_DIR/logcat.error" || true
-  for launch in 0 1 2; do
+  for launch in 0 1 2 3; do
     for file in "vm-proof-$launch.json" "vm-proof-$launch.log" "vm-proof-$launch-exit.json"; do
       timeout 10s adb exec-out run-as com.linex.vm.test cat "files/$file" \
         > "$PROOF_DIR/$file" 2> "$PROOF_DIR/$file.error" || true
     done
   done
-  for file in vm-network-proof.json vm-network-proof.log; do
+  for file in vm-network-proof.json vm-network-proof.log vm-https-proof.json vm-https-proof.log; do
     timeout 10s adb exec-out run-as com.linex.vm.test cat "files/$file" \
       > "$PROOF_DIR/$file" 2> "$PROOF_DIR/$file.error" || true
   done
