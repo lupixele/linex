@@ -48,7 +48,7 @@ class DesktopGuestTest(unittest.TestCase):
                 guest.ensure_machine_identity(first)
 
     def test_failed_launch_removes_only_fresh_credential_and_reaps_owned_child(self):
-        value = {"width": 1280, "height": 720, "fps": 30, "password": "Ab12_-cd"}
+        value = {"width": 1280, "height": 720, "fps": 30, "password": "Ab12_-cd", "epochSeconds": 1791349200}
         with tempfile.TemporaryDirectory() as directory:
             private = Path(directory)
             credential, display = private / "passwd", private / "display"
@@ -61,15 +61,20 @@ class DesktopGuestTest(unittest.TestCase):
                     mock.patch.object(guest.subprocess, "run", return_value=mock.Mock(stdout=b"12345678")), \
                     mock.patch.object(guest.subprocess, "Popen", side_effect=[child, RuntimeError("spawn failed")]), \
                     mock.patch.object(guest.os, "chown", create=True), \
+                    mock.patch.object(guest.time, "clock_settime", create=True) as clock, \
+                    mock.patch.object(guest.time, "CLOCK_REALTIME", 0, create=True), \
                     mock.patch.object(guest.os, "killpg", create=True) as kill:
                 with self.assertRaises(RuntimeError):
                     guest.launch(value, {})
                 self.assertFalse(credential.exists())
                 kill.assert_called_once_with(123, guest.signal.SIGTERM)
                 child.wait.assert_called_once_with(timeout=8)
+                clock.assert_called_once_with(0, value["epochSeconds"])
             credential.write_bytes(b"existing")
             with mock.patch.object(guest, "Path", side_effect=guest_path), \
-                    mock.patch.object(guest.subprocess, "run", return_value=mock.Mock(stdout=b"12345678")):
+                    mock.patch.object(guest.subprocess, "run", return_value=mock.Mock(stdout=b"12345678")), \
+                    mock.patch.object(guest.time, "clock_settime", create=True), \
+                    mock.patch.object(guest.time, "CLOCK_REALTIME", 0, create=True):
                 with self.assertRaises(FileExistsError):
                     guest.launch(value, {})
             self.assertEqual(b"existing", credential.read_bytes())
@@ -91,10 +96,12 @@ class DesktopGuestTest(unittest.TestCase):
             prepare.verify_static_busybox(elf)
 
     def test_console_launch_is_typed_bounded_and_rejects_secret_shell_strings(self):
-        valid = {"command": "launch", "session": "a" * 32, "password": "Ab12_-cd", "width": 1280, "height": 720, "fps": 60}
+        valid = {"command": "launch", "session": "a" * 32, "password": "Ab12_-cd", "width": 1280, "height": 720, "fps": 60,
+                 "epochSeconds": 1791349200}
         self.assertEqual(valid, namespace["validate_launch"](valid))
         for key, value in (("password", "$(x)xxxx"), ("session", "../escape"), ("width", True),
-                           ("height", 4097), ("fps", 1000), ("extra", "x")):
+                           ("height", 4097), ("fps", 1000), ("extra", "x"), ("epochSeconds", True),
+                           ("epochSeconds", 1699999999), ("epochSeconds", 4102444801)):
             with self.subTest(key=key), self.assertRaises(ValueError):
                 namespace["validate_launch"]({**valid, key: value})
         with self.assertRaises(ValueError):

@@ -142,7 +142,8 @@ def run(args):
             def send(value):
                 process.stdin.write(json.dumps(value, separators=(",", ":")).encode("ascii") + b"\n")
                 process.stdin.flush()
-            send({"command": "launch", "session": token, "password": password, "width": 1280, "height": 720, "fps": 30})
+            send({"command": "launch", "session": token, "password": password, "width": 1280, "height": 720, "fps": 30,
+                  "epochSeconds": int(time.time())})
             storage.wait_line(process, capture, f"LINEX_VM_DESKTOP_READY session={token}", 60)
             connection = socket.create_connection(("127.0.0.1", port), timeout=30)
             width, height = authenticate(connection, password)

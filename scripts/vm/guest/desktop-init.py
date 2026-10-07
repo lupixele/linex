@@ -19,7 +19,7 @@ MAX_LINE = 512
 
 
 def validate_launch(value):
-    if not isinstance(value, dict) or set(value) != {"command", "session", "password", "width", "height", "fps"}:
+    if not isinstance(value, dict) or set(value) != {"command", "session", "password", "width", "height", "fps", "epochSeconds"}:
         raise ValueError("Invalid typed launch fields")
     if value["command"] != "launch" or not isinstance(value["session"], str) or not SESSION.fullmatch(value["session"]):
         raise ValueError("Invalid session token")
@@ -30,6 +30,9 @@ def validate_launch(value):
         raise ValueError("Desktop settings must be integers")
     if not 640 <= width <= 4096 or not 480 <= height <= 4096 or width * height > 8000000 or fps not in FPS:
         raise ValueError("Desktop setting exceeds bounds")
+    epoch = value["epochSeconds"]
+    if type(epoch) is not int or not 1700000000 <= epoch <= 4102444800:
+        raise ValueError("Guest clock must be a bounded host Unix timestamp")
     return value
 
 
@@ -89,6 +92,9 @@ def launch(value, environment):
     credential = Path("/run/linex/passwd")
     created = False
     try:
+        # The minimal kernel need not load a virtual RTC driver. Use the private
+        # app-supplied wall clock; HTTPS certificate time validation remains on.
+        time.clock_settime(time.CLOCK_REALTIME, value["epochSeconds"])
         secret = subprocess.run(nonroot(["tigervncpasswd", "-f"]),
             input=(value["password"] + "\n").encode("ascii"), capture_output=True, check=True, timeout=5).stdout
         if len(secret) != 8:
@@ -139,6 +145,8 @@ def main():
     run(["mount", "-t", "tmpfs", "-o", "mode=0755", "tmpfs", "/run"])
     Path("/dev/shm").mkdir(exist_ok=True)
     run(["mount", "-t", "tmpfs", "-o", "mode=1777", "tmpfs", "/dev/shm"])
+    Path("/tmp/.X11-unix").mkdir(mode=0o1777, exist_ok=True)
+    Path("/tmp/.X11-unix").chmod(0o1777)
     Path("/run/linex").mkdir(mode=0o700)
     os.chown("/run/linex", 1000, 1000)
     Path("/run/user/1000").mkdir(parents=True, mode=0o700)
