@@ -1,0 +1,32 @@
+name: VM disk persistence evidence
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  storage-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install disposable host image and boot tools
+        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm e2fsprogs python3
+      - name: Check archive, metadata and evidence parsers
+        run: python3 -m unittest discover -s scripts/vm -p 'test_storage_*.py'
+      - name: Build a private factory disk with guest inode ownership
+        run: |
+          mkdir -p dist/vm-storage-fixture dist/vm-storage-host-proof
+          sudo python3 scripts/vm/build-storage-fixture.py --output dist/vm-storage-fixture
+      - name: Prove four boots, nonroot persistence and crash recovery
+        run: python3 scripts/vm/test-storage.py --fixture dist/vm-storage-fixture --evidence dist/vm-storage-host-proof --timeout 180
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: vm-storage-host-evidence
+          path: |
+            dist/vm-storage-fixture/manifest.json
+            dist/vm-storage-host-proof
+          if-no-files-found: error
+          retention-days: 14
