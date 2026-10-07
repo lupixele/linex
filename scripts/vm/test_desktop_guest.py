@@ -30,6 +30,18 @@ with mock.patch.dict(sys.modules, {"termios": mock.Mock()}):
 
 
 class DesktopGuestTest(unittest.TestCase):
+    def test_control_marker_has_its_own_line_boundary_in_one_bounded_write(self):
+        marker = "LINEX_VM_DESKTOP_READY session=" + "a" * 32
+        with mock.patch.object(guest.os, "write", side_effect=lambda _, data: len(data)) as write:
+            guest.emit(marker)
+            write.assert_called_once_with(1, ("\n" + marker + "\n").encode("ascii"))
+            emitted = write.call_args.args[1]
+            mixed = b"VNC unfinished diagnostic prefix" + emitted + b"VNC laterdiagnostic\n"
+            self.assertIn(marker, mixed.decode().splitlines())
+        for invalid in ("foreign marker", "LINEX_VM_\nspoof", "LINEX_VM_" + "x" * 512):
+            with mock.patch.object(guest.os, "write") as write, self.assertRaises(ValueError):
+                guest.emit(invalid)
+            write.assert_not_called()
     def test_factory_empty_machine_identity_becomes_unique_and_persists_after_restart(self):
         with tempfile.TemporaryDirectory() as directory:
             first, second = Path(directory) / "first", Path(directory) / "second"

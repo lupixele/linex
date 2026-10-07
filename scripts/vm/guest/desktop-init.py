@@ -41,6 +41,19 @@ def run(command):
     subprocess.run(command, check=True, timeout=30)
 
 
+def emit(marker):
+    """Frame control lines independently of child diagnostics on the same tty."""
+    if not marker.startswith("LINEX_VM_") or "\n" in marker or "\r" in marker:
+        raise ValueError("Invalid guest control marker")
+    payload = ("\n" + marker + "\n").encode("ascii")
+    if len(payload) > MAX_LINE:
+        raise ValueError("Guest control marker exceeds bounds")
+    # One bounded write includes both line boundaries. Python print can split
+    # marker/newline across writes and append it to a child's partial log line.
+    if os.write(1, payload) != len(payload):
+        raise OSError("Short guest control marker write")
+
+
 def nonroot(command):
     return ["/usr/sbin/runuser", "-u", "linex", "--"] + command
 
@@ -114,7 +127,7 @@ def wait_display_ready(vnc):
                 last_errno = error.errno
                 last_failure = type(error).__name__
         time.sleep(0.1)
-    print(f"LINEX_VM_DESKTOP_DISPLAY_NOT_READY probeFailure={last_failure} probeErrno={last_errno} x11Socket={Path('/tmp/.X11-unix/X1').exists()}", flush=True)
+    emit(f"LINEX_VM_DESKTOP_DISPLAY_NOT_READY probeFailure={last_failure} probeErrno={last_errno} x11Socket={Path('/tmp/.X11-unix/X1').exists()}")
     raise RuntimeError("Guest display did not become ready before deadline")
 
 
@@ -190,20 +203,20 @@ def main():
     environment = {**os.environ, "HOME": "/home/linex", "USER": "linex", "LOGNAME": "linex",
                    "DISPLAY": ":1", "XDG_RUNTIME_DIR": "/run/user/1000"}
     children, session, buffered, dropping = [], None, bytearray(), False
-    print("LINEX_VM_DESKTOP_CONTROL_READY", flush=True)
+    emit("LINEX_VM_DESKTOP_CONTROL_READY")
     while True:
         for child in list(children):
             if child.poll() is not None:
-                print(f"LINEX_VM_DESKTOP_PROCESS_EXIT kind={child.linex_kind} code={child.returncode}", flush=True)
+                emit(f"LINEX_VM_DESKTOP_PROCESS_EXIT kind={child.linex_kind} code={child.returncode}")
                 if child.linex_kind == "firefox-proof" and child.returncode == 0:
                     screenshot = Path("/home/linex/browser-proof.png")
                     if screenshot.is_file() and screenshot.stat().st_uid == 1000 and screenshot.stat().st_size > 1024:
-                        print("LINEX_VM_DESKTOP_BROWSER_SCREENSHOT uid=1000", flush=True)
+                        emit("LINEX_VM_DESKTOP_BROWSER_SCREENSHOT uid=1000")
                 if child.linex_kind == "curl-proof" and child.returncode == 0:
                     page = Path("/home/linex/tls-proof.html")
                     if page.is_file() and page.stat().st_uid == 1000 and page.stat().st_size <= 65536 and \
                             b"Example Domain" in page.read_bytes():
-                        print("LINEX_VM_DESKTOP_HTTPS_VERIFIED uid=1000", flush=True)
+                        emit("LINEX_VM_DESKTOP_HTTPS_VERIFIED uid=1000")
                 children.remove(child)
         # Reap adopted grandchildren without competing with live Popen children.
         adopted = []
@@ -237,7 +250,7 @@ def main():
                 continue
             if dropping:
                 dropping = False
-                print("LINEX_VM_DESKTOP_CONTROL_REJECTED", flush=True)
+                emit("LINEX_VM_DESKTOP_CONTROL_REJECTED")
                 continue
             encoded, buffered = bytes(buffered), bytearray()
             try:
@@ -250,12 +263,12 @@ def main():
                         raise ValueError("Desktop already configured")
                     children.extend(launch(value, environment))
                     session = value["session"]
-                    print(f"LINEX_VM_DESKTOP_READY session={session}", flush=True)
+                    emit(f"LINEX_VM_DESKTOP_READY session={session}")
                 elif isinstance(request, dict) and request == {"command": "stop", "session": session} and session is not None:
                     stop_owned(children)
                     run(["sync"])
                     run(["mount", "-t", "ext4", "-o", "remount,ro", "/dev/vda", "/"])
-                    print("LINEX_VM_DESKTOP_CLEAN_STOP", flush=True)
+                    emit("LINEX_VM_DESKTOP_CLEAN_STOP")
                     run(["/bin/busybox", "poweroff", "-f"])
                 elif request == {"command": "proof", "session": session} and session is not None:
                     if any(child.linex_kind.endswith("-proof") for child in children):
@@ -272,12 +285,12 @@ def main():
                         child = subprocess.Popen(nonroot(command), env=environment, start_new_session=True)
                         child.linex_kind = kind
                         children.append(child)
-                    print("LINEX_VM_DESKTOP_PROOF_STARTED uid=1000", flush=True)
+                    emit("LINEX_VM_DESKTOP_PROOF_STARTED uid=1000")
                 else:
                     raise ValueError("Unsupported typed control command")
             except (ValueError, TypeError, AttributeError, subprocess.SubprocessError, OSError, RuntimeError):
                 # Never echo a rejected payload, credential or full subprocess argv.
-                print("LINEX_VM_DESKTOP_CONTROL_REJECTED", flush=True)
+                emit("LINEX_VM_DESKTOP_CONTROL_REJECTED")
 
 
 if __name__ == "__main__":
