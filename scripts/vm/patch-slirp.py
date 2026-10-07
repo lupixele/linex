@@ -32,6 +32,22 @@ def patch(source: Path, jni: Path) -> None:
     anchor = "    union {\n        struct {\n            struct in_addr ih_src;"
     replace(source, "src/tcpip.h", anchor,
             "    union {\n        uint64_t linex_header_alignment;\n        struct {\n            struct in_addr ih_src;")
+    # IPv6's wire IP/TCP headers are 60 bytes, versus IPv4's 40. A 72-byte
+    # overlay therefore needs a 12-byte prefix and can put its pointer queue
+    # four bytes off alignment. Move the packet within its existing reserved
+    # headroom before creating the overlay; preserve every wire byte and m_len.
+    anchor = "    ip = mtod(m, struct ip *);\n    ip6 = mtod(m, struct ip6 *);"
+    replace(source, "src/tcp_input.c", anchor,
+            "    if (af == AF_INET6) {\n"
+            "        const size_t linex_prefix = sizeof(struct tcpiphdr) -\n"
+            "            sizeof(struct ip6) - sizeof(struct tcphdr);\n"
+            "        const size_t linex_shift = ((uintptr_t)m->m_data -\n"
+            "            linex_prefix - sizeof(struct qlink)) % _Alignof(struct qlink);\n"
+            "        g_assert(M_ROOMBEFORE(m) >= linex_shift + linex_prefix + sizeof(struct qlink));\n"
+            "        if (linex_shift) {\n"
+            "            memmove(m->m_data - linex_shift, m->m_data, m->m_len);\n"
+            "            m->m_data -= linex_shift;\n"
+            "        }\n    }\n\n" + anchor)
     # Checksum validation and reassembly precede this interception. The original
     # packet remains owned/freed by udp_input; only bounded bytes are copied.
     anchor = "    lhost.ss_family = AF_INET;"
@@ -58,6 +74,29 @@ def patch(source: Path, jni: Path) -> None:
     anchor = "static bool sotranslate_out4(Slirp *s, struct socket *so, struct sockaddr_in *sin)\n{"
     replace(source, "src/socket.c", anchor,
             anchor + "\n    if (s->linex_dns && so->so_faddr.s_addr == s->vnameserver_addr.s_addr) {\n        return false;\n    }")
+    # The upstream option blocks the translated gateway, but raw guest NIC
+    # traffic could otherwise address host loopback directly. Keep this guard
+    # conditional so historical fixtures retain their intentional loopback.
+    replace(source, "src/socket.c", anchor,
+            anchor + "\n    if (s->disable_host_loopback &&\n"
+            "        (so->so_faddr.s_addr == INADDR_ANY ||\n"
+            "         (ntohl(so->so_faddr.s_addr) >> 24) == 127)) {\n"
+            "        return false;\n    }")
+    anchor6 = "static bool sotranslate_out6(Slirp *s, struct socket *so, struct sockaddr_in6 *sin)\n{"
+    replace(source, "src/socket.c", anchor6,
+            anchor6 + "\n    const uint8_t *linex_address = so->so_faddr6.s6_addr;\n"
+            "    if (s->disable_host_loopback &&\n"
+            "        (IN6_IS_ADDR_UNSPECIFIED(&so->so_faddr6) ||\n"
+            "         IN6_IS_ADDR_LOOPBACK(&so->so_faddr6) ||\n"
+            "         (IN6_IS_ADDR_V4MAPPED(&so->so_faddr6) &&\n"
+            "          (linex_address[12] == 127 ||\n"
+            "           !(linex_address[12] | linex_address[13] |\n"
+            "             linex_address[14] | linex_address[15]))))) {\n"
+            "        return false;\n    }")
+    # Isolation rejection exercises ICMP errors. Upstream constructs this
+    # network mask with an overflowing signed shift; use the identical unsigned
+    # bits rather than weakening the UBSan gate for this previously unused path.
+    replace(source, "src/ip_icmp.c", "htonl(~(0xf << 28))", "htonl(~(0xfu << 28))")
     names = ["linex_dns.c", "linex_dns.h", "linex_slirp_dns.c", "linex_slirp_dns.h"]
     for name in names:
         if not (jni / name).is_file():

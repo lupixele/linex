@@ -4,9 +4,37 @@ from pathlib import Path
 import shutil
 
 
+def host_loopback_updates(source: Path) -> dict[Path, str]:
+    """Prepare the production policy without altering omitted-option fixtures."""
+    updates = {}
+
+    def replace(relative: str, anchor: str, replacement: str) -> None:
+        path = source / relative
+        content = updates[path] if path in updates else path.read_text()
+        if content.count(anchor) != 1:
+            raise ValueError("QEMU host loopback policy anchor changed: " + relative)
+        updates[path] = content.replace(anchor, replacement)
+
+    replace("qapi/net.json", "# @restrict: isolate the guest from the host\n#\n",
+            "# @restrict: isolate the guest from the host\n#\n"
+            "# @linex-host-loopback: private Linex policy permitting host loopback\n"
+            "#     access; omission preserves historical access (since 11.0)\n#\n")
+    replace("qapi/net.json", "    '*restrict':  'bool',",
+            "    '*restrict':  'bool',\n    '*linex-host-loopback': 'bool',")
+    replace("net/slirp.c", "                          const char *tftp_server_name,\n                          Error **errp)",
+            "                          const char *tftp_server_name,\n                          bool host_loopback, Error **errp)")
+    replace("net/slirp.c", "    cfg.restricted = restricted;",
+            "    cfg.disable_host_loopback = !host_loopback;\n    cfg.restricted = restricted;")
+    replace("net/slirp.c", "                         user->tftp_server_name, errp);",
+            "                         user->tftp_server_name,\n"
+            "                         !user->has_linex_host_loopback || user->linex_host_loopback, errp);")
+    return updates
+
+
 def patch(source: Path, shim: Path) -> None:
     if (source / "VERSION").read_text().strip() != "11.0.3":
         raise ValueError("Embedding patch requires QEMU 11.0.3")
+    loopback_updates = host_loopback_updates(source)
     meson = source / "meson.build"
     content = meson.read_text()
     anchor = "  if target.endswith('-softmmu')\n    execs = [{"
@@ -58,7 +86,7 @@ def patch(source: Path, shim: Path) -> None:
     shutil.copyfile(shim.parent / 'linex_dns_transport.h', source / 'net/linex_dns_transport.h')
     shutil.copyfile(shim.parent / 'linex_slirp.inc', source / 'net/linex_slirp.inc')
     slirp = source / 'net/slirp.c'
-    content = slirp.read_text()
+    content = loopback_updates[slirp]
     replacements = [
         ('#include <libslirp.h>', '#include <libslirp.h>\n#include <linex_slirp_dns.h>\n#include "linex_dns_transport.h"\n#include "qemu/main-loop.h"'),
         ('    GSList *fwd;\n} SlirpState;', '''    GSList *fwd;
@@ -78,6 +106,7 @@ def patch(source: Path, shim: Path) -> None:
         if content.count(anchor) != 1:
             raise ValueError('QEMU main-loop networking anchor changed')
         content = content.replace(anchor, replacement)
+    (source / "qapi/net.json").write_text(loopback_updates[source / "qapi/net.json"])
     slirp.write_text(content)
     # Bionic has no POSIX shm declarations. These backends deliberately return
     # ENOTSUP in the shim; the managed launch always uses anonymous guest RAM.

@@ -33,3 +33,8 @@ gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-
   "$VM_ROOT/scripts/vm/test_native_slirp_dns.c" "$VM_WORK/build/libslirp.a" \
   $(pkg-config --libs glib-2.0) -o "$VM_WORK/linex-slirp-dns"
 ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 "$VM_WORK/linex-slirp-dns"
+gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -g \
+  -I"$VM_WORK/source/src" -I"$VM_WORK/build" $(pkg-config --cflags glib-2.0) \
+  "$VM_ROOT/scripts/vm/test_native_slirp_loopback.c" "$VM_WORK/build/libslirp.a" \
+  $(pkg-config --libs glib-2.0) -o "$VM_WORK/linex-slirp-loopback"
+ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 "$VM_WORK/linex-slirp-loopback"
