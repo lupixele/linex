@@ -17,3 +17,4 @@ rootProject.name = "Linex"
 include(":app")
 include(":vm-engine")
 include(":vm-console")
+include(":vm-images")
