@@ -58,6 +58,25 @@ def patch(source: Path, jni: Path) -> None:
     anchor = "static bool sotranslate_out4(Slirp *s, struct socket *so, struct sockaddr_in *sin)\n{"
     replace(source, "src/socket.c", anchor,
             anchor + "\n    if (s->linex_dns && so->so_faddr.s_addr == s->vnameserver_addr.s_addr) {\n        return false;\n    }")
+    # The upstream option blocks the translated gateway, but raw guest NIC
+    # traffic could otherwise address host loopback directly. Keep this guard
+    # conditional so historical fixtures retain their intentional loopback.
+    replace(source, "src/socket.c", anchor,
+            anchor + "\n    if (s->disable_host_loopback &&\n"
+            "        (so->so_faddr.s_addr == INADDR_ANY ||\n"
+            "         (ntohl(so->so_faddr.s_addr) >> 24) == 127)) {\n"
+            "        return false;\n    }")
+    anchor6 = "static bool sotranslate_out6(Slirp *s, struct socket *so, struct sockaddr_in6 *sin)\n{"
+    replace(source, "src/socket.c", anchor6,
+            anchor6 + "\n    const uint8_t *linex_address = so->so_faddr6.s6_addr;\n"
+            "    if (s->disable_host_loopback &&\n"
+            "        (IN6_IS_ADDR_UNSPECIFIED(&so->so_faddr6) ||\n"
+            "         IN6_IS_ADDR_LOOPBACK(&so->so_faddr6) ||\n"
+            "         (IN6_IS_ADDR_V4MAPPED(&so->so_faddr6) &&\n"
+            "          (linex_address[12] == 127 ||\n"
+            "           !(linex_address[12] | linex_address[13] |\n"
+            "             linex_address[14] | linex_address[15]))))) {\n"
+            "        return false;\n    }")
     names = ["linex_dns.c", "linex_dns.h", "linex_slirp_dns.c", "linex_slirp_dns.h"]
     for name in names:
         if not (jni / name).is_file():
