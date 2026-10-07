@@ -30,6 +30,23 @@ with mock.patch.dict(sys.modules, {"termios": mock.Mock()}):
 
 
 class DesktopGuestTest(unittest.TestCase):
+    def test_factory_empty_machine_identity_becomes_unique_and_persists_after_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            first, second = Path(directory) / "first", Path(directory) / "second"
+            first.write_bytes(b"")
+            guest.ensure_machine_identity(first)
+            original = first.read_bytes()
+            self.assertRegex(original.decode(), r"^[a-f0-9]{32}\n$")
+            guest.ensure_machine_identity(first)
+            self.assertEqual(original, first.read_bytes())
+            guest.ensure_machine_identity(second)
+            self.assertNotEqual(original, second.read_bytes())
+            first.chmod(0o644)
+            second.chmod(0o644)
+            first.write_bytes(b"invalid persistent identity")
+            with self.assertRaises(ValueError):
+                guest.ensure_machine_identity(first)
+
     def test_failed_launch_removes_only_fresh_credential_and_reaps_owned_child(self):
         value = {"width": 1280, "height": 720, "fps": 30, "password": "Ab12_-cd"}
         with tempfile.TemporaryDirectory() as directory:

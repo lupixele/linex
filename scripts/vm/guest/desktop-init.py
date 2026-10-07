@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 import select
 import signal
+import secrets
+import stat
 import subprocess
 import termios
 import time
@@ -37,6 +39,31 @@ def run(command):
 
 def nonroot(command):
     return ["/usr/sbin/runuser", "-u", "linex", "--"] + command
+
+
+def ensure_machine_identity(path):
+    if path.is_symlink():
+        raise ValueError("Unsafe guest machine identity")
+    if path.exists():
+        if not stat.S_ISREG(path.stat().st_mode) or path.stat().st_size > 33:
+            raise ValueError("Invalid guest machine identity file")
+        current = path.read_bytes()
+        if current:
+            if not re.fullmatch(b"[a-f0-9]{32}\n?", current):
+                raise ValueError("Invalid persistent guest machine identity")
+            return
+    # dbus-uuidgen --ensure does not replace a factory's intentionally empty file.
+    # Guest root alone executes this before any guest service/user process starts.
+    identifier = secrets.token_hex(16).encode("ascii") + b"\n"
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC |
+                         getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0), 0o444)
+    try:
+        if os.write(descriptor, identifier) != len(identifier):
+            raise OSError("Short guest identity write")
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    path.chmod(0o444)
 
 
 def stop_owned(children):
@@ -117,7 +144,7 @@ def main():
     Path("/run/user/1000").mkdir(parents=True, mode=0o700)
     os.chown("/run/user/1000", 1000, 1000)
     Path("/run/dbus").mkdir()
-    run(["dbus-uuidgen", "--ensure=/etc/machine-id"])
+    ensure_machine_identity(Path("/etc/machine-id"))
     run(["dbus-daemon", "--system", "--fork", "--nopidfile"])
     run(["/bin/busybox", "ifconfig", "eth0", "up"])
     run(["/bin/busybox", "udhcpc", "-i", "eth0", "-q", "-n", "-t", "5", "-T", "2", "-s", "/linex-dhcp"])
