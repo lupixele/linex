@@ -23,6 +23,7 @@ class VmEngineClient(private val binder: IBinder, private val privateRoot: File)
     private val exited = CountDownLatch(1)
     private var sessionToken: String? = null
     private var ownedSocket: File? = null
+    private var ownedConsole: VmConsoleEndpoint? = null
     private val deathRecipient = IBinder.DeathRecipient { exited.countDown() }
 
     init { binder.linkToDeath(deathRecipient, 0) }
@@ -50,6 +51,35 @@ class VmEngineClient(private val binder: IBinder, private val privateRoot: File)
         val expected = File(privateRoot.canonicalFile, "session-${request.sessionToken}/qmp.sock")
         check(launch.qmpSocket.canonicalFile == expected) { "Unexpected VM control endpoint" }
         ownedSocket = expected
+        return launch
+    }
+
+    /** privateRoot is filesDir for desktop launches, rather than the fixture vm-proof directory. */
+    @Synchronized fun startDesktop(request: VmDesktopBootRequest): VmDesktopLaunch {
+        check(sessionToken == null) { "This VM client already owns a launch" }
+        val launch = transact(NativeVmService.START_DESKTOP, { data ->
+            data.writeString(request.sessionToken)
+            data.writeString(request.instanceId)
+            data.writeString(request.kernelPath)
+            data.writeString(request.kernelSha256)
+            data.writeString(request.initramfsPath)
+            data.writeString(request.initramfsSha256)
+            data.writeString(request.diskPath)
+            data.writeLong(request.diskBytes)
+            data.writeString(request.serialPath)
+            data.writeInt(request.memoryMiB)
+            data.writeInt(request.vcpuCount)
+        }) { reply ->
+            val pid = reply.readInt()
+            val generation = requireNotNull(reply.readString())
+            val socket = File(requireNotNull(reply.readString()))
+            val qmp = File(requireNotNull(reply.readString()))
+            val expected = VmConsoleEndpoint.create(privateRoot, generation)
+            check(pid > 0 && socket == expected.socket && qmp == expected.qmpSocket) { "Unexpected desktop VM endpoints" }
+            VmDesktopLaunch(pid, expected)
+        }
+        sessionToken = request.sessionToken
+        ownedConsole = launch.console
         return launch
     }
 
@@ -104,6 +134,14 @@ class VmEngineClient(private val binder: IBinder, private val privateRoot: File)
             if (socket.parentFile?.canonicalFile == expectedParent && socket.name == "qmp.sock") {
                 runCatching { socket.delete() }
                 runCatching { expectedParent.delete() }
+            }
+        }
+        if (!binder.isBinderAlive) ownedConsole?.let { console ->
+            val expected = VmConsoleEndpoint.create(privateRoot, console.generation)
+            if (console == expected) {
+                runCatching { console.socket.delete() }
+                runCatching { console.qmpSocket.delete() }
+                runCatching { console.socket.parentFile?.delete() }
             }
         }
     }
