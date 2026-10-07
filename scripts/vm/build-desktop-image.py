@@ -23,7 +23,7 @@ KEYS = (
 PACKAGES = (
     "busybox-static", "ca-certificates", "curl", "dbus", "dbus-x11", "e2fsprogs",
     "firefox-esr", "fonts-dejavu-core", "iproute2", "libavcodec61", "procps", "python3", "util-linux",
-    "tigervnc-standalone-server", "tigervnc-tools", "xfce4", "xfce4-terminal",
+    "tigervnc-standalone-server", "tigervnc-tools", "xfce4", "xfce4-terminal", "x11-utils",
 )
 BROWSER_MINIMUM = "153.4.0esr"
 MAX_LOG_BYTES = 24 * 1024 * 1024

@@ -6,28 +6,46 @@ permissions:
 jobs:
   desktop-provision:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Install native ARM image provisioning tools
-        run: sudo apt-get update && sudo apt-get install --yes debootstrap gnupg ca-certificates e2fsprogs xz-utils
+        run: sudo apt-get update && sudo apt-get install --yes debootstrap gnupg ca-certificates e2fsprogs xz-utils qemu-system-arm python3-pycryptodome
       - name: Check package identity and private output boundaries
-        run: python3 -m unittest discover -s scripts/vm -p 'test_desktop_builder.py'
+        run: python3 -m unittest discover -s scripts/vm -p 'test_desktop_*.py'
       - name: Provision the authenticated desktop package closure
         run: |
           mkdir -p dist
           sudo python3 scripts/vm/build-desktop-image.py --output dist/vm-desktop-packages
+      - name: Assemble the authenticated factory disk
+        run: sudo python3 scripts/vm/prepare-desktop-image.py --provisioned dist/vm-desktop-packages --output dist/vm-desktop-image
+      - name: Prove actual guest desktop, input and browser over host-only loopback TCP
+        run: sudo /usr/bin/python3 scripts/vm/test-desktop-image.py --image dist/vm-desktop-image --evidence dist/vm-desktop-host-proof --timeout 300
       - name: Package bounded provisioning evidence for the runner user
         if: always()
         run: |
           mkdir -p dist/vm-desktop-evidence
           sudo find dist/vm-desktop-packages -maxdepth 1 -name '*.json' -exec cp -- '{}' dist/vm-desktop-evidence/ ';'
           sudo cp -a dist/vm-desktop-packages/evidence dist/vm-desktop-evidence/ || true
+          sudo cp -a dist/vm-desktop-host-proof dist/vm-desktop-evidence/ || true
           sudo chown -R "$(id -u):$(id -g)" dist/vm-desktop-evidence
+      - name: Expose only immutable factory download assets to the artifact runner
+        if: success()
+        run: |
+          mkdir -p dist/vm-desktop-artifact
+          sudo cp -- dist/vm-desktop-image/kernel dist/vm-desktop-image/desktop.cpio.gz dist/vm-desktop-image/factory.raw.xz dist/vm-desktop-image/manifest.json dist/vm-desktop-image/desktop-image-lock.json dist/vm-desktop-artifact/
+          sudo chown -R "$(id -u):$(id -g)" dist/vm-desktop-artifact
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: vm-desktop-provision-evidence
           path: dist/vm-desktop-evidence
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: success()
+        with:
+          name: vm-desktop-factory-candidate
+          path: dist/vm-desktop-artifact
           if-no-files-found: error
           retention-days: 14
