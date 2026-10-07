@@ -16,3 +16,17 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/test-scratch/linex-native-dns
           gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -g -Ivm-engine/src/main/jni vm-engine/src/main/jni/linex_dns_transport.c scripts/vm/test_native_dns_transport.c -o build/test-scratch/linex-native-dns-transport
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/test-scratch/linex-native-dns-transport
+  actual-slirp-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build and exercise the patched pinned network stack
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev ninja-build pkg-config python3-venv gcc
+          python3 -m venv "$RUNNER_TEMP/vm-build-tools"
+          "$RUNNER_TEMP/vm-build-tools/bin/pip" install --only-binary=:all: --require-hashes -r scripts/vm/build-tools.txt
+          export PATH="$RUNNER_TEMP/vm-build-tools/bin:$PATH"
+          python3 -m unittest discover -s scripts/vm -p 'test_slirp_patch.py'
+          bash scripts/vm/test-slirp-dns.sh
