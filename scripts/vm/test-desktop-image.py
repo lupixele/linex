@@ -32,7 +32,7 @@ def receive(connection, count):
 
 
 def authenticate(connection, password):
-    from Crypto.Cipher import DES  # Genuine distro python3-pycryptodome on host CI only.
+    from Cryptodome.Cipher import DES  # Debian/Ubuntu python3-pycryptodome namespace, host CI only.
     version = receive(connection, 12)
     if version != b"RFB 003.008\n":
         raise ValueError("Expected TigerVNC RFB3.8")
