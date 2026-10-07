@@ -19,6 +19,11 @@ import com.linex.app.core.ProcessController
 import com.linex.app.core.SetupStatus
 import com.linex.app.core.SetupTask
 import com.linex.app.core.StorageEngine
+import com.linex.app.core.SessionCoordinator
+import com.linex.app.core.VmImageCatalogue
+import com.linex.app.data.InstanceRuntime
+import com.linex.vm.images.VmImageInstaller
+import kotlinx.coroutines.flow.update
 import com.linex.app.data.ContainerState
 import com.linex.app.data.InstanceRepository
 import com.linex.app.data.LinuxInstance
@@ -48,6 +53,12 @@ class LinuxContainerService : Service() {
         private set
     lateinit var containerManager: ContainerManager
         private set
+    lateinit var sessions: SessionCoordinator
+        private set
+    lateinit var vmImages: VmImageInstaller
+        private set
+    private val readyVms = MutableStateFlow<Set<String>>(emptySet())
+    val vmReadyInstances: StateFlow<Set<String>> = readyVms.asStateFlow()
 
     inner class LocalBinder : Binder() {
         fun getService(): LinuxContainerService = this@LinuxContainerService
@@ -58,6 +69,18 @@ class LinuxContainerService : Service() {
         storageEngine = StorageEngine(this)
         processController = ProcessController()
         containerManager = ContainerManager(this, storageEngine, processController)
+        vmImages = VmImageInstaller(filesDir)
+        sessions = SessionCoordinator(this, containerManager, vmImages)
+        serviceScope.launch(Dispatchers.IO) {
+            runCatching {
+                InstanceRepository(this@LinuxContainerService).loadInstances()
+                    .filter { it.runtime == InstanceRuntime.FULL_VM }.forEach { instance ->
+                        runCatching { vmImages.readInstalled(instance.id) }.getOrNull()?.let {
+                            readyVms.update { ready -> ready + instance.id }
+                        }
+                    }
+            }.onFailure { AppLogger.log("VirtualMachine", "Could not inspect installed VM images: ${it.message}") }
+        }
         wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Linex:BackgroundOperation")
             .apply { setReferenceCounted(false) }
@@ -79,7 +102,12 @@ class LinuxContainerService : Service() {
 
     fun startSetup(instance: LinuxInstance) {
         startOperation(instance, "setup", "Preparing setup") {
-            containerManager.rootfsDownloader.downloadWithProgress(instance.id, instance.distro.rootfsDownloadUrl)
+            if (instance.runtime == InstanceRuntime.FULL_VM) {
+                val image = requireNotNull(VmImageCatalogue.current(this@LinuxContainerService)) { "This build has no validated VM image catalogue" }
+                require(image.imageId == instance.vmImageId) { "Requested VM image is not available in this release" }
+                vmImages.install(instance.id, image, vmProgressReporter())
+                readyVms.update { it + instance.id }
+            } else containerManager.rootfsDownloader.downloadWithProgress(instance.id, instance.distro.rootfsDownloadUrl)
                 .collect { progress ->
                     updateProgress(progress.fraction, progress.message, progress.stage)
                 }
@@ -87,26 +115,58 @@ class LinuxContainerService : Service() {
     }
 
     fun startClone(source: LinuxInstance, newInstance: LinuxInstance) {
-        check(containerManager.getInstanceState(source.id) == ContainerState.STOPPED) { "Stop the instance before copying it" }
         startOperation(source, "clone", "Copying instance") {
+            sessions.withStoppedInstance(source.id) {
             val operationStarted = mutableSetup.value!!.startedAtMillis
-            storageEngine.cloneInstance(source.id, newInstance.id, onDetail = { count ->
+            if (source.runtime == InstanceRuntime.FULL_VM) {
+                require(newInstance.runtime == source.runtime && newInstance.vmImageId == source.vmImageId)
+                vmImages.clone(source.id, newInstance.id, vmProgressReporter())
+                readyVms.update { it + newInstance.id }
+            } else storageEngine.cloneInstance(source.id, newInstance.id, onDetail = { count ->
                 reportFileProgress(source.id, operationStarted, "Copied $count files", "Copying instance")
             }, onProgress = { })
             val repository = InstanceRepository(this@LinuxContainerService)
             repository.upsertInstance(newInstance)
+            }
         }
     }
 
     fun startDelete(instance: LinuxInstance) {
-        check(containerManager.getInstanceState(instance.id) == ContainerState.STOPPED) { "Stop the instance before deleting it" }
         startOperation(instance, "delete", "Deleting instance") {
+            sessions.withStoppedInstance(instance.id) {
             val operationStarted = mutableSetup.value!!.startedAtMillis
-            storageEngine.deleteInstance(instance.id) { count ->
+            if (instance.runtime == InstanceRuntime.FULL_VM) {
+                vmImages.delete(instance.id, vmProgressReporter())
+                readyVms.update { it - instance.id }
+            } else storageEngine.deleteInstance(instance.id) { count ->
                 reportFileProgress(instance.id, operationStarted, "Deleted $count entries", "Deleting instance")
             }
             val repository = InstanceRepository(this@LinuxContainerService)
             repository.removeInstance(instance.id)
+            }
+        }
+    }
+
+    private fun vmProgressReporter(): (com.linex.vm.images.VmInstallProgress) -> Unit {
+        var lastProgress = 0L
+        var lastStage = ""
+        return { progress ->
+            val stage = when (progress.stage) {
+                com.linex.vm.images.VmInstallStage.PREPARE -> "Preparing virtual machine"
+                com.linex.vm.images.VmInstallStage.DOWNLOAD_KERNEL -> "Downloading Linux kernel"
+                com.linex.vm.images.VmInstallStage.DOWNLOAD_INITRAMFS -> "Downloading boot files"
+                com.linex.vm.images.VmInstallStage.DOWNLOAD_DISK -> "Downloading desktop image"
+                com.linex.vm.images.VmInstallStage.EXPAND_DISK -> "Preparing instance disk"
+                com.linex.vm.images.VmInstallStage.VERIFY -> "Verifying instance disk"
+                com.linex.vm.images.VmInstallStage.READY -> "Virtual machine ready"
+                com.linex.vm.images.VmInstallStage.CLONE_DISK -> "Copying virtual machine"
+                com.linex.vm.images.VmInstallStage.DELETE -> "Deleting virtual machine"
+            }
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (stage != lastStage || now - lastProgress >= 250 || progress.completedBytes == progress.totalBytes) {
+                lastStage = stage; lastProgress = now
+                updateProgress(progress.fraction, "$stage · ${progress.completedBytes / 1048576} / ${progress.totalBytes / 1048576} MiB", stage)
+            }
         }
     }
 
@@ -170,8 +230,8 @@ class LinuxContainerService : Service() {
     }
 
     private fun updateProgress(fraction: Float, message: String, stage: String) {
-        mutableSetup.value = mutableSetup.value?.copy(fraction = fraction, message = message, stage = stage,
-            lastProgressAtMillis = System.currentTimeMillis())
+        mutableSetup.update { task -> if (task?.status == SetupStatus.RUNNING) task.copy(fraction = fraction, message = message, stage = stage,
+            lastProgressAtMillis = System.currentTimeMillis()) else task }
         publishNotification()
     }
 
@@ -252,7 +312,7 @@ class LinuxContainerService : Service() {
         destroying = true
         workOwner.close()
         if (wakeLock?.isHeld == true) wakeLock?.release()
-        containerManager.stopActiveInstance()
+        sessions.close()
         super.onDestroy()
     }
 

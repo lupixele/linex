@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat
 import com.linex.app.core.AppLogger
 import com.linex.app.core.SetupTask
 import com.linex.app.core.SetupStatus
+import com.linex.app.core.VmImageCatalogue
 import com.linex.app.data.*
 import com.linex.app.service.LinuxContainerService
 import com.linex.app.ui.hub.HubScreen
@@ -72,9 +73,12 @@ class MainActivity : ComponentActivity() {
                 var sessionId by remember { mutableStateOf<String?>(null) }
 
                 val snackbar = remember { SnackbarHostState() }
-                val manager = containerService?.containerManager
+                val manager = containerService?.sessions
                 val emptyStates = remember { MutableStateFlow<Map<String, ContainerState>>(emptyMap()) }
                 val emptySetup = remember { MutableStateFlow<SetupTask?>(null) }
+                val emptyVmReady = remember { MutableStateFlow<Set<String>>(emptySet()) }
+                val vmReady by (containerService?.vmReadyInstances ?: emptyVmReady).collectAsState()
+                val vmImageId = remember(containerService) { runCatching { VmImageCatalogue.current(applicationContext)?.imageId }.getOrNull() }
                 val setupTask by (containerService?.setupState ?: emptySetup).collectAsState()
                 val operationRunning = setupTask?.status == SetupStatus.RUNNING
                 val states by (manager?.currentState ?: emptyStates).collectAsState()
@@ -133,7 +137,7 @@ class MainActivity : ComponentActivity() {
                 }
                 LaunchedEffect(sessionId, states) {
                     val id = sessionId
-                    if (id != null && states[id] == ContainerState.STOPPED) {
+                    if (id != null && states[id] == ContainerState.STOPPED && manager?.getInstanceState(id) == ContainerState.STOPPED) {
                         sessionId = null
                         snackbar.showSnackbar("Session ended. Open this instance's Logs for details.")
                     }
@@ -153,15 +157,24 @@ class MainActivity : ComponentActivity() {
                             instance = session,
                             endpoint = manager?.getDisplayEndpoint(session.id),
                             processGroup = manager?.getProcessGroup(session.id),
+                            vmProcessId = manager?.getVmProcessId(session.id),
                             onSuspend = {
+                                scope.launch {
                                 if (manager?.suspendActiveInstance() == true) sessionId = null
                                 else message("Could not pause the session. See instance logs.")
+                                }
                             },
-                            onShutdown = { manager?.stopActiveInstance(); sessionId = null },
+                            onShutdown = { scope.launch {
+                                if (manager?.stopActiveInstance() == true) sessionId = null
+                                else message("Shutdown is not confirmed. See instance logs and retry stopping.")
+                            } },
                             onRestart = {
-                                manager?.stopActiveInstance()
-                                sessionId = null
-                                launch(session, restart = true)
+                                scope.launch {
+                                    if (manager?.stopActiveInstance() == true) {
+                                        sessionId = null
+                                        launch(session, restart = true)
+                                    } else message("Could not restart because shutdown is not confirmed.")
+                                }
                             },
                             onDetach = { sessionId = null }
                         )
@@ -169,6 +182,11 @@ class MainActivity : ComponentActivity() {
                         HubScreen(
                             instances = visibleInstances,
                             storageEngine = containerService?.storageEngine,
+                            availableVmImageId = vmImageId,
+                            isInstanceInitialized = { instance ->
+                                if (instance.runtime == InstanceRuntime.FULL_VM) instance.id in vmReady
+                                else containerService?.storageEngine?.isInstanceInitialized(instance.id) == true
+                            },
                             setupTask = setupTask,
                             progressRequest = progressRequest,
                             onStartSetup = { instance ->
@@ -186,9 +204,13 @@ class MainActivity : ComponentActivity() {
                             onClearSetup = { containerService?.clearSetup(it) },
                             onLaunchInstance = { launch(it) },
                             onSuspendInstance = {
+                                scope.launch {
                                 if (manager?.suspendActiveInstance() != true) message("Could not pause the session.")
+                                }
                             },
-                            onStopInstance = { manager?.stopActiveInstance() },
+                            onStopInstance = { scope.launch {
+                                if (manager?.stopActiveInstance() != true) message("Shutdown is not confirmed. See instance logs.")
+                            } },
                             onCloneInstance = { source ->
                                 val clone = source.copy(id = UUID.randomUUID().toString(), name = "${source.name} (Copy)", state = ContainerState.STOPPED)
                                 containerService?.startClone(source, clone)
