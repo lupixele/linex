@@ -14,12 +14,11 @@ int linex_dns_dup_endpoint(int borrowed_fd, int64_t generation)
     if (borrowed_fd == -1 && generation == 0) return -1;
     if (borrowed_fd < 0 || generation <= 0) return -2;
     int flags = fcntl(borrowed_fd, F_GETFL);
-    int fdflags = fcntl(borrowed_fd, F_GETFD);
     int type = 0;
     socklen_t size = sizeof(type);
     struct sockaddr_un local = {0}, peer = {0};
     socklen_t local_size = sizeof(local), peer_size = sizeof(peer);
-    if (flags < 0 || !(flags & O_NONBLOCK) || fdflags < 0 || !(fdflags & FD_CLOEXEC) ||
+    if (flags < 0 || !(flags & O_NONBLOCK) ||
         getsockopt(borrowed_fd, SOL_SOCKET, SO_TYPE, &type, &size) ||
         size != sizeof(type) || type != SOCK_SEQPACKET ||
         getsockname(borrowed_fd, (struct sockaddr *)&local, &local_size) ||

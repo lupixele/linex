@@ -24,7 +24,12 @@ int main(void)
     assert(send(pair[0], request, sizeof(request), 0) == sizeof(request));
     assert(recv(pair[1], answer, sizeof(answer), 0) == sizeof(request));
     assert(fcntl(pair[0], F_SETFD, 0) == 0);
-    assert(linex_dns_dup_endpoint(pair[0], 1) == -2);
+    /* Android API26-28 ParcelFileDescriptor.dup uses F_DUPFD; the borrowed
+     * copy may lack CLOEXEC. Native always establishes it on its owned copy. */
+    duplicate = linex_dns_dup_endpoint(pair[0], 1);
+    assert(duplicate >= 0 && (fcntl(duplicate, F_GETFD) & FD_CLOEXEC));
+    assert(!(fcntl(pair[0], F_GETFD) & FD_CLOEXEC));
+    close(duplicate);
     assert(fcntl(pair[0], F_SETFD, FD_CLOEXEC) == 0);
     assert(fcntl(pair[0], F_SETFL, 0) == 0);
     assert(linex_dns_dup_endpoint(pair[0], 1) == -2);

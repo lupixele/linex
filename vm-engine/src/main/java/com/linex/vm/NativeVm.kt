@@ -15,6 +15,10 @@ object NativeVm {
         }
     }
 
-    /** Blocks the worker until genuine emulator termination; never starts another executable. */
-    @JvmStatic external fun run(arguments: Array<String>): Int
+    /**
+     * Blocks until emulator termination. DNS is (-1,0) when disabled; otherwise
+     * JNI borrows this descriptor and duplicates it with F_DUPFD_CLOEXEC.
+     * It closes only its own duplicate, never the service's scoped descriptor.
+     */
+    @JvmStatic external fun run(arguments: Array<String>, borrowedDnsFd: Int, generation: Long): Int
 }

@@ -147,6 +147,7 @@ ninja -C "$VM_WORK/glib-build" -j"$VM_JOBS" install
 # Build only the PIC library target. Upstream's -Dstatic option is intended
 # for standalone static test executables; default_library=static is the
 # Android archive setting. The isolated pkg-config path resolves our GLib.
+python3 "$VM_ROOT/scripts/vm/patch-slirp.py" --source "$VM_WORK/src/libslirp" --jni "$VM_ROOT/vm-engine/src/main/jni"
 meson setup "$VM_WORK/slirp-build" "$VM_WORK/src/libslirp" --cross-file "$VM_WORK/android.ini" \
   --prefix "$VM_PREFIX" --libdir lib --wrap-mode=nodownload \
   -Ddefault_library=static -Db_staticpic=true -Dprefer_static=true

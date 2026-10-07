@@ -15,7 +15,7 @@ def patch(source: Path, shim: Path) -> None:
     # Use the exact same per-target object graph and dependencies as the actual
     # emulator; exclude system/main.c's executable main(). No ELF conversion.
     addition = """  if target == 'aarch64-softmmu'
-    shared_library('linex_qemu_aarch64', files('system/linex_jni.c'),
+    shared_library('linex_qemu_aarch64', files('system/linex_jni.c', 'system/linex_dns_transport.c'),
       dependencies: arch_deps,
       objects: lib.extract_all_objects(recursive: true),
       include_directories: target_inc,
@@ -53,6 +53,32 @@ def patch(source: Path, shim: Path) -> None:
         "fdt = cc.find_library('fdt', dirs: [get_option('prefix') / 'lib'], required: fdt_opt == 'system')")
     meson.write_text(content)
     shutil.copyfile(shim, source / "system/linex_jni.c")
+    for name in ('linex_dns_transport.c', 'linex_dns_transport.h'):
+        shutil.copyfile(shim.parent / name, source / 'system' / name)
+    shutil.copyfile(shim.parent / 'linex_dns_transport.h', source / 'net/linex_dns_transport.h')
+    shutil.copyfile(shim.parent / 'linex_slirp.inc', source / 'net/linex_slirp.inc')
+    slirp = source / 'net/slirp.c'
+    content = slirp.read_text()
+    replacements = [
+        ('#include <libslirp.h>', '#include <libslirp.h>\n#include <linex_slirp_dns.h>\n#include "linex_dns_transport.h"\n#include "qemu/main-loop.h"'),
+        ('    GSList *fwd;\n} SlirpState;', '''    GSList *fwd;
+    bool linex_active, linex_stopping, linex_dns_dead;
+    QEMUBH *linex_input_bh;
+    QEMUTimer *linex_dns_timer;
+    struct LinexVmPacket *linex_head, *linex_tail;
+    size_t linex_bytes, linex_packets;
+} SlirpState;
+
+#include "linex_slirp.inc"'''),
+        ('    slirp_input(s->slirp, buf, size);', '    linex_slirp_enqueue(s, buf, size);'),
+        ('    g_slist_free_full(s->fwd, slirp_free_fwd);', '    linex_slirp_stop(s);\n    g_slist_free_full(s->fwd, slirp_free_fwd);'),
+        ('    main_loop_poll_add_notifier(&s->poll_notifier);', '    main_loop_poll_add_notifier(&s->poll_notifier);\n    if (!linex_slirp_start(s, errp)) {\n        goto error;\n    }'),
+    ]
+    for anchor, replacement in replacements:
+        if content.count(anchor) != 1:
+            raise ValueError('QEMU main-loop networking anchor changed')
+        content = content.replace(anchor, replacement)
+    slirp.write_text(content)
     # Bionic has no POSIX shm declarations. These backends deliberately return
     # ENOTSUP in the shim; the managed launch always uses anonymous guest RAM.
     oslib = source / "util/oslib-posix.c"

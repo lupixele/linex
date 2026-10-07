@@ -26,7 +26,7 @@ def verify(library: Path, abi: str, tools: Path) -> dict:
         raise ValueError("ELF LOAD segments must support 16KiB page alignment")
     if not re.search(r"^\s*[a-fA-F0-9]+\s+[TW]\s+Java_com_linex_vm_NativeVm_run$", symbols, re.MULTILINE):
         raise ValueError("Missing JNI entry point")
-    for entry in ("slirp_new", "slirp_input"):
+    for entry in ("slirp_new", "slirp_input", "slirp_linex_dns_install", "slirp_linex_dns_receive", "slirp_linex_dns_tick"):
         if not re.search(r"^\s*[a-fA-F0-9]+\s+[TW]\s+" + entry + "$", symbols, re.MULTILINE):
             raise ValueError("Missing statically linked SLIRP backend entry: " + entry)
     imports = [line.split()[-1].split("@")[0] for line in symbols.splitlines() if re.search(r"\bU\b", line)]
@@ -42,9 +42,9 @@ def verify(library: Path, abi: str, tools: Path) -> dict:
     return {"abi": abi, "sha256": hashlib.sha256(library.read_bytes()).hexdigest(),
             "needed": needed, "load_alignments": alignments, "imports": imports,
             "jni_entry": "Java_com_linex_vm_NativeVm_run", "kernel_boot": "pending",
-            "scope": "TCG with static SLIRP; typed serial launch remains NIC-less",
-            "user_network": "compiled; launch activation pending Android DNS bridge",
-            "android_dns_bridge": "pending"}
+            "scope": "TCG with static SLIRP and private Android DNS transport; device/network runtime still requires proof",
+            "user_network": "compiled; runtime proof required",
+            "android_dns_bridge": "compiled private UDP/TCP hook; runtime proof required"}
 
 
 if __name__ == "__main__":

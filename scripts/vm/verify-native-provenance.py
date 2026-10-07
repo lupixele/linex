@@ -8,9 +8,11 @@ import subprocess
 
 NATIVE_INPUTS = (
     ".github/workflows/vm-engine.yml", "scripts/vm/build-engine.sh",
-    "scripts/vm/patch-qemu.py", "scripts/vm/native-sources.json",
+    "scripts/vm/patch-qemu.py", "scripts/vm/patch-slirp.py", "scripts/vm/native-sources.json",
     "scripts/vm/build-tools.txt", "scripts/vm/patches", "scripts/vm/verify-engine.py",
-    "scripts/vm/test_native_build.py", "vm-engine/src/main/jni",
+    "scripts/vm/test_native_build.py", "scripts/vm/test_native_dns.c",
+    "scripts/vm/test_native_dns_transport.c", "scripts/vm/test_native_slirp_dns.c",
+    "scripts/vm/test-slirp-dns.sh", "scripts/vm/test_slirp_patch.py", "vm-engine/src/main/jni",
 )
 
 

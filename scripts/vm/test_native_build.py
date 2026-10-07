@@ -21,6 +21,7 @@ class ElfBoundaryTests(unittest.TestCase):
         self.program = "LOAD 0x0 0x0 0x0 0x1 0x1 R E 0x4000\n"
         self.symbols = "00001000 T Java_com_linex_vm_NativeVm_run\n                 U pthread_create\n"
         self.symbols += "00002000 T slirp_new\n00003000 T slirp_input\n"
+        self.symbols += "00004000 T slirp_linex_dns_install\n00005000 T slirp_linex_dns_receive\n00006000 T slirp_linex_dns_tick\n"
 
     def inspect(self):
         with patch.object(VERIFIER.subprocess, "check_output", side_effect=[self.header, self.dynamic, self.program, self.symbols]):
@@ -41,6 +42,11 @@ class ElfBoundaryTests(unittest.TestCase):
 
     def test_imported_slirp_cannot_satisfy_static_network_backend(self):
         self.symbols = self.symbols.replace("00003000 T slirp_input", "                 U slirp_input")
+        with self.assertRaisesRegex(ValueError, "SLIRP"):
+            self.inspect()
+
+    def test_private_android_dns_hook_must_be_defined_in_engine(self):
+        self.symbols = self.symbols.replace("00004000 T slirp_linex_dns_install\n", "                 U slirp_linex_dns_install\n")
         with self.assertRaisesRegex(ValueError, "SLIRP"):
             self.inspect()
 

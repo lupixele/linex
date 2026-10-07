@@ -174,7 +174,12 @@ class NativeVmService : Service() {
                 try {
                     if (terminating.get()) return@Thread
                     state = "EMULATING" // Only the parent fixture handshake proves guest readiness.
-                    val result = NativeVm.run(arguments)
+                    val result = when (request.network) {
+                        VmNetworkMode.DISABLED -> NativeVm.run(arguments, -1, 0)
+                        VmNetworkMode.SLIRP_V4 -> VmDnsChannel.start(this@NativeVmService).use { channel ->
+                            channel.withNativeEndpoint { fd, generation -> NativeVm.run(arguments, fd, generation) }
+                        }
+                    }
                     state = "EXITED"
                     if (result != 0) failure = "VM engine exited with code $result"
                 } catch (error: Throwable) {

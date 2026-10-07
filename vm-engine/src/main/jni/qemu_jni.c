@@ -7,6 +7,7 @@
 #include "qemu/main-loop.h"
 #include "system/replay.h"
 #include "system/system.h"
+#include "linex_dns_transport.h"
 #include <jni.h>
 #include <spawn.h>
 #include <stdatomic.h>
@@ -66,7 +67,7 @@ static jint reject(JNIEnv *env, const char *message)
 }
 
 JNIEXPORT jint JNICALL Java_com_linex_vm_NativeVm_run(
-    JNIEnv *env, jobject owner, jobjectArray args)
+    JNIEnv *env, jobject owner, jobjectArray args, jint borrowed_dns_fd, jlong generation)
 {
     (void) owner;
     if (!args) { return reject(env, "Missing VM arguments"); }
@@ -84,7 +85,14 @@ JNIEXPORT jint JNICALL Java_com_linex_vm_NativeVm_run(
         (*env)->DeleteLocalRef(env, arg);
         if (!argv[i] || total > 32768) { goto invalid; }
     }
-    if (atomic_exchange(&launched, true)) { goto invalid; }
+    int dns_fd = linex_dns_dup_endpoint(borrowed_dns_fd, generation);
+    if (dns_fd == -2) { goto invalid; }
+    if (atomic_exchange(&launched, true)) {
+        if (dns_fd >= 0) { close(dns_fd); }
+        goto invalid;
+    }
+    linex_vm_dns_fd = dns_fd;
+    linex_vm_dns_generation = (uint64_t)generation;
     qemu_init((int)count, argv);
     bql_unlock();
     replay_mutex_unlock();
@@ -92,6 +100,9 @@ JNIEXPORT jint JNICALL Java_com_linex_vm_NativeVm_run(
     bql_lock();
     int status = qemu_main_loop();
     qemu_cleanup(status);
+    if (linex_vm_dns_fd >= 0) { close(linex_vm_dns_fd); }
+    linex_vm_dns_fd = -1;
+    linex_vm_dns_generation = 0;
     bql_unlock();
     replay_mutex_unlock();
     /* QEMU retains pointers into argv for its process lifetime. Do not free or
