@@ -89,6 +89,7 @@ fun BackGestureSidebar(
                 text = when (displayBackend) {
                     DisplayBackend.NATIVE_X11 -> "Display: Native X11"
                     DisplayBackend.RFB -> "Display: RFB compatibility"
+                    DisplayBackend.VM_RFB -> "Display: VM desktop · GPU presentation"
                     null -> "Display: preparing"
                 },
                 style = MaterialTheme.typography.bodyMedium
