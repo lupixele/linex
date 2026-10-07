@@ -1,30 +1,29 @@
 # Linex progress
 
 ## Current State
-Paused at the user's explicit request after APK packaging and checkpointing. Full VM direction/module/spec remain approved; the engine proof works, while VM networking and application desktop integration are unfinished. The current application APK still uses PRoot; no new VM release was published.
+User explicitly resumed work until a validated APK release with the requested features. The engine proof works; rootless networking and application desktop integration are now in development. Current application APK still uses PRoot; no new VM release is advertised.
 
-Actual Android-managed boot/isolation/lifecycle proof passes all six tests in run37421056855 at source b811069. ARM64 Linux boots twice inside an API33/target34 x86 Android service, with fresh PIDs4470/5058,64 distinct guest children and zero observed host children before/during/after. QMP pause/resume, guest-child cleanup, clean poweroff, owned stop and launch/control rejection pass; a real host-child positive control verifies0→1→0. Networking has started but is unfinished; agents reached the account usage limit.
+Full CI run37484070285 at source497c35f passes both native Android ABI builds, real Linux-host network boot and all12 Android instrumentation tests. The guest obtains DHCP/default route and completes an independently checked TCP exchange, with64 distinct guest children and complete zero-host-child observations. The anonymous Android DNS transport/system resolver tests pass separately; routing guest DNS through those hooks is in development.
 
 ## Verification
-Last verified code b811069:112app tests,31VM unit tests,39Python checks and6actual Android tests pass; build/lint:0errors5warnings. Native builds pass helper/16KiB/dependency audits; final APK bytes match verified assets/JNI. Evidence saved in dist/vm-android-run15, with immutable native source identity in native-provenance.json. Uncommitted RED networking tests now exist locally and are not implemented; they must not be reported as passing or shipped. No ARM64 phone runtime/performance proof exists.
+Verified networking slice497c35f:69VM unit tests,59Python checks and12actual Android tests pass; VM compilation/lint:0errors5warnings. Native builds pass helper/16KiB/dependency audits; final test APK bytes match both verified fixture namespaces and JNI. Evidence is saved in dist/vm-android-network-run17; prior serial provenance remains in dist/vm-android-run15. Untracked SLIRP adapter/patch files are unfinished, unshipped work. No guest DNS/HTTPS/Private DNS or ARM64 phone performance proof exists yet.
 
 Packaged dist/packaged-2026-10-06/linex-v0.5.2-dev-current.apk (versionCode21),21,700,360bytes. App unit/build gate passes; APKv2 signature verifies forSDK33, ZIP alignment and manifest/ABI checks pass. SHA256:fde1c55cbf9cc810b08e467bdd24ad5e3d3ee4b2eb37fa779209e37a0fa5812c. BUILD-NOTES and SHA256SUMS accompany it. This package does not add a usable VM or prove the PRoot Firefox crash fixed.
 
 ## Next Steps
-1. Resume only when the user requests it; use tasks/pending-network.md and implement the preserved RED tests before claiming a green workspace.
-2. Pin/build SLIRP, implement private Android DNS bridge and verified DHCP/TCP/HTTPS/Private DNS fixtures.
-3. Begin images/embedded console/app controls after engine acceptance, in the approved dependency order.
+1. Finish native SLIRP hooks and the service-owned Android DNS socketpair, then prove guest UDP/TCP DNS, verified HTTPS and Private DNS policy.
+2. Build a pinned bootable desktop image and embedded console using the approved module boundaries; retain existing PRoot instances.
+3. Integrate VM setup/lifecycle, real RAM allocation and display/input/notification controls; verify and publish the signed APK.
 
 ## Open Questions / Blockers
-- User requested checkpoint and stop after packaging. Earlier account usage limit interrupted all three networking agents; no networking implementation is verified.
-- Latest packaging checkpoint is committed locally; push failed because this PC could not connect to github.com:443. Push the pending documentation commits on the next user-authorized resume.
+- Source497c35f is pushed to main. DHCP/TCP and standalone Android DNS runtime proofs pass; guest DNS hook integration and desktop remain pending.
 - No Android device attached. Emulator JNI/kernel/service proof passes; Snapdragon CPU/GPU performance remains unmeasured.
 - Full VM avoids guest fork multiplication; Android/OEM may still reclaim the managed process. No all-phone performance guarantee.
 - Latest PRoot Firefox crash remains unattributed; full VM development does not establish an already fixed APK.
 - Existing build/generated tracked files and raw logs remain excluded. Source/engine artifacts are not public app releases.
 
 ## Last Updated
-2026-10-06
+2026-10-07
 
 ## Recent Decisions
 - [2026-09-26] Work directly in the user-specified linex checkout; replace unreliable Android tar extraction with bounded streaming JVM extraction; preserve old ready roots and scope diagnostics per instance.
@@ -74,3 +73,5 @@ Packaged dist/packaged-2026-10-06/linex-v0.5.2-dev-current.apk (versionCode21),2
 - [2026-10-06] Actualmanagedproof run37421056855 passes6/6: two realARM64Linux boots in Android, freshPIDs4470/5058,64guestchildren,host0before/during/after,QMPpause/resume,cleanstop and realhost-childcontrol0→1→0. Networking agents then hit account usage limit; unfinished RED tests preserved uncommitted; tasks/pending-network.md records resume point. No VM desktop/network release.
 - [2026-10-06] User clarified reset means checkpoint and stop after packaging. Built currentPRoot v0.5.2-dev APK,unit/build/signature/alignment/manifest checks pass; packagedwithSHA256 fde1c55cbf9cc810b08e467bdd24ad5e3d3ee4b2eb37fa779209e37a0fa5812c. No newVMrelease:desktop/networkintegration unfinished. Stoppedperuser;preservednetworkREDdrafts;resumeonlyonrequest.
 - [2026-10-06] Packaging checkpoint4d02503 is local; GitHub HTTPS push failed with connection timeout. APK/checksums/build notes remain available locally. Pending docs push recorded; stopped after packaging peruser.
+- [2026-10-06] User revoked packaging stop and explicitly resumed until validated new-feature APK release. Usage/network blockers cleared, pending docs pushed. StaticSLIRP4ab1086 builds tolink; booleanCONFIG guard16ed5a4 repaired. DNS parser/broker and Androidtransport compile/units inprogress; kernelnetworkdriversverifiedbuiltin; networkfixture/harness ready. Native DNS core undergoing fresh security/lifecycle review before runtime integration.
+- [2026-10-07] Full CI37484070285/source497c35f passes both native ABI builds, host DHCP/TCP and12 Android tests. Guest PID6183 has64 distinct emulated children with complete host-child count0 before/during/after. Android raw DNS is verified separately; guest DNS hook/HTTPS/Private DNS and desktop remain pending. Evidence: dist/vm-android-network-run17.
