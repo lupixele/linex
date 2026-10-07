@@ -20,6 +20,7 @@ import com.linex.app.core.SetupTask
 import com.linex.app.core.SetupStatus
 import com.linex.app.data.ContainerState
 import com.linex.app.data.LinuxInstance
+import com.linex.app.data.InstanceRuntime
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +38,9 @@ fun HubScreen(
     onStartSetup: (LinuxInstance) -> Unit,
     onCancelSetup: (String) -> Unit,
     onClearSetup: (String) -> Unit,
-    onUpdateInstance: (LinuxInstance) -> Unit = {}
+    onUpdateInstance: (LinuxInstance) -> Unit = {},
+    availableVmImageId: String? = null,
+    isInstanceInitialized: ((LinuxInstance) -> Boolean)? = null
 ) {
     val context = LocalContext.current
     val installedVersion = remember(context) { AppVersion.read(context) }
@@ -54,7 +57,7 @@ fun HubScreen(
     val handleLaunchOrResume: (LinuxInstance) -> Unit = { instance ->
         if (!setupRunning && instance.state != ContainerState.STARTING) {
             if (instance.state == ContainerState.SUSPENDED || instance.state == ContainerState.RUNNING ||
-                engine.isInstanceInitialized(instance.id)) {
+                (isInstanceInitialized?.invoke(instance) ?: (instance.runtime == InstanceRuntime.PROOT && engine.isInstanceInitialized(instance.id)))) {
                 onLaunchInstance(instance)
             } else {
                 showSetup = true
@@ -191,6 +194,7 @@ fun HubScreen(
     if (showCreateDialog && !setupRunning) {
         CreateInstanceDialog(
             onDismiss = { showCreateDialog = false },
+            availableVmImageId = availableVmImageId,
             onCreate = { newInst ->
                 showCreateDialog = false
                 onCreateInstance(newInst)
@@ -223,7 +227,8 @@ fun HubScreen(
         CreateInstanceDialog(
             onDismiss = { editingInstance = null },
             onCreate = { updated -> editingInstance = null; onUpdateInstance(updated) },
-            existingInstance = instance
+            existingInstance = instance,
+            availableVmImageId = availableVmImageId
         )
     }
     deletingInstance?.takeIf { !setupRunning }?.let { instance ->

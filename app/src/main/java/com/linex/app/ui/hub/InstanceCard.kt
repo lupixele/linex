@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.linex.app.data.ContainerState
 import com.linex.app.data.LinuxInstance
+import com.linex.app.data.InstanceRuntime
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -75,6 +76,8 @@ fun InstanceCard(
             }
             Text(status, style = MaterialTheme.typography.labelLarge,
                 color = if (setupError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+            Text(if (instance.runtime == InstanceRuntime.FULL_VM) "Full virtual machine" else "PRoot · legacy",
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text("${instance.desktop.displayName}\n${instance.resolutionMode.displayName} · ${instance.dpiScaling} DPI",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (setupError != null) {

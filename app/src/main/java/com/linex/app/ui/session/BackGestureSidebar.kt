@@ -22,6 +22,7 @@ import com.linex.app.core.TouchInputMode
 import com.linex.app.core.DisplayBackend
 import com.linex.app.core.DesktopFrameRate
 import com.linex.app.data.LinuxInstance
+import com.linex.app.data.InstanceRuntime
 
 @Composable
 fun BackGestureSidebar(
@@ -143,7 +144,7 @@ fun BackGestureSidebar(
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Reboot Container")
+                Text(if (instance.runtime == InstanceRuntime.FULL_VM) "Restart virtual machine" else "Restart instance")
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -228,7 +229,9 @@ fun BackGestureSidebar(
                 Switch(checked = resourceMonitor, onCheckedChange = { onToggleResourceMonitor() },
                     modifier = Modifier.semantics { contentDescription = "Resource monitor overlay" })
             }
-            Text("FPS counts new desktop frames; an idle screen can show 0. RAM and CPU cover visible Linux processes only. Shared RAM pages may be counted twice; CPU uses 100% per core. Unsupported metrics, including GPU, are omitted.",
+            Text(if (instance.runtime == InstanceRuntime.FULL_VM)
+                "FPS counts new desktop frames; an idle screen can show 0. VM RAM is the engine's resident memory, including guest memory. VM CPU uses 100% per core. The guest limit is its configured allocation. Unsupported metrics, including GPU, are omitted."
+                else "FPS counts new desktop frames; an idle screen can show 0. RAM and CPU cover visible Linux processes only. Shared RAM pages may be counted twice; CPU uses 100% per core. Unsupported metrics, including GPU, are omitted.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             if (!displayConnected) {
@@ -248,7 +251,8 @@ fun BackGestureSidebar(
                 Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Display: ${instance.resolutionMode.displayName}", style = MaterialTheme.typography.labelSmall)
                     Text("State: ${instance.state.name}", style = MaterialTheme.typography.labelSmall)
-                    ramBudgetMb?.let { Text("RAM budget: $it MiB · advisory", style = MaterialTheme.typography.labelSmall) }
+                    ramBudgetMb?.let { Text(if (instance.runtime == InstanceRuntime.FULL_VM) "Guest RAM allocation: $it MiB" else "RAM budget: $it MiB · advisory",
+                        style = MaterialTheme.typography.labelSmall) }
                 }
             }
         }

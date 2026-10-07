@@ -31,6 +31,7 @@ import com.linex.app.data.MemoryBudgetMode
 import com.linex.app.data.DisplayResolutionMode
 import com.linex.app.data.DistroType
 import com.linex.app.data.LinuxInstance
+import com.linex.app.data.InstanceRuntime
 import com.linex.app.data.CustomResolution
 import java.util.UUID
 
@@ -38,10 +39,14 @@ import java.util.UUID
 fun CreateInstanceDialog(
     onDismiss: () -> Unit,
     onCreate: (LinuxInstance) -> Unit,
-    existingInstance: LinuxInstance? = null
+    existingInstance: LinuxInstance? = null,
+    availableVmImageId: String? = null
 ) {
-    var name by remember { mutableStateOf(existingInstance?.name ?: "My Ubuntu Workstation") }
-    var selectedDistro by remember { mutableStateOf(existingInstance?.distro ?: DistroType.UBUNTU_JAMMY) }
+    val vmAvailable = !availableVmImageId.isNullOrBlank()
+    var runtime by remember { mutableStateOf(existingInstance?.runtime ?: if (vmAvailable) InstanceRuntime.FULL_VM else InstanceRuntime.PROOT) }
+    val isVm = runtime == InstanceRuntime.FULL_VM
+    var name by remember { mutableStateOf(existingInstance?.name ?: if (vmAvailable) "My Debian Workstation" else "My Ubuntu Workstation") }
+    var selectedDistro by remember { mutableStateOf(existingInstance?.distro ?: if (vmAvailable) DistroType.DEBIAN_TRIXIE_VM else DistroType.UBUNTU_JAMMY) }
     val selectedDesktop = existingInstance?.desktop ?: DesktopEnvironment.XFCE4
     var selectedResolution by remember { mutableStateOf(existingInstance?.resolutionMode ?: DisplayResolutionMode.NATIVE_PHONE) }
     var dpiScaling by remember { mutableFloatStateOf(existingInstance?.dpiScaling?.toFloat() ?: 120f) }
@@ -60,9 +65,10 @@ fun CreateInstanceDialog(
     var memoryMode by remember { mutableStateOf(existingInstance?.let(MemoryBudget::mode) ?: MemoryBudgetMode.DEFAULT) }
     var customRam by remember { mutableStateOf((existingInstance?.ramAllocatedMb ?: MemoryBudget.DEFAULT_MB).toString()) }
     var memoryMenuExpanded by remember { mutableStateOf(false) }
-    val memoryError = if (memoryMode == MemoryBudgetMode.CUSTOM) MemoryBudget.error(customRam, totalRamMb) else null
-    val defaultRam = MemoryBudget.DEFAULT_MB.coerceAtMost(MemoryBudget.maximumMb(totalRamMb))
-    val recommendedRam = MemoryBudget.recommendedMb(totalRamMb, selectedDesktop.recommendedRamMb)
+    val memoryError = if (memoryMode == MemoryBudgetMode.CUSTOM) MemoryBudget.error(customRam, totalRamMb, runtime) else null
+    val memoryInstance = LinuxInstance("memory-preview", "", selectedDistro, selectedDesktop, selectedResolution, runtime = runtime)
+    val defaultRam = MemoryBudget.resolveMb(memoryInstance.copy(memoryBudgetMode = MemoryBudgetMode.DEFAULT), totalRamMb)
+    val recommendedRam = MemoryBudget.resolveMb(memoryInstance.copy(memoryBudgetMode = MemoryBudgetMode.RECOMMENDED), totalRamMb)
     val resolutionError = if (selectedResolution == DisplayResolutionMode.CUSTOM)
         CustomResolution.error(customWidth, customHeight) else null
 
@@ -127,8 +133,30 @@ fun CreateInstanceDialog(
                         shape = RoundedCornerShape(10.dp)
                     )
 
+                    Text("Linux runtime", style = MaterialTheme.typography.titleSmall)
+                    InstanceRuntime.values().forEach { choice ->
+                        val choiceEnabled = existingInstance == null && (choice != InstanceRuntime.FULL_VM || vmAvailable)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = runtime == choice, enabled = choiceEnabled, onClick = {
+                                if (choiceEnabled) {
+                                    runtime = choice
+                                    selectedDistro = if (choice == InstanceRuntime.FULL_VM) DistroType.DEBIAN_TRIXIE_VM else DistroType.UBUNTU_JAMMY
+                                }
+                            })
+                            Column(Modifier.weight(1f)) {
+                                Text(if (choice == InstanceRuntime.FULL_VM) "Full virtual machine · recommended" else "PRoot · legacy", style = MaterialTheme.typography.bodyMedium)
+                                Text(if (choice == InstanceRuntime.FULL_VM) {
+                                    if (vmAvailable || isVm) "Complete Linux kernel and allocated guest RAM. May run slower on older phones."
+                                    else "Available when a verified VM image is included in this release."
+                                } else "Native CPU execution; Android may limit Linux background processes.",
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    if (existingInstance != null) Text("The runtime and system image stay fixed for this instance.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("System image", style = MaterialTheme.typography.titleSmall)
-                    DistroType.values().forEach { distro ->
+                    DistroType.values().filter { (it == DistroType.DEBIAN_TRIXIE_VM) == isVm }.forEach { distro ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                             RadioButton(
                                 selected = selectedDistro == distro,
@@ -137,19 +165,20 @@ fun CreateInstanceDialog(
                             )
                             Column(Modifier.weight(1f).padding(top = 12.dp)) {
                                 Text(distro.displayName, style = MaterialTheme.typography.bodyMedium)
-                                Text("Download: about ${distro.estimatedSizeMb} MB", style = MaterialTheme.typography.bodySmall,
+                                Text(if (isVm) "XFCE, Firefox ESR and a 4 GiB Linux disk" else "Download: about ${distro.estimatedSizeMb} MB", style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
                     Text(
-                        if (selectedDistro == DistroType.UBUNTU_JAMMY)
-                            "Includes XFCE. Desktop display integration is still in development."
+                        if (isVm) "An embedded desktop with an isolated Linux kernel. Setup progress continues in the background."
+                        else if (selectedDistro == DistroType.UBUNTU_JAMMY)
+                            "Includes XFCE and an embedded desktop display."
                         else "Minimal base image. A desktop is not included; install one before using a desktop session.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text("Desktop preset: ${selectedDesktop.displayName}", style = MaterialTheme.typography.bodyMedium)
+                    Text("Desktop preset: ${if (isVm) "XFCE" else selectedDesktop.displayName}", style = MaterialTheme.typography.bodyMedium)
                     Text("New instances use XFCE. Additional desktop presets are not yet supported.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -235,7 +264,7 @@ fun CreateInstanceDialog(
                         )
                     }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!isVm) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Desktop display", style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold)
                         fun label(mode: DisplayBackendPreference) = when (mode) {
@@ -258,16 +287,18 @@ fun CreateInstanceDialog(
                         Text("Native display uses the phone GPU to present the desktop. Linux application graphics and video decoding are separate. Stop and start the instance to apply changes.",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    if (isVm) Text("Embedded desktop · GPU presentation. Linux applications use software graphics.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("RAM budget", style = MaterialTheme.typography.titleSmall,
+                        Text(if (isVm) "Guest RAM allocation" else "RAM budget", style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold)
                         Box {
                             OutlinedButton(onClick = { memoryMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                                 Text(when (memoryMode) {
                                     MemoryBudgetMode.DEFAULT -> "Default · $defaultRam MiB"
                                     MemoryBudgetMode.RECOMMENDED -> "Recommended · $recommendedRam MiB"
-                                    MemoryBudgetMode.CUSTOM -> "Custom budget"
+                                    MemoryBudgetMode.CUSTOM -> if (isVm) "Custom allocation" else "Custom budget"
                                 })
                             }
                             DropdownMenu(expanded = memoryMenuExpanded, onDismissRequest = { memoryMenuExpanded = false }) {
@@ -286,21 +317,22 @@ fun CreateInstanceDialog(
                         }
                         if (memoryMode == MemoryBudgetMode.CUSTOM) {
                             OutlinedTextField(value = customRam, onValueChange = { customRam = it.take(10) },
-                                label = { Text("Custom RAM budget (MiB)") },
+                                label = { Text(if (isVm) "Custom guest RAM (MiB)" else "Custom RAM budget (MiB)") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true, isError = memoryError != null,
                                 modifier = Modifier.fillMaxWidth())
                         }
                         if (memoryError != null) Text(memoryError, color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall)
-                        Text("Planning target only. Android shares RAM with Linux; Linex cannot reserve memory or enforce a guest RAM limit. Recommended considers your desktop and device RAM, up to 4096 MiB, leaving room for Android.",
+                        Text(if (isVm) "Sets the VM's real guest RAM limit, up to 4096 MiB. Linex checks available memory again before starting to leave room for Android. Changes apply after restarting."
+                            else "Planning target only. Android shares RAM with Linux; Linex cannot reserve memory or enforce a guest RAM limit. Recommended considers your desktop and device RAM, up to 4096 MiB, leaving room for Android.",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (totalRamMb > 0) Text("Device RAM: $totalRamMb MiB", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
 
                     // DPI Scaling Slider
-                    Column {
+                    if (!isVm) Column {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -333,14 +365,16 @@ fun CreateInstanceDialog(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Button(
-                        enabled = name.isNotBlank() && resolutionError == null && memoryError == null,
+                        enabled = name.isNotBlank() && resolutionError == null && memoryError == null && (!isVm || existingInstance != null || vmAvailable),
                         onClick = {
                             val base = existingInstance ?: LinuxInstance(
                                 id = UUID.randomUUID().toString(),
                                 name = name.trim(),
                                 distro = selectedDistro,
                                 desktop = selectedDesktop,
-                                resolutionMode = selectedResolution
+                                resolutionMode = selectedResolution,
+                                runtime = runtime,
+                                vmImageId = if (isVm) availableVmImageId else null
                             )
                             val newInstance = base.copy(
                                 name = name.trim(),

@@ -34,6 +34,7 @@ import com.linex.app.core.DesktopFrameRate
 import com.linex.app.data.DisplayBackendPreference
 import com.linex.app.core.TouchInputMode
 import com.linex.app.data.LinuxInstance
+import com.linex.app.data.InstanceRuntime
 import com.linex.app.ui.hub.LogViewerDialog
 import kotlinx.coroutines.launch
 
@@ -46,14 +47,17 @@ fun SessionScreen(
     onRestart: () -> Unit,
     onDetach: () -> Unit,
     endpoint: DisplayEndpoint? = null,
-    processGroup: Int? = null
+    processGroup: Int? = null,
+    vmProcessId: Int? = null
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var showLogs by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var connected by remember(instance.id, endpoint, retry) { mutableStateOf(false) }
-    var status by remember(instance.id, endpoint, retry) { mutableStateOf("Preparing desktop. First startup may install display packages; progress is in instance logs.") }
+    var status by remember(instance.id, endpoint, retry) { mutableStateOf(if (instance.runtime == InstanceRuntime.FULL_VM)
+        "Starting the Linux virtual machine. Boot progress is in instance logs."
+        else "Preparing desktop. First startup may install display packages; progress is in instance logs.") }
     val context = LocalContext.current
     val preferences = remember(context) { context.getSharedPreferences("desktop_controls", Context.MODE_PRIVATE) }
     var trackpad by rememberSaveable(instance.id) { mutableStateOf(preferences.getBoolean("trackpad.${instance.id}", false)) }
@@ -261,6 +265,8 @@ fun SessionScreen(
                 enabled = showMonitor && connected,
                 sessionVisible = sessionVisible && !showLogs,
                 displayBackend = endpoint?.backend,
+                vmProcessId = vmProcessId,
+                guestAllocatedMb = budgetMb.takeIf { instance.runtime == InstanceRuntime.FULL_VM },
                 modifier = Modifier.align(Alignment.TopStart).displayCutoutPadding().statusBarsPadding()
                     .padding(start = 8.dp, top = if (fullscreen) 8.dp else 72.dp)
             )
