@@ -10,6 +10,25 @@ spec.loader.exec_module(desktop)
 
 
 class DesktopBuilderTest(unittest.TestCase):
+    def test_exact_download_retry_is_only_for_transient_transport_failures(self):
+        transport = "E: Failed to fetch https://deb.debian.org/debian/pool/libpango.deb OpenSSL system call error: Broken pipe"
+        self.assertTrue(desktop.transient_download_failure(transport))
+        for security in ("Certificate verification failed", "Hash Sum mismatch", "404 Not Found"):
+            self.assertFalse(desktop.transient_download_failure(transport + "\n" + security))
+        with tempfile.TemporaryDirectory() as directory:
+            builder = desktop.Builder(Path(directory))
+            builder.last_log = builder.evidence / "failure.log"
+            builder.last_log.write_text(transport)
+            with mock.patch.object(builder, "run", side_effect=[RuntimeError("transport"), "success"]) as run, \
+                    mock.patch.object(desktop.time, "sleep"):
+                self.assertEqual("success", builder.download_exact(["apt-get", "install", "pkg=1"]))
+                self.assertEqual(2, run.call_count)
+            with mock.patch.object(builder, "run", side_effect=RuntimeError("transport")) as run, \
+                    mock.patch.object(desktop.time, "sleep"):
+                with self.assertRaises(RuntimeError):
+                    builder.download_exact(["apt-get", "install", "pkg=1"])
+                self.assertEqual(3, run.call_count)
+
     def test_actual_apt_three_and_four_field_uri_rows_with_encoded_epochs(self):
         security = "'https://security.debian.org/debian-security/pool/updates/main/f/firefox-esr/firefox-esr_153.4.0esr-1%7edeb13u1_arm64.deb' firefox-esr_153.4.0esr-1~deb13u1_arm64.deb 71874648 "
         main = "'https://deb.debian.org/debian/pool/main/u/util-linux/bsdutils_2.41.5-0%2bdeb13u1_arm64.deb' bsdutils_1%3a2.41.5-0+deb13u1_arm64.deb 109000 MD5Sum:160cd91cacfb6ac308a9d335805e21c1"

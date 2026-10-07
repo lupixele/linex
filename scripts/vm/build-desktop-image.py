@@ -9,6 +9,7 @@ import platform
 import re
 import shlex
 import subprocess
+import time
 import urllib.request
 from urllib.parse import unquote, urlsplit
 
@@ -92,6 +93,13 @@ def parse_download_plan(text):
     return result
 
 
+def transient_download_failure(text):
+    return "Failed to fetch https://" in text and any(reason in text for reason in (
+        "Broken pipe", "Connection timed out", "Temporary failure resolving", "Connection failed",
+        "503 Service Unavailable", "502 Bad Gateway", "TLS connection was non-properly terminated")) and \
+        not any(reason in text for reason in ("Certificate verification failed", "Hash Sum mismatch", "404 Not Found"))
+
+
 def require_native_builder():
     if platform.system() != "Linux" or platform.machine() not in ("aarch64", "arm64"):
         raise RuntimeError("Desktop provisioning requires a native ARM64 Linux CI runner")
@@ -128,6 +136,7 @@ class Builder:
             command = ["chroot", str(self.root)] + command
         self.counter += 1
         logfile = self.evidence / f"command-{self.counter:04d}.log"
+        self.last_log = logfile
         print(f"Desktop build step {self.counter}: {command[0]}", flush=True)
         with logfile.open("xb") as log:
             result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT,
@@ -139,6 +148,17 @@ class Builder:
         if result.returncode != 0:
             raise RuntimeError(f"Desktop build command failed ({result.returncode}); see {logfile}")
         return text
+
+    def download_exact(self, command):
+        for attempt in range(3):
+            try:
+                return self.run(command, guest=True)
+            except RuntimeError:
+                if attempt == 2 or not transient_download_failure(self.last_log.read_text(encoding="utf-8", errors="replace")):
+                    raise
+                # Reuse authenticated indexes/exact versions and already verified cache.
+                print(f"Retrying exact package download after transient transport error ({attempt + 1}/2)", flush=True)
+                time.sleep(2)
 
     def trusted_keyring(self):
         key_directory = self.output / "keys"
@@ -221,7 +241,7 @@ class Builder:
             package.rename(saved / package.name)
         plan = self.run(["apt-get", "--print-uris", "--yes", "--download-only", "--reinstall", "install"] + requests, guest=True)
         uris = parse_download_plan(plan)
-        self.run(["apt-get", "--yes", "--download-only", "--reinstall", "install"] + requests, guest=True)
+        self.download_exact(["apt-get", "--yes", "--download-only", "--reinstall", "install"] + requests)
         cached = {}
         for candidate in cache.glob("*.deb"):
             identity = (candidate.stat().st_size, sha256(candidate))
