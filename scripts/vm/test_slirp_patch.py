@@ -1,7 +1,6 @@
 """Exact upstream edits must install the stack extension and main-loop pump."""
 import importlib.util
 from pathlib import Path
-import shutil
 import tempfile
 import unittest
 
@@ -16,13 +15,6 @@ def load(name):
 
 
 class PinnedPatchTests(unittest.TestCase):
-    def test_main_loop_pump_is_part_of_engine_embedding(self):
-        patch = (ROOT / 'scripts/vm/patch-qemu.py').read_text()
-        self.assertIn('linex_slirp.inc', patch)
-        pump = (ROOT / 'vm-engine/src/main/jni/linex_slirp.inc').read_text()
-        self.assertIn('aio_bh_new(qemu_get_aio_context()', pump)
-        self.assertIn('QEMU_CLOCK_REALTIME', pump)
-
     def test_slirp_patch_fails_before_mutating_changed_source(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

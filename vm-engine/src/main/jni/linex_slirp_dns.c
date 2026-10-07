@@ -100,8 +100,11 @@ int slirp_linex_dns_tcp_connect(struct socket *so,unsigned short af)
 }
 slirp_ssize_t slirp_linex_dns_tcp_send(struct socket *so,const void *wire,size_t size)
 {
-    if(!so->linex_dns_closing)
-        linex_dns_tcp_feed(so->slirp->linex_dns->core,so->linex_dns_id,wire,size);
+    if(!so->linex_dns_closing &&
+       !linex_dns_tcp_feed(so->slirp->linex_dns->core,so->linex_dns_id,wire,size)) {
+        linex_dns_tcp_close(so->slirp->linex_dns->core,so->linex_dns_id);
+        so->linex_dns_closing=true;
+    }
     /* Consume invalid input; pending deferred close owns failure. */
     return (slirp_ssize_t)size;
 }
