@@ -25,6 +25,13 @@ def patch(source: Path, jni: Path) -> None:
     anchor = "    struct socket *so_next, *so_prev; /* For a linked list of sockets */"
     replace(source, "src/socket.h", anchor,
             anchor + "\n    uint64_t linex_dns_id;\n    bool linex_dns_closing;")
+    # Upstream's 64-bit tcpiphdr has a 36-byte IPv6 union and a packed mbuf
+    # pointer: sizeof=68, so subtracting its IP/TCP delta misaligns the preceding
+    # qlink. Force padding inside the prefix, not after the on-wire TCP header.
+    # sizeof becomes72, preserving TCP's wire offset while aligning queue links.
+    anchor = "    union {\n        struct {\n            struct in_addr ih_src;"
+    replace(source, "src/tcpip.h", anchor,
+            "    union {\n        uint64_t linex_header_alignment;\n        struct {\n            struct in_addr ih_src;")
     # Checksum validation and reassembly precede this interception. The original
     # packet remains owned/freed by udp_input; only bounded bytes are copied.
     anchor = "    lhost.ss_family = AF_INET;"
@@ -39,7 +46,7 @@ def patch(source: Path, jni: Path) -> None:
             "        if (linex_dns_result < 0) {\n            tp = tcp_close(tp);\n            goto dropwithreset;\n        }\n\n" + anchor)
     anchor = "slirp_ssize_t slirp_send(struct socket *so, const void *buf, size_t len, int flags)\n{"
     replace(source, "src/slirp.c", anchor,
-            anchor + "\n    if (so->linex_dns_id) {\n        return slirp_linex_dns_tcp_send(so, buf, len);\n    }")
+            anchor + "\n    if (so->slirp->linex_dns && so->so_ffamily == AF_INET &&\n        so->so_faddr.s_addr == so->slirp->vnameserver_addr.s_addr &&\n        so->so_fport == htons(53)) {\n        return slirp_linex_dns_tcp_send(so, buf, len);\n    }")
     anchor = "void sofree(struct socket *so)\n{\n    Slirp *slirp = so->slirp;"
     replace(source, "src/socket.c", anchor,
             anchor + "\n    slirp_linex_dns_socket_free(so);")

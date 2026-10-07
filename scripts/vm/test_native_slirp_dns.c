@@ -99,6 +99,8 @@ static size_t sockets(Slirp *s) {
 int main(void) {
     /* Queue pointers must remain the leading socket fields. */
     _Static_assert(offsetof(struct socket,so_next)==0,"SLIRP intrusive queue layout");
+    _Static_assert((sizeof(struct tcpiphdr)-sizeof(struct ip)-sizeof(struct tcphdr))%
+                   _Alignof(struct qlink)==0,"TCP overlay must preserve queue pointer alignment");
     Fixture f={.now=1000}; Slirp *s=create(&f);
     udp(s,40000,true); assert(f.frames==0 && f.polls==0);
     udp(s,40000,false); assert(f.frames==1 && f.frame[0][6]==1 && f.polls==0);
