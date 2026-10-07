@@ -10,6 +10,7 @@ import re
 import shlex
 import subprocess
 import urllib.request
+from urllib.parse import unquote, urlsplit
 
 KEYS = (
     ("archive-key-13", "04B54C3CDCA79751B16BC6B5225629DF75B188BD",
@@ -21,7 +22,7 @@ KEYS = (
 )
 PACKAGES = (
     "busybox-static", "ca-certificates", "curl", "dbus", "dbus-x11", "e2fsprogs",
-    "firefox-esr", "fonts-dejavu-core", "iproute2", "libavcodec61", "procps", "python3-minimal", "util-linux",
+    "firefox-esr", "fonts-dejavu-core", "iproute2", "libavcodec61", "procps", "python3", "util-linux",
     "tigervnc-standalone-server", "tigervnc-tools", "xfce4", "xfce4-terminal",
 )
 BROWSER_MINIMUM = "153.4.0esr"
@@ -63,6 +64,32 @@ def checked_package(name, version):
     if not NAME.fullmatch(name) or not VERSION.fullmatch(version):
         raise ValueError("Invalid solved package identity")
     return name + "=" + version
+
+
+def parse_download_plan(text):
+    result = {}
+    for line in text.splitlines():
+        if not line.startswith("'"):
+            continue
+        parts = shlex.split(line)
+        if len(parts) not in (3, 4):
+            raise ValueError("Invalid apt URI field count")
+        url = urlsplit(parts[0])
+        name = unquote(parts[1])
+        if url.scheme != "https" or url.hostname not in ("deb.debian.org", "security.debian.org") or \
+                url.username or url.password or url.port is not None or url.query or url.fragment:
+            raise ValueError("Invalid apt package URL")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_:%~-]*\.deb", name) or \
+                not parts[2].isdecimal() or not 1 <= int(parts[2]) <= 256 * 1024 * 1024:
+            raise ValueError("Invalid apt cache filename or package size")
+        if len(parts) == 4 and not re.fullmatch(r"(?:MD5Sum:[a-fA-F0-9]{32}|SHA256:[a-fA-F0-9]{64})", parts[3]):
+            raise ValueError("Invalid optional apt legacy checksum field")
+        if name in result:
+            raise ValueError("Duplicate apt cache filename")
+        result[name] = {"url": parts[0], "bytes": int(parts[2])}
+    if not result:
+        raise ValueError("Empty exact apt package download plan")
+    return result
 
 
 def require_native_builder():
@@ -193,13 +220,7 @@ class Builder:
         for package in cache.glob("*.deb"):
             package.rename(saved / package.name)
         plan = self.run(["apt-get", "--print-uris", "--yes", "--download-only", "--reinstall", "install"] + requests, guest=True)
-        uris = {}
-        for line in plan.splitlines():
-            if line.startswith("'"):
-                parts = shlex.split(line)
-                if len(parts) != 4 or not parts[0].startswith("https://") or "/" in parts[1]:
-                    raise ValueError("Invalid authenticated apt download plan")
-                uris[parts[1]] = parts[0]
+        uris = parse_download_plan(plan)
         self.run(["apt-get", "--yes", "--download-only", "--reinstall", "install"] + requests, guest=True)
         cached = {}
         for candidate in cache.glob("*.deb"):
@@ -216,9 +237,10 @@ class Builder:
                 raise ValueError("Exact binary metadata missing or inconsistent")
             metadata = record[0]
             matched = cached.get((int(metadata["Size"]), metadata["SHA256"]))
-            if matched is None or matched.name not in uris:
+            planned = uris.get(unquote(matched.name)) if matched is not None else None
+            if matched is None or planned is None or planned["bytes"] != int(metadata["Size"]):
                 raise ValueError("Downloaded exact package hash/URI missing")
-            closure.append({**item, "url": uris[matched.name], "file": matched.name,
+            closure.append({**item, "url": planned["url"], "file": matched.name,
                             "sha256": metadata["SHA256"], "bytes": int(metadata["Size"])})
             source_key = (item["source"], item["sourceVersion"])
             if source_key not in sources:

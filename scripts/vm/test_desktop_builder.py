@@ -10,6 +10,18 @@ spec.loader.exec_module(desktop)
 
 
 class DesktopBuilderTest(unittest.TestCase):
+    def test_actual_apt_three_and_four_field_uri_rows_with_encoded_epochs(self):
+        security = "'https://security.debian.org/debian-security/pool/updates/main/f/firefox-esr/firefox-esr_153.4.0esr-1%7edeb13u1_arm64.deb' firefox-esr_153.4.0esr-1~deb13u1_arm64.deb 71874648 "
+        main = "'https://deb.debian.org/debian/pool/main/u/util-linux/bsdutils_2.41.5-0%2bdeb13u1_arm64.deb' bsdutils_1%3a2.41.5-0+deb13u1_arm64.deb 109000 MD5Sum:160cd91cacfb6ac308a9d335805e21c1"
+        result = desktop.parse_download_plan(security + "\n" + main)
+        self.assertEqual(71874648, result["firefox-esr_153.4.0esr-1~deb13u1_arm64.deb"]["bytes"])
+        self.assertIn("bsdutils_1:2.41.5-0+deb13u1_arm64.deb", result)
+        for invalid in (security.replace("https:", "http:"), security.replace("security.debian.org", "evil.invalid"),
+                        security.replace("71874648", "99999999999"), security.replace("firefox-esr_153", "../firefox-esr_153", 2),
+                        main.replace("MD5Sum:", "Untrusted:"), main + " extra", security + "\n" + security):
+            with self.subTest(line=invalid), self.assertRaises(ValueError):
+                desktop.parse_download_plan(invalid)
+
     def test_debian_metadata_rejects_duplicate_and_orphan_fields(self):
         self.assertEqual([{"Package": "example", "Description": "title\nbody"}],
                          desktop.records("Package: example\nDescription: title\n body\n"))
