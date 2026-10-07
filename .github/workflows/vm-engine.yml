@@ -14,7 +14,9 @@ jobs:
       - name: Check archive, metadata and evidence parsers
         run: python3 -m unittest discover -s scripts/vm -p 'test_storage_*.py'
       - name: Build a private factory disk with guest inode ownership
-        run: sudo python3 scripts/vm/build-storage-fixture.py --output dist/vm-storage-fixture
+        run: |
+          mkdir -p dist/vm-storage-fixture dist/vm-storage-host-proof
+          sudo python3 scripts/vm/build-storage-fixture.py --output dist/vm-storage-fixture
       - name: Prove four boots, nonroot persistence and crash recovery
         run: python3 scripts/vm/test-storage.py --fixture dist/vm-storage-fixture --evidence dist/vm-storage-host-proof --timeout 180
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
