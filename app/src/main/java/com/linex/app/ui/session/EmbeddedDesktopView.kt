@@ -30,6 +30,11 @@ import com.linex.app.core.LatestFrameMailbox
 import java.net.ConnectException
 import java.util.concurrent.atomic.AtomicReference
 import android.os.ParcelFileDescriptor
+import com.linex.vm.console.GlesDesktopView
+import com.linex.vm.console.LoopbackRfbTransport
+import com.linex.vm.console.OwnedArgbFrame
+import com.linex.vm.console.PrivateUnixRfbTransport
+import com.linex.vm.console.RfbTransport
 
 /** An in-app desktop surface. All bitmap mutations and drawing stay on the UI thread. */
 class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
@@ -43,6 +48,30 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
     @Volatile private var displayVisible = true
     private var bitmap: Bitmap? = null
     private var nativeView: LorieView? = null
+    private var glesView: GlesDesktopView? = null
+    private var gpuWidth = 0
+    private var gpuHeight = 0
+    private val refreshGpuPresentation: Runnable = Runnable {
+        val count = gpuPresentations.take() ?: return@Runnable
+        try {
+            val surface = glesView
+            if (!disposed && surface != null) {
+                presentedFrameCount = count
+                if (gpuWidth != surface.frameWidth || gpuHeight != surface.frameHeight) {
+                    gpuWidth = surface.frameWidth
+                    gpuHeight = surface.frameHeight
+                    pointerX = gpuWidth / 2
+                    pointerY = gpuHeight / 2
+                    updateNativeLayout()
+                    onConnection(true, "VM desktop connected")
+                }
+            }
+        } finally { gpuPresentations.complete() }
+    }
+    private val gpuPresentations: LatestFrameMailbox<Long> = LatestFrameMailbox(
+        schedule = { postOnAnimation(refreshGpuPresentation) },
+        cancel = { removeCallbacks(refreshGpuPresentation) }, release = {},
+    )
     private val nativeDescriptor = AtomicReference<ParcelFileDescriptor?>()
     private var nativeWidth = 0
     private var nativeHeight = 0
@@ -61,8 +90,8 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
         }
     }
     val frameMetricsAvailable: Boolean get() = nativeView == null
-    private val frameWidth: Int get() = bitmap?.width ?: nativeWidth
-    private val frameHeight: Int get() = bitmap?.height ?: nativeHeight
+    private val frameWidth: Int get() = glesView?.frameWidth ?: bitmap?.width ?: nativeWidth
+    private val frameHeight: Int get() = glesView?.frameHeight ?: bitmap?.height ?: nativeHeight
     var presentedFrameCount: Long = 0
         private set
     private var frameDirty = false
@@ -136,14 +165,41 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
             connectNative(endpoint, targetFps)
             return
         }
+        if (endpoint.backend == DisplayBackend.VM_RFB &&
+            endpoint.sessionId?.matches(Regex("[0-9a-f]{32}")) != true) {
+            onConnection(false, "VM display session is invalid")
+            return
+        }
         requestFocus()
         displayVisible = windowVisibility == VISIBLE
+        val presenter = if (endpoint.backend == DisplayBackend.VM_RFB) {
+            GlesDesktopView(context).apply {
+                isFocusable = false
+                onPresented = gpuPresentations::offer
+                onFailure = { message -> post {
+                    if (!disposed) {
+                        releaseInput()
+                        client?.close()
+                        onConnection(false, message)
+                    }
+                } }
+                glesView = this
+                addView(this, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+                setActive(displayVisible)
+            }
+        } else null
+        val transport: () -> RfbTransport = if (presenter != null) {
+            { PrivateUnixRfbTransport(context.filesDir, endpoint.sessionId ?: error("Missing VM display session")) }
+        } else {
+            { LoopbackRfbTransport(endpoint.port) }
+        }
         worker = Thread({
             val deadline = System.nanoTime() + 30_000_000_000L
             while (!disposed) {
                 lateinit var connection: RfbClient
-                connection = RfbClient(endpoint.port, endpoint.password, { w, h, pixels ->
-                    frames.offer(Frame(w, h, pixels, connection))
+                connection = RfbClient(transport(), endpoint.password, { w, h, pixels ->
+                    if (presenter == null) frames.offer(Frame(w, h, pixels, connection))
+                    else presenter.offerFrame(OwnedArgbFrame(w, h, pixels, connection::recycleFrame))
                 }, { status -> post { if (!disposed) onConnection(false, status) } }, targetFps)
                 client = connection
                 connection.pauseUpdates(!displayVisible)
@@ -219,7 +275,7 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
-        if (nativeView != null) updateNativeLayout()
+        if (nativeView != null || glesView != null) updateNativeLayout()
     }
 
     override fun onInterceptTouchEvent(event: MotionEvent): Boolean = inputEnabled
@@ -246,9 +302,13 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
         client?.close()
         worker?.interrupt()
         frames.close()
+        gpuPresentations.close()
         nativeView?.release()
         nativeView?.let { removeView(it) }
         nativeView = null
+        glesView?.close()
+        glesView?.let { removeView(it) }
+        glesView = null
         nativeWidth = 0; nativeHeight = 0
         nativeButtons = 0
         bitmap = null
@@ -258,6 +318,7 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
         super.onWindowVisibilityChanged(visibility)
         displayVisible = visibility == VISIBLE
         client?.pauseUpdates(!displayVisible)
+        glesView?.setActive(displayVisible)
         // View can dispatch visibility while its superclass is being constructed.
         // A client exists only after connect(), once our input state is initialized.
         nativeView?.let { surface ->
@@ -315,7 +376,7 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawColor(android.graphics.Color.BLACK)
-        if (nativeView != null) return
+        if (nativeView != null || glesView != null) return
         val image = bitmap ?: return
         val scale = minOf(width.toFloat() / image.width, height.toFloat() / image.height)
         val w = image.width * scale
@@ -326,6 +387,14 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
         if (trackpadMode) {
             val x = destination.left + pointerX * destination.width() / image.width
             val y = destination.top + pointerY * destination.height() / image.height
+            canvas.drawCircle(x, y, 7f * resources.displayMetrics.density, cursorPaint)
+        }
+    }
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        if (glesView != null && trackpadMode && frameWidth > 0 && !destination.isEmpty) {
+            val x = destination.left + pointerX * destination.width() / frameWidth
+            val y = destination.top + pointerY * destination.height() / frameHeight
             canvas.drawCircle(x, y, 7f * resources.displayMetrics.density, cursorPaint)
         }
     }

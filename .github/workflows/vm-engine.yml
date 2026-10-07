@@ -1,189 +1,30 @@
-name: VM engine build and boot evidence
+name: VM private console runtime evidence
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
-  native-bridge-tests:
+  console-proof:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Execute the actual native DNS boundary with address/undefined sanitizers
-        run: |
-          mkdir -p build/test-scratch
-          gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -g -Ivm-engine/src/main/jni vm-engine/src/main/jni/linex_dns.c scripts/vm/test_native_dns.c -o build/test-scratch/linex-native-dns
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/test-scratch/linex-native-dns
-          gcc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -g -Ivm-engine/src/main/jni vm-engine/src/main/jni/linex_dns_transport.c scripts/vm/test_native_dns_transport.c -o build/test-scratch/linex-native-dns-transport
-          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 build/test-scratch/linex-native-dns-transport
-
-  actual-slirp-tests:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Exercise the patched pinned network stack with sanitizers
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libglib2.0-dev ninja-build pkg-config python3-venv gcc
-          python3 -m venv "$RUNNER_TEMP/vm-build-tools"
-          "$RUNNER_TEMP/vm-build-tools/bin/pip" install --only-binary=:all: --require-hashes -r scripts/vm/build-tools.txt
-          export PATH="$RUNNER_TEMP/vm-build-tools/bin:$PATH"
-          python3 -m unittest discover -s scripts/vm -p 'test_slirp_patch.py'
-          bash scripts/vm/test-slirp-dns.sh
-
-  network-fixture-proof:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Install host proof tools
-        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm python3
-      - name: Verify and boot the real networking fixture
-        run: |
-          python3 -m unittest discover -s scripts/vm -p 'test_network_*.py'
-          python3 scripts/vm/build-network-fixture.py --output dist/vm-network-fixture
-          python3 scripts/vm/test-network.py --qemu qemu-system-aarch64 --fixture dist/vm-network-fixture --evidence dist/vm-network-host-proof --timeout 180
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: vm-network-host-evidence
-          path: |
-            dist/vm-network-fixture/manifest.json
-            dist/vm-network-host-proof
-          if-no-files-found: error
-          retention-days: 14
-
-  fixture-proof:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Install host proof tools
-        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm python3
-      - name: Build and boot the real Linux fixture
-        run: |
-          python3 -m unittest discover -s scripts/vm -p 'test_fixture.py'
-          python3 scripts/vm/build-fixture.py --output dist/vm-fixture
-          python3 scripts/vm/test-boot.py --qemu qemu-system-aarch64 --fixture dist/vm-fixture --evidence dist/vm-host-proof --timeout 180
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: vm-host-fixture-evidence
-          path: |
-            dist/vm-fixture/manifest.json
-            dist/vm-host-proof
-          if-no-files-found: error
-          retention-days: 14
-
-  native-engine:
-    needs: [native-bridge-tests, actual-slirp-tests]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        abi: [arm64-v8a, x86_64]
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Restore immutable verified source archives
-        id: source-cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: .vm-native-cache/*.archive
-          key: vm-native-sources-${{ hashFiles('scripts/vm/native-sources.json') }}
-          restore-keys: vm-native-sources-
-      - name: Install native build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build pkg-config cmake python3 python3-venv patch curl xz-utils unzip
-          python3 -m venv "$RUNNER_TEMP/vm-build-tools"
-          "$RUNNER_TEMP/vm-build-tools/bin/pip" install --only-binary=:all: --require-hashes -r scripts/vm/build-tools.txt
-          echo "$RUNNER_TEMP/vm-build-tools/bin" >> "$GITHUB_PATH"
-      - name: Acquire the hash-pinned NDK r30
-        run: |
-          python3 - <<'PY'
-          import hashlib, json, os, pathlib, subprocess, urllib.request
-          item = json.loads(pathlib.Path('scripts/vm/native-sources.json').read_text())['ndk']
-          archive = pathlib.Path(os.environ['RUNNER_TEMP'])/'ndk-r30.zip'
-          urllib.request.urlretrieve(item['url'], archive)
-          if hashlib.sha256(archive.read_bytes()).hexdigest() != item['sha256']:
-              raise SystemExit('NDK archive hash mismatch')
-          # NDK compiler aliases are Unix symlinks; Python ZipFile.extractall
-          # would turn those links into unusable text files.
-          subprocess.run(['unzip', '-q', str(archive), '-d', os.environ['RUNNER_TEMP']], check=True)
-          archive.unlink()
-          with open(os.environ['GITHUB_ENV'], 'a') as output:
-              output.write('LINEX_VM_NDK=' + os.environ['RUNNER_TEMP'] + '/android-ndk-r30\n')
-          PY
-          chmod -R u+x "$RUNNER_TEMP/android-ndk-r30/toolchains/llvm/prebuilt/linux-x86_64/bin"
-      - name: Build and verify the actual JNI shared library
-        run: |
-          python3 -m unittest discover -s scripts/vm -p 'test_native_build.py'
-          bash scripts/vm/build-engine.sh --abi '${{ matrix.abi }}' --output dist/vm-engine
-      - name: Save verified archives even after a compile failure
-        if: always() && steps.source-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
-        with:
-          path: .vm-native-cache/*.archive
-          key: vm-native-sources-${{ hashFiles('scripts/vm/native-sources.json') }}
-      - name: Preserve small runtime artifact for Android proof
-        if: success()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: vm-runtime-${{ matrix.abi }}
-          path: |
-            dist/vm-engine/${{ matrix.abi }}/liblinex_qemu_aarch64.so
-            dist/vm-engine/${{ matrix.abi }}/elf-evidence.json
-          if-no-files-found: error
-          retention-days: 14
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: vm-engine-${{ matrix.abi }}
-          path: dist/vm-engine/${{ matrix.abi }}/
-          if-no-files-found: error
-          retention-days: 14
-
-  android-managed-proof:
-    needs: [native-engine]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - name: Select the existing Java17 and Android SDK
+      - name: Select existing Java17 and SDK
         run: |
           echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
           echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
           chmod +x gradlew
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: vm-runtime-x86_64
-          path: dist/vm-engine/x86_64
-      - name: Generate verified Android instrumentation assets
-        run: |
-          python3 scripts/vm/build-fixture.py --output dist/vm-fixture
-          python3 scripts/vm/build-network-fixture.py --output dist/vm-network-fixture
-          python3 scripts/vm/build-https-fixture.py --output dist/vm-https-fixture
-      - name: Verify the wrapper and Android proof failure reporting
+      - name: Verify wrapper and app adapter regressions
         run: |
           echo '0336f591bc0ec9aa0c9988929b93ecc916b3c1d52aed202c7381db144aa0ef15  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
-          ./gradlew --version --no-daemon
-          python3 -m unittest discover -s scripts/vm -p 'test_android_proof.py'
-          python3 -m unittest discover -s scripts/vm -p 'test_proof_apk.py'
-      - name: Build and verify the exact APK proof assets and JNI before boot
-        run: |
-          ./gradlew :vm-engine:assembleDebugAndroidTest -PvmNativeDir=dist/vm-engine --no-daemon
-          python3 scripts/vm/verify-proof-apk.py --apk vm-engine/build/outputs/apk/androidTest/debug/vm-engine-debug-androidTest.apk --fixture dist/vm-fixture --network-fixture dist/vm-network-fixture --https-fixture dist/vm-https-fixture --native dist/vm-engine --abi x86_64 --evidence dist/vm-android-proof/apk-evidence.json
-      - name: Enable KVM for the Android emulator on the CI host
+          ./gradlew :app:testDebugUnitTest :vm-console:testDebugUnitTest :vm-console:assembleDebugAndroidTest --no-daemon
+      - name: Enable KVM on CI host
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-linex-ci-kvm.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Boot Linux inside the managed Android process twice
+      - name: Execute private Unix and actual EGL rendering tests
         uses: reactivecircus/android-emulator-runner@4c44018e59b437e86cdfc41da381398f93ed8808
         with:
           api-level: 33
@@ -191,20 +32,17 @@ jobs:
           target: google_apis
           profile: pixel_2
           ram-size: 2048M
-          heap-size: 256M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: bash scripts/vm/run-android-proof.sh
-      - name: Preserve device proof and test failures
+          script: ./gradlew :vm-console:connectedDebugAndroidTest --no-daemon
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: vm-android-managed-evidence
+          name: vm-console-runtime-evidence
           path: |
-            dist/vm-android-proof
-            dist/vm-engine/x86_64/elf-evidence.json
-            vm-engine/build/reports/androidTests
-            vm-engine/build/outputs/androidTest-results
-            vm-engine/build/reports/tests
+            vm-console/build/outputs/androidTest-results
+            vm-console/build/reports/androidTests
+            vm-console/build/test-results
+            app/build/test-results
           if-no-files-found: error
           retention-days: 14

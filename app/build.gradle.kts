@@ -88,6 +88,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":vm-console"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

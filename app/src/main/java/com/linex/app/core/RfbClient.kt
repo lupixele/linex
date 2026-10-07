@@ -1,11 +1,11 @@
 package com.linex.app.core
 
+import com.linex.vm.console.LoopbackRfbTransport
+import com.linex.vm.console.RfbTransport
 import java.io.BufferedInputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
-import java.net.InetSocketAddress
-import java.net.Socket
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -13,21 +13,26 @@ import java.util.concurrent.atomic.AtomicBoolean
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
-/** Minimal authenticated, loopback-only RFB 3.8 client (RFC 6143).
+/** Minimal authenticated RFB 3.8 client over an owned private transport (RFC 6143).
  * Run on a worker thread; callbacks run there. Input methods never block the UI.
  * Each frame is an owned ARGB snapshot. A client is single-use, including after close().
  */
 class RfbClient(
-    private val port: Int,
+    private val transport: RfbTransport,
     private val password: String,
     private val onFrame: (width: Int, height: Int, pixels: IntArray) -> Unit,
     private val onStatus: (String) -> Unit,
     targetFps: Int = 15
 ) : AutoCloseable {
+    constructor(
+        port: Int, password: String,
+        onFrame: (width: Int, height: Int, pixels: IntArray) -> Unit,
+        onStatus: (String) -> Unit, targetFps: Int = 15,
+    ) : this(LoopbackRfbTransport(port), password, onFrame, onStatus, targetFps)
+
     private val frameIntervalNanos = DesktopFrameRate.intervalNanos(targetFps)
     private val closed = AtomicBoolean(false)
     private val started = AtomicBoolean(false)
-    private val socket = Socket()
     private val writeLock = Any()
     private val visibilityLock = Object()
     @Volatile private var updatesPaused = false
@@ -43,14 +48,12 @@ class RfbClient(
         check(started.compareAndSet(false, true)) { "Display client already started" }
         if (closed.get()) return
         try {
-            require(port in 1..65535)
             onStatus("Connecting to desktop")
-            socket.connect(InetSocketAddress("127.0.0.1", port), 5000)
+            transport.connect(5000)
             if (closed.get()) return
-            socket.tcpNoDelay = true
-            socket.soTimeout = 10000
-            val input = DataInputStream(BufferedInputStream(socket.getInputStream(), 65536))
-            output = DataOutputStream(socket.getOutputStream())
+            transport.setReadTimeout(10000)
+            val input = DataInputStream(BufferedInputStream(transport.inputStream, 65536))
+            output = DataOutputStream(transport.outputStream)
             val version = ByteArray(12).also(input::readFully).toString(Charsets.US_ASCII)
             if (version != "RFB 003.008\n") throw IOException("Desktop requires RFB 3.8; received ${version.trim()}")
             write { writeBytes("RFB 003.008\n") }
@@ -77,7 +80,7 @@ class RfbClient(
             }
             var pixels = IntArray(width * height)
             ready = true
-            socket.soTimeout = 0 // An idle desktop legitimately has no updates.
+            transport.setReadTimeout(0) // An idle desktop legitimately has no updates.
             if (!awaitVisible()) return
             requestUpdate(false)
             var lastUpdateRequest = System.nanoTime()
@@ -243,8 +246,8 @@ class RfbClient(
         synchronized(visibilityLock) { visibilityLock.notifyAll() }
         reusableFrames.clear()
         ready = false
-        // Socket exists before connect starts, so cancellation also interrupts a racing connect.
-        try { socket.close() } catch (_: IOException) { }
+        // Transport exists before connect starts; close interrupts a racing connect/read.
+        try { transport.close() } catch (_: IOException) { }
         inputs.shutdownNow()
     }
 

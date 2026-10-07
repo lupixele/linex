@@ -1,7 +1,7 @@
 package com.linex.app.core
 
-/** Per-launch credentials for the app's loopback-only desktop connection. Never log. */
-enum class DisplayBackend { RFB, NATIVE_X11 }
+/** Per-launch credentials for a private desktop connection. Never log. */
+enum class DisplayBackend { RFB, NATIVE_X11, VM_RFB }
 
 class DisplayEndpoint(
     val port: Int,
