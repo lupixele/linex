@@ -142,7 +142,13 @@ internal class PrivateImageFiles(private val suppliedRoot: File) {
                             probe.connect(LocalSocketAddress(entry.path, LocalSocketAddress.Namespace.FILESYSTEM))
                         } catch (error: IOException) {
                             val reason = error.cause as? ErrnoException
-                            if (reason?.errno == OsConstants.ECONNREFUSED) return@use
+                            // LocalSocket's JNI connect on older releases throws a plain
+                            // IOException made from strerror(errno), without a typed cause.
+                            // Compare only the exact system error; timeouts/other failures
+                            // remain preservation errors, and a successful connect rejects.
+                            val refused = reason?.errno == OsConstants.ECONNREFUSED ||
+                                (error.cause == null && error.message == Os.strerror(OsConstants.ECONNREFUSED))
+                            if (refused) return@use
                             throw IOException("Cannot establish that the serial endpoint is stale", error)
                         }
                         throw IOException("Serial endpoint is active; stop this VM before deletion")
