@@ -1,8 +1,34 @@
 # Linex
 
-Android app for managing rootless Linux instances with PRoot. Package: `com.linex.app`.
+Android app for running Linux desktops in an embedded, rootless virtual machine, with PRoot retained for existing instances. Package: `com.linex.app`.
 
 ## Current development build
+
+`0.6.0-dev` introduces a managed full virtual machine with Debian 13, XFCE and
+Firefox ESR. New instances default to the VM; choose **New → Full virtual machine**
+and install its image. The download is about 320 MiB and expands to a 4 GiB disk;
+allow at least 5 GiB free for setup. Existing PRoot instances stay intact and can
+still be launched. Their files are not automatically imported into a VM.
+
+The Linux kernel and its processes run inside one private Android service, so
+Firefox's Linux subprocesses do not become Android phantom processes. No root
+or changes to Android's phantom-process settings are required. The foreground
+service owns the session, installation, cancellation and notification progress.
+Android can still reclaim an app under memory pressure or OEM power policies.
+
+The embedded VM viewer presents complete frames with GLES. Landscape/fullscreen,
+manual resolution, 15–144 FPS limits, keyboard/mouse, touchpad gestures, and a
+toggleable FPS/RAM/CPU text overlay are available. Unsupported GPU statistics are
+omitted. VM RAM presets/custom values allocate guest memory; PRoot RAM settings
+remain advisory. FPS options set a limit, not a guaranteed rendered frame rate.
+Guest graphics and video decoding use software; host GLES presentation does not
+provide guest GPU acceleration. Snapdragon 732G performance has not been measured.
+
+The release retains exact image/download hashes and supplies Debian, kernel,
+QEMU/dependency/relinkable and existing native sources. See
+[VM release evidence](VM-RELEASE-EVIDENCE.md) for actual tests and their limits.
+
+## Earlier development builds
 
 `0.3.4-dev` adds per-instance desktop FPS limits: 15, 30, 60, 90, 120 and 144. Edit instance settings while stopped, save, then launch. The viewer uses the selected pacing and requests a supported Android refresh rate for the session; actual FPS depends on hardware/workload and the OS may ignore refresh preferences. Existing instances retain 15 FPS.
 
@@ -25,18 +51,26 @@ The build also includes the installation, diagnostics, and instance-management i
 - Logs are isolated by instance, persisted locally, restored at startup, searchable, and exportable. Clear affects only the selected instance.
 - Instance cards expose Logs, setup errors, retry, settings, clone, and confirmed deletion. Live process state drives session controls.
 
-The embedded display uses software framebuffer updates; it is not a GPU-accelerated X11 implementation. Audio, clipboard synchronization and full desktop compatibility are not implemented. ARM64 images and working guest desktop packages are required; Phosh/Wayland is not supported by this X11 display path. Native X11 stubs are unused. Android end-to-end display verification remains outstanding.
+Audio and clipboard synchronization are not implemented for the VM. Phosh/Wayland
+is not supported by the XFCE/X11 image. The existing PRoot native X11 backend is
+separate from the VM's private RFB/GLES display path.
 
 ## Build and verify
 
 Requirements: JDK 17, Android SDK 34/build-tools 34.0.0, NDK 26.1.10909125, CMake 3.22.1. Set `sdk.dir` in local.properties to your SDK path.
 
 ```powershell
-.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:lintDebug --no-daemon
+.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:lintDebug -PvmNativeDir=dist/vm-engine-production --no-daemon
 .\gradlew.bat --stop
 ```
 
 APK: `app/build/outputs/apk/debug/app-debug.apk`.
+
+Supply the accepted ARM64 and x86_64 runtime artifacts under the directory passed
+to `vmNativeDir`. The app build rejects missing or changed runtime bytes when a
+VM catalogue is bundled. Native source rebuilding requires Linux and the pinned
+NDK r30/tool versions in `scripts/vm/native-sources.json` and `build-tools.txt`;
+the normal app build uses the verified native artifacts, not Windows QEMU.
 
 Unit tests cover archive safety/readiness and persistent log isolation. Hardware validation still needs an ARM64 Android device: install APK, download an image, interrupt/retry setup, reopen logs after force-stop, export logs, and exercise instance management. A successful build is not proof that PRoot or desktop rendering works on a device.
 
