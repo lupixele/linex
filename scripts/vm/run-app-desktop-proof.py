@@ -40,10 +40,14 @@ def verify_guest(guest, subject, evidence):
         raise ValueError("Actual guest non-root browser render proof is required")
     if guest.get("rejectedLaunchRecovered") is not True:
         raise ValueError("A rejected native start must recover before normal desktop launches")
+    if guest.get("bundledCatalogueVerified") is not True:
+        raise ValueError("Release APK must expose the same validated production image")
     launches = guest.get("launches")
     if not isinstance(launches, list) or len(launches) != 2:
         raise ValueError("Two actual production launches are required")
     for index, launch in enumerate(launches):
+        if launch.get("desktopContentVisible") is not True:
+            raise ValueError("Cursor-only initial frames cannot prove a visible desktop")
         if launch.get("index") != index or type(launch.get("pid")) is not int or launch["pid"] <= 0 or \
                 not re.fullmatch(r"[a-f0-9]{32}", str(launch.get("generation", ""))) or \
                 any(launch.get(name) is not True for name in ("stopped", "nonuniformFrame", "frameMutation", "pauseResume", "diskRetained", "nonRootHeadlessFirefox", "defaultCaHttps")) or \

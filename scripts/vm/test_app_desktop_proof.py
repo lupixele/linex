@@ -90,10 +90,11 @@ class AppDesktopGuardTest(unittest.TestCase):
             guest = {"passed": True, "manifestSha256": subject["manifestSha256"], "imageId": subject["imageId"],
                 "installedDiskBytes": subject["diskBytes"], "guestFilePersistenceProved": False,
                 "browserRuntimeProved": True, "browserMode": "non-root-headless", "glesPresentationProved": False,
-                "rejectedLaunchRecovered": True, "launches": []}
+                "rejectedLaunchRecovered": True, "bundledCatalogueVerified": True, "launches": []}
             for index in range(2):
                 pid = 100 + index
                 launch = {"index": index, "pid": pid, "generation": str(index + 1) * 32,
+                    "desktopContentVisible": True,
                     "stopped": True, "nonuniformFrame": True, "frameMutation": True, "pauseResume": True,
                     "diskRetained": True, "nonRootHeadlessFirefox": True, "defaultCaHttps": True,
                     "width": 1280, "height": 720, "memoryMiB": 1024, "vcpuCount": 2,

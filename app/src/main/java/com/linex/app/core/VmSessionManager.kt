@@ -136,8 +136,10 @@ class VmSessionManager(private val context: Context) {
                     session.launch = engine.startDesktop(request)
                     session.serial = withTimeout(15000) { accepted.await() }
                 } finally {
-                    listener.close(); listening.close()
+                    closeSocket(listening)
+                    listener.close()
                     accepted.cancel()
+                    withContext(NonCancellable) { withTimeout(2000) { accepted.join() } }
                 }
                 check(session.serial!!.peerCredentials.uid == Process.myUid()) { "Unexpected VM serial peer" }
                 log(session, "Booting Linux with ${request.memoryMiB} MiB RAM and ${request.vcpuCount} CPUs")
@@ -237,6 +239,13 @@ class VmSessionManager(private val context: Context) {
     private fun write(session: Session, command: String) {
         requireNotNull(session.serial).outputStream.apply { write(command.toByteArray(Charsets.US_ASCII)); flush() }
     }
+    private fun closeSocket(socket: LocalSocket?) {
+        if (socket == null) return
+        // Both connected reads and listening accepts can outlive close(fd).
+        runCatching { socket.shutdownInput() }
+        runCatching { socket.shutdownOutput() }
+        runCatching { socket.close() }
+    }
     suspend fun pause(): Boolean = control(resume = false)
     suspend fun resume(): Boolean = control(resume = true)
     private suspend fun control(resume: Boolean): Boolean = withContext(Dispatchers.IO) { lock.withLock {
@@ -281,18 +290,18 @@ class VmSessionManager(private val context: Context) {
                     log(session, "VM stop is not confirmed. Retry stopping; this disk remains owned.")
                     // Closing parent transports does not release the engine's disk lock.
                     session.reader?.cancel()
-                    runCatching { session.serial?.close() }
+                    closeSocket(session.serial)
+                    closeSocket(session.listening)
                     runCatching { session.listener?.close() }
-                    runCatching { session.listening?.close() }
                     session.endpoint = null
                     return@withLock false
                 }
             }
         }
         session.reader?.cancel()
-        runCatching { session.serial?.close() }
+        closeSocket(session.serial)
+        closeSocket(session.listening)
         runCatching { session.listener?.close() }
-        runCatching { session.listening?.close() }
         runCatching { engine?.close() }
         if (session.bound) runCatching { context.unbindService(requireNotNull(session.connection)) }
         runCatching { File(session.request.serialPath).delete() }
