@@ -70,9 +70,9 @@ class VmImageInstallerTest {
         val installer = VmImageInstaller(root)
         val stages = mutableListOf<VmInstallStage>()
         val installed = installer.install("instance", image) { stages += it.stage }
-        assertEquals(File(root, "vm-images/${image.imageId}/${image.revision}/kernel"), installed.kernelFile)
-        assertEquals(File(root, "vm-images/${image.imageId}/${image.revision}/initramfs"), installed.initramfsFile)
-        assertEquals(File(root, "vm-instances/instance/disk.raw"), installed.diskFile)
+        assertEquals(File(root, "vm-images/${image.imageId}/${image.revision}/kernel").canonicalFile, installed.kernelFile)
+        assertEquals(File(root, "vm-images/${image.imageId}/${image.revision}/initramfs").canonicalFile, installed.initramfsFile)
+        assertEquals(File(root, "vm-instances/instance/disk.raw").canonicalFile, installed.diskFile)
         assertEquals(100_000, installed.diskFile.length())
         assertEquals(384, Os.lstat(installed.diskFile.path).st_mode and 511)
         assertEquals(448, Os.lstat(installed.diskFile.parentFile!!.path).st_mode and 511)
@@ -107,10 +107,22 @@ class VmImageInstallerTest {
         assertArrayEquals(byteArrayOf(7, 8, 9), installed.kernelFile.readBytes())
         assertEquals(42, installed.diskFile.inputStream().use { it.read() })
         installed.kernelFile.writeBytes(byteArrayOf(1, 2, 3))
-        Os.link(installed.diskFile.path, File(installed.diskFile.parentFile, "disk-alias").path)
-        rejected = false
-        try { installer.readInstalled("original") } catch (_: java.io.IOException) { rejected = true }
-        assertTrue(rejected)
+        var linked = false
+        try {
+            Os.link(installed.diskFile.path, File(installed.diskFile.parentFile, "disk-alias").path)
+            linked = true
+        } catch (error: ErrnoException) {
+            // App domains on Android26/33 deny hardlink creation through SELinux.
+            // This is observed negative security evidence, not a skipped test.
+            assertEquals(OsConstants.EACCES, error.errno)
+            assertEquals(1L, Os.lstat(installed.diskFile.path).st_nlink)
+            assertNotNull(installer.readInstalled("original"))
+        }
+        if (linked) {
+            rejected = false
+            try { installer.readInstalled("original") } catch (_: java.io.IOException) { rejected = true }
+            assertTrue(rejected)
+        }
         assertEquals(42, installed.diskFile.inputStream().use { it.read() })
     }
     @Test fun cancellationAndSymlinkSourcesNeverPublishReadyOrOverwriteAnExistingDisk() = runBlocking {
@@ -192,12 +204,13 @@ class VmImageInstallerTest {
         LocalSocket().use { socket ->
             socket.bind(LocalSocketAddress(endpoint.path, LocalSocketAddress.Namespace.FILESYSTEM))
             Os.chmod(endpoint.path, 384)
-            LocalServerSocket(socket.fileDescriptor).use {
+            val listener = LocalServerSocket(socket.fileDescriptor)
+            try {
                 rejected = false
                 try { installer.delete("source") } catch (_: java.io.IOException) { rejected = true }
                 assertTrue(rejected)
                 assertTrue(original.diskFile.isFile)
-            }
+            } finally { listener.close() }
         }
         assertTrue(endpoint.exists())
         installer.delete("source")
