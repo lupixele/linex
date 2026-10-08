@@ -38,6 +38,8 @@ def verify_guest(guest, subject, evidence):
         raise ValueError("Desktop test must not claim unimplemented file/GLES proof")
     if guest.get("browserRuntimeProved") is not True or guest.get("browserMode") != "non-root-headless":
         raise ValueError("Actual guest non-root browser render proof is required")
+    if guest.get("rejectedLaunchRecovered") is not True:
+        raise ValueError("A rejected native start must recover before normal desktop launches")
     launches = guest.get("launches")
     if not isinstance(launches, list) or len(launches) != 2:
         raise ValueError("Two actual production launches are required")

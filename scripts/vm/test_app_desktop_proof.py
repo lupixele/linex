@@ -89,7 +89,8 @@ class AppDesktopGuardTest(unittest.TestCase):
             args.evidence.mkdir()
             guest = {"passed": True, "manifestSha256": subject["manifestSha256"], "imageId": subject["imageId"],
                 "installedDiskBytes": subject["diskBytes"], "guestFilePersistenceProved": False,
-                "browserRuntimeProved": True, "browserMode": "non-root-headless", "glesPresentationProved": False, "launches": []}
+                "browserRuntimeProved": True, "browserMode": "non-root-headless", "glesPresentationProved": False,
+                "rejectedLaunchRecovered": True, "launches": []}
             for index in range(2):
                 pid = 100 + index
                 launch = {"index": index, "pid": pid, "generation": str(index + 1) * 32,
@@ -117,6 +118,9 @@ class AppDesktopGuardTest(unittest.TestCase):
             bad = copy.deepcopy(guest)
             bad["glesPresentationProved"] = True
             with self.assertRaises(ValueError): runner.verify_guest(bad, subject, args.evidence)
+            bad = copy.deepcopy(guest)
+            bad["rejectedLaunchRecovered"] = False
+            with self.assertRaises(ValueError): runner.verify_guest(bad, subject, args.evidence)
             (args.evidence / "desktop-proof-1.png").unlink()
             with self.assertRaises(ValueError): runner.verify_guest(guest, subject, args.evidence)
 
@@ -125,7 +129,7 @@ class AppDesktopGuardTest(unittest.TestCase):
             args = inputs(Path(directory))
             result = verify(args)
             self.assertEqual(result["nativeRunId"], 37648306873)
-            self.assertEqual(result["candidateRunId"], 37653179199)
+            self.assertEqual(result["candidateRunId"], 37756061377)
             self.assertFalse(result["runtimeProofPassed"])
             self.assertEqual(set(result["fixtureAssets"]), {"kernel", "desktop.cpio.gz", "factory.raw.xz", "manifest.json"})
             (args.fixture / "kernel").write_bytes(b"changed candidate")

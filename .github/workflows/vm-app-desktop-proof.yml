@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      DESKTOP_MANIFEST_SHA: 2b1ed272d4948269fefa1019be0bdd1401730e174e5f4aa5673018efd183231b
+      DESKTOP_MANIFEST_SHA: b403701a08f2e67e5fa72f5a06e87544f30fad69c287352efe853faf864e0b32
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Require exact successful native and desktop producers
@@ -46,13 +46,13 @@ jobs:
         with:
           name: vm-desktop-factory-candidate
           path: dist/vm-desktop-candidate
-          run-id: 37653179199
+          run-id: 37756061377
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: vm-desktop-provision-evidence
           path: dist/vm-desktop-host
-          run-id: 37653179199
+          run-id: 37756061377
           github-token: ${{ github.token }}
       - name: Require real host desktop acceptance and authenticated package lock
         run: |

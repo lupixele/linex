@@ -13,8 +13,8 @@ import zipfile
 
 NATIVE_RUN_ID = 37648306873
 NATIVE_SOURCE = "6f27c7123f89251048be272e6ce6e0bbd4095a92"
-CANDIDATE_RUN_ID = 37653179199
-CANDIDATE_SOURCE = "b6d3b785e2ba367476e15e0deeb4f9b7efd67385"
+CANDIDATE_RUN_ID = 37756061377
+CANDIDATE_SOURCE = "be88885e836edbd66aca575175367497eea11657"
 FIXTURE_FILES = {"kernel": "kernel", "initramfs": "desktop.cpio.gz", "download": "factory.raw.xz"}
 
 
