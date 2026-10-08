@@ -41,6 +41,22 @@ class VmDesktopBootRequestTest {
         assertEquals(request, request.validated(root, available))
     }
 
+    @Test fun acceptsCanonicalPreparedPathsAndReturnsOnlyCanonicalPrivateChildren() {
+        val root = temporary.root
+        val original = request(root)
+        val canonical = original.copy(kernelPath = File(original.kernelPath).canonicalPath,
+            initramfsPath = File(original.initramfsPath).canonicalPath,
+            diskPath = File(original.diskPath).canonicalPath,
+            serialPath = File(original.serialPath).canonicalPath)
+        assertEquals(canonical, canonical.validated(root, available))
+        assertEquals(File(canonical.diskPath), VmDesktopBootRequest.privatePath(
+            original.diskPath, root, "vm-instances/i"))
+        assertThrows(IllegalArgumentException::class.java) {
+            VmDesktopBootRequest.privatePath(File(File(root, "vm-instances/irrelevant"), "disk").absolutePath,
+                root, "vm-instances/i")
+        }
+    }
+
     @Test fun rejectsModifiedBootAssetsAndMismatchedDiskLength() {
         val root = temporary.root
         val request = request(root)
