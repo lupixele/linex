@@ -1,0 +1,113 @@
+name: Linex production desktop Android app proof
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  app-desktop:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DESKTOP_MANIFEST_SHA: 2b1ed272d4948269fefa1019be0bdd1401730e174e5f4aa5673018efd183231b
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Require exact successful native and desktop producers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m unittest discover -s scripts/vm -p 'test_app_desktop_proof.py'
+          python3 scripts/vm/verify-native-provenance.py --repository "$GITHUB_REPOSITORY" --run-id 37648306873 --evidence dist/app-desktop/native-provenance.json
+          python3 - <<'PY'
+          import importlib.util, json, subprocess
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('guard', 'scripts/vm/verify-app-desktop-apk.py')
+          guard = importlib.util.module_from_spec(spec); spec.loader.exec_module(guard)
+          for run_id, sha in ((guard.NATIVE_RUN_ID, guard.NATIVE_SOURCE), (guard.CANDIDATE_RUN_ID, guard.CANDIDATE_SOURCE)):
+              data = json.loads(subprocess.check_output(['gh', 'api', f'repos/lupixele/linex/actions/runs/{run_id}']))
+              guard.validate_producer(data, run_id, sha)
+              Path(f'dist/app-desktop/producer-{run_id}.json').write_text(json.dumps(data, indent=2) + '\n')
+          PY
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: vm-runtime-x86_64
+          path: dist/vm-engine/x86_64
+          run-id: 37648306873
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: vm-runtime-arm64-v8a
+          path: dist/vm-engine/arm64-v8a
+          run-id: 37648306873
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: vm-desktop-factory-candidate
+          path: dist/vm-desktop-candidate
+          run-id: 37653179199
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: vm-desktop-provision-evidence
+          path: dist/vm-desktop-host
+          run-id: 37653179199
+          github-token: ${{ github.token }}
+      - name: Require real host desktop acceptance and authenticated package lock
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          proof = json.loads(Path('dist/vm-desktop-host/vm-desktop-host-proof/desktop-proof.json').read_text())
+          for key in ('passed', 'vncAuth', 'keyboardLeftRightScrollInput', 'defaultCaHttps', 'nonRootHeadlessFirefoxScreenshot', 'cleanStop', 'finalFilesystemCheck'):
+              if proof.get(key) is not True: raise SystemExit('Incomplete host desktop proof: ' + key)
+          manifest = json.loads(Path('dist/vm-desktop-candidate/manifest.json').read_text())
+          expected = 'ce683914608e5ac749e7006aeb1077ac789e0d10cfe9852b8a7c1affc338020d'
+          if manifest.get('lockSha256') != expected: raise SystemExit('Unexpected authenticated package lock')
+          for root in ('dist/vm-desktop-host', 'dist/vm-desktop-candidate'):
+              if hashlib.sha256(Path(root, 'desktop-image-lock.json').read_bytes()).hexdigest() != expected:
+                  raise SystemExit('Package lock bytes changed')
+          PY
+      - name: Select Java17 and required Android build tools
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          JAVA_HOME="$JAVA_HOME_17_X64" "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1'
+          chmod +x gradlew
+      - name: Build the app and verify the actual APK and staged factory bytes
+        run: |
+          echo '0336f591bc0ec9aa0c9988929b93ecc916b3c1d52aed202c7381db144aa0ef15  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
+          ./gradlew :app:testDebugUnitTest :vm-engine:testDebugUnitTest :vm-images:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest -PvmNativeDir=dist/vm-engine --no-daemon
+          python3 scripts/vm/verify-app-desktop-apk.py --apk app/build/outputs/apk/debug/app-debug.apk --test-apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk --native dist/vm-engine --fixture dist/vm-desktop-candidate --manifest-sha256 "$DESKTOP_MANIFEST_SHA" --abi arm64-v8a --abi x86_64 --checkout "$GITHUB_SHA" --evidence dist/app-desktop/subject.json
+      - name: Enable CI host KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-linex-ci-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install the real factory and boot the app desktop twice
+        uses: reactivecircus/android-emulator-runner@4c44018e59b437e86cdfc41da381398f93ed8808
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          ram-size: 4096M
+          disk-size: 10G
+          heap-size: 512M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
+          script: python3 scripts/vm/run-app-desktop-proof.py --apk app/build/outputs/apk/debug/app-debug.apk --test-apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk --native dist/vm-engine --fixture dist/vm-desktop-candidate --subject dist/app-desktop/subject.json --manifest-sha256 "$DESKTOP_MANIFEST_SHA" --abi arm64-v8a --abi x86_64 --apksigner "$ANDROID_HOME/build-tools/34.0.0/apksigner" --evidence dist/app-desktop/device
+      - name: Preserve successful and failed runtime evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: vm-app-desktop-evidence
+          path: |
+            dist/app-desktop
+            app/build/test-results/testDebugUnitTest
+            vm-engine/build/test-results/testDebugUnitTest
+            vm-images/build/test-results/testDebugUnitTest
+          if-no-files-found: error
+          retention-days: 14
