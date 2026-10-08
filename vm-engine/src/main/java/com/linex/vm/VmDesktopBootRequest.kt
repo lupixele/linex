@@ -94,16 +94,22 @@ data class VmDesktopBootRequest(
             require(path.isNotBlank() && path.toByteArray(Charsets.UTF_8).size <= 4096 && '\u0000' !in path) { "Invalid private desktop path" }
             val candidate = File(path).toPath()
             require(candidate.isAbsolute && candidate == candidate.normalize()) { "Desktop path must be absolute without traversal" }
-            val anchor = filesRoot.toPath().toAbsolutePath().normalize()
-            val scope = anchor.resolve(directory).normalize()
-            require(candidate.startsWith(scope) && candidate != scope) { "Desktop path outside its private storage scope" }
+            // Android's trusted Context root can name /data/user/0 while
+            // installers return its /data/data canonical view. Accept these
+            // two root spellings only; guest-created aliases remain forbidden.
+            val canonicalAnchor = filesRoot.canonicalFile.toPath()
+            val anchors = listOf(filesRoot.toPath().toAbsolutePath().normalize(), canonicalAnchor).distinct()
+            val anchor = anchors.firstOrNull { root ->
+                val scope = root.resolve(directory).normalize()
+                candidate.startsWith(scope) && candidate != scope
+            } ?: throw IllegalArgumentException("Desktop path outside its private storage scope")
             var current = anchor
             for (component in anchor.relativize(candidate)) {
                 current = current.resolve(component)
                 require(!Files.isSymbolicLink(current)) { "Desktop storage cannot contain symlinks" }
             }
             val canonical = candidate.toFile().canonicalFile
-            require(canonical.toPath().startsWith(File(filesRoot.canonicalFile, directory).toPath())) { "Desktop path escapes private storage" }
+            require(canonical.toPath().startsWith(canonicalAnchor.resolve(directory).normalize())) { "Desktop path escapes private storage" }
             return canonical
         }
     }

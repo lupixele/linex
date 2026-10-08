@@ -197,7 +197,7 @@ class VmSessionManager(private val context: Context) {
             delay(2000)
             val engine = session.engine ?: return
             val failure = runCatching {
-                check(engine.isAlive()) { "Android reclaimed the virtual machine service" }
+                check(engine.isAlive()) { "The virtual machine service exited" }
                 val status = engine.status()
                 check(status.state !in listOf("FAILED", "EXITED", "STOPPING")) { status.failure ?: "Virtual machine exited" }
             }.exceptionOrNull()

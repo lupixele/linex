@@ -164,7 +164,18 @@ class VmImageInstaller(filesDirectory: File) {
                     val installed = readInstalledInternal(instanceId) ?: throw IOException("VM is not ready; preserving its data")
                     files.checkedDeletableInstance(instance)
                     val staging = files.directory(files.root(), "vm-image-staging")
-                    val retired = File(staging, "delete.$instanceId.${UUID.randomUUID().toString().replace("-", "")}")
+                    // Android's filesystem Unix socket addresses allow only 107 bytes.
+                    // Long instance IDs plus a full UUID made the post-rename socket
+                    // check fail although the original endpoint was valid and stale.
+                    var retired: File
+                    do {
+                        retired = File(staging, "delete.${UUID.randomUUID().toString().take(8)}")
+                    } while (files.exists(retired))
+                    for (entry in instance.listFiles() ?: throw IOException("Cannot inspect VM instance")) {
+                        if (entry.name.matches(Regex("s[a-f0-9]{8}")) &&
+                            File(retired, entry.name).path.toByteArray(Charsets.UTF_8).size > 107)
+                            throw IOException("Private deletion path is too long for the serial endpoint")
+                    }
                     onProgress(VmInstallProgress(VmInstallStage.DELETE, 0, installed.diskBytes))
                     coroutineContext.ensureActive()
                     // Remove the launch namespace atomically while the ownership inode is locked.
