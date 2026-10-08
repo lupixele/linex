@@ -75,6 +75,14 @@ class VmDesktopProofTest {
                 .put("instanceId", id).put("launches", launches)
                 .put("guestFilePersistenceProved", false).put("browserRuntimeProved", false)
                 .put("glesPresentationProved", false)
+            val bundledImage = requireNotNull(VmImageCatalogue.current(context)) { "Release APK has no validated VM catalogue" }
+            assertEquals(image.imageId, bundledImage.imageId)
+            assertEquals(image.kernel, bundledImage.kernel.copy(source = image.kernel.source))
+            assertEquals(image.initramfs, bundledImage.initramfs.copy(source = image.initramfs.source))
+            assertEquals(image.download, bundledImage.download.copy(source = image.download.source))
+            assertEquals(image.diskBytes, bundledImage.diskBytes)
+            assertEquals(image.diskSha256, bundledImage.diskSha256)
+            evidence.put("bundledCatalogueVerified", true)
             fun save() { evidenceFile.writeText(evidence.toString(2) + "\n") }
             save()
             val manager = VmSessionManager(context)
@@ -153,7 +161,10 @@ class VmDesktopProofTest {
                                 assertEquals(1280, width); assertEquals(720, height)
                                 assertEquals(width * height, pixels.size)
                                 frames.incrementAndGet()
-                                if (pixels.any { it != pixels[0] }) {
+                                // A cursor on a black framebuffer is not a ready
+                                // desktop. Wait for actual XFCE content before
+                                // saving the frame or starting proof applications.
+                                if (pixels.count { it and 0x00ffffff != 0 } > pixels.size / 50) {
                                     val current = pixels.contentHashCode()
                                     val first = signature.get()
                                     if (first == null && signature.compareAndSet(null, current)) {
@@ -189,7 +200,7 @@ class VmDesktopProofTest {
                         assertTrue("Real desktop frames never changed", changed.await(30, TimeUnit.SECONDS))
                         failure.get()?.let { throw AssertionError("Private RFB mutation failure", it) }
                         launchEvidence.put("width", 1280).put("height", 720).put("frames", frames.get())
-                            .put("nonuniformFrame", true).put("frameMutation", true)
+                            .put("nonuniformFrame", true).put("frameMutation", true).put("desktopContentVisible", true)
                         observe()
                         assertTrue("QMP pause failed", manager.pause())
                         assertEquals(ContainerState.SUSPENDED, manager.state.value[id])

@@ -1,0 +1,70 @@
+{
+  "architecture": "aarch64",
+  "browserVersion": "153.4.0esr-1~deb13u1",
+  "candidateManifestSha256": "b403701a08f2e67e5fa72f5a06e87544f30fad69c287352efe853faf864e0b32",
+  "consoleGuestPort": 5901,
+  "controlProtocol": "bounded JSON lines, launch/stop, per-launch random credential",
+  "disk": {
+    "bytes": 4294967296,
+    "file": "factory.raw",
+    "filesystem": "ext4",
+    "format": "raw",
+    "sha256": "4f2cf6385f02b3ef1651f3b7f81a3d7a0b1ab8fdb9a8b1aec18c18376ef38e20"
+  },
+  "download": {
+    "bytes": 335136064,
+    "compression": "xz",
+    "file": "factory.raw.xz",
+    "sha256": "e47531b3fa6ba2349099f107cde705fd5a674e9d0b6fc1f317decd58974be767"
+  },
+  "downloadBase": "https://github.com/lupixele/linex/releases/download/v0.6.0-dev/",
+  "imageId": "debian-trixie-desktop",
+  "initramfs": {
+    "bytes": 1016414,
+    "file": "desktop.cpio.gz",
+    "sha256": "8ce2a66feea4515d25347840014fa27e2964eb8a489434dd3121612b7e9bf59b"
+  },
+  "kernel": {
+    "bytes": 18589606,
+    "file": "kernel",
+    "packageSha256": "ee35dffd32c672d6b1814c0d9c8001c1656e06e718ebd5fb15565d0b7e51e418",
+    "sha256": "6001f54164a5201cd5a80e0a09bb05c43fa6e910a0abfe0f5a4e8d7d781cc737",
+    "source": "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux-signed/linux-image-6.8.0-146-generic_6.8.0-146.146_arm64.deb",
+    "version": "6.8.0-146.146"
+  },
+  "kernelConfigBuiltIn": {
+    "CONFIG_BLK_DEV_INITRD": "y",
+    "CONFIG_DEVTMPFS": "y",
+    "CONFIG_EXT4_FS": "y",
+    "CONFIG_FAILOVER": "y",
+    "CONFIG_FS_MBCACHE": "y",
+    "CONFIG_INET": "y",
+    "CONFIG_JBD2": "y",
+    "CONFIG_NET_FAILOVER": "y",
+    "CONFIG_PACKET": "y",
+    "CONFIG_RD_GZIP": "y",
+    "CONFIG_UNIX": "y",
+    "CONFIG_VIRTIO": "y",
+    "CONFIG_VIRTIO_BLK": "y",
+    "CONFIG_VIRTIO_MMIO": "y",
+    "CONFIG_VIRTIO_NET": "y",
+    "CONFIG_VIRTIO_PCI": "y"
+  },
+  "kernelConfigSha256": "21934d8960b1c84ab93e03fa8cb269086e7a6df8a2cf6c1a21b70bd0b3bf0ddf",
+  "kernelSecurityAuditPending": false,
+  "lockSha256": "ce683914608e5ac749e7006aeb1077ac789e0d10cfe9852b8a7c1affc338020d",
+  "packageCount": 382,
+  "purpose": "Debian13 XFCE/Firefox factory for the managed Linex virtual machine",
+  "releaseReady": true,
+  "revision": "debian13-20261008-k146",
+  "runtimeProofPassed": true,
+  "schema": 1,
+  "validation": {
+    "androidDesktopRun": 37758612885,
+    "androidDesktopSource": "890ab2d6e0f51e7b32d44fbc122195a0e51d8a70",
+    "consoleRun": 37758315170,
+    "hostKernelRun": 37756061377,
+    "kernelAudit": "scripts/vm/KERNEL-AUDIT-20261008.md",
+    "nativeRun": 37648306873
+  }
+}

@@ -29,6 +29,7 @@ object VmImageCatalogue {
         require(manifest["schema"]?.jsonPrimitive?.int == 1 &&
             manifest["releaseReady"]?.jsonPrimitive?.boolean == true &&
             manifest["runtimeProofPassed"]?.jsonPrimitive?.boolean == true &&
+            manifest["kernelSecurityAuditPending"]?.jsonPrimitive?.boolean == false &&
             manifest["architecture"]?.jsonPrimitive?.content == "aarch64") { "VM image has not passed release validation" }
         val base = manifest["downloadBase"]!!.jsonPrimitive.content
         require(base.startsWith("https://github.com/lupixele/linex/releases/download/") &&
