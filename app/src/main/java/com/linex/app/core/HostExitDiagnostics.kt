@@ -16,7 +16,7 @@ object HostExitDiagnostics {
             val exits = manager.getHistoricalProcessExitReasons(context.packageName, 0, 5)
                 .filter { it.timestamp > since }.sortedBy { it.timestamp }
             exits.forEach {
-                AppLogger.log("HostExit", "Previous Android process exit: time=${it.timestamp}; pid=${it.pid}; reason=${it.reason}; status=${it.status}; PSS=${it.pss} KiB; RSS=${it.rss} KiB; description=${it.description?.take(512)}. This is host history, not a diagnosis of the Linux guest.")
+                AppLogger.log("HostExit", "Previous Android process exit: process=${it.processName?.take(128)}; time=${it.timestamp}; pid=${it.pid}; reason=${it.reason}; status=${it.status}; PSS=${it.pss} KiB; RSS=${it.rss} KiB; description=${it.description?.take(512)}. This is host history, not a diagnosis of the Linux guest.")
             }
             exits.lastOrNull()?.let { preferences.edit().putLong("last_exit", it.timestamp).apply() }
         } catch (e: Exception) {

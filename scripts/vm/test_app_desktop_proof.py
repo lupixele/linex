@@ -89,12 +89,13 @@ class AppDesktopGuardTest(unittest.TestCase):
             args.evidence.mkdir()
             guest = {"passed": True, "manifestSha256": subject["manifestSha256"], "imageId": subject["imageId"],
                 "installedDiskBytes": subject["diskBytes"], "guestFilePersistenceProved": False,
-                "browserRuntimeProved": False, "glesPresentationProved": False, "launches": []}
+                "browserRuntimeProved": True, "browserMode": "non-root-headless", "glesPresentationProved": False, "launches": []}
             for index in range(2):
                 pid = 100 + index
                 launch = {"index": index, "pid": pid, "generation": str(index + 1) * 32,
                     "stopped": True, "nonuniformFrame": True, "frameMutation": True, "pauseResume": True,
-                    "diskRetained": True, "width": 1280, "height": 720, "memoryMiB": 1024, "vcpuCount": 2,
+                    "diskRetained": True, "nonRootHeadlessFirefox": True, "defaultCaHttps": True,
+                    "width": 1280, "height": 720, "memoryMiB": 1024, "vcpuCount": 2,
                     "targetFps": 30, "frames": 2, "transport": "private-unix-rfb-vncauth",
                     "hostObservations": [{"complete": True, "pid": pid, "hostChildren": 0, "hostThreads": 8} for _ in range(3)]}
                 guest["launches"].append(launch)
@@ -108,7 +109,13 @@ class AppDesktopGuardTest(unittest.TestCase):
             bad["launches"][0]["hostObservations"][1]["hostChildren"] = 1
             with self.assertRaises(ValueError): runner.verify_guest(bad, subject, args.evidence)
             bad = copy.deepcopy(guest)
-            bad["browserRuntimeProved"] = True
+            bad["browserRuntimeProved"] = False
+            with self.assertRaises(ValueError): runner.verify_guest(bad, subject, args.evidence)
+            bad = copy.deepcopy(guest)
+            bad["launches"][0]["defaultCaHttps"] = False
+            with self.assertRaises(ValueError): runner.verify_guest(bad, subject, args.evidence)
+            bad = copy.deepcopy(guest)
+            bad["glesPresentationProved"] = True
             with self.assertRaises(ValueError): runner.verify_guest(bad, subject, args.evidence)
             (args.evidence / "desktop-proof-1.png").unlink()
             with self.assertRaises(ValueError): runner.verify_guest(guest, subject, args.evidence)
@@ -195,7 +202,7 @@ class AppDesktopGuardTest(unittest.TestCase):
                     runner.run(args)
                 self.assertEqual(len(calls), 3)
 
-    def test_binary_staging_uses_no_pty_stdin_and_original_instrument_status_survives_capture_failure(self):
+    def test_binary_staging_uses_file_protocol_and_original_instrument_status_survives_capture_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             args = inputs(Path(directory))
             subject = verify(args)
@@ -217,10 +224,11 @@ class AppDesktopGuardTest(unittest.TestCase):
                         text = subject["fixtureAssets"][path.split("/")[-1]]["sha256"] + "  " + path
                     else: text = subject["testApkSha256" if runner.TEST_PACKAGE in tail else "apkSha256"] + "  " + path
                 elif tail[:3] == ["shell", "pm", "clear"]: text = "Success"
-                elif tail[:2] == ["shell", "-T"]:
-                    self.assertIn("/system/bin/dd", tail)
-                    data = options["stdin"].read()
-                    filename = next(value.split("/")[-1] for value in tail if value.startswith("of="))
+                elif tail[:1] == ["push"]:
+                    self.assertNotIn("stdin", options)
+                    self.assertRegex(tail[2], r"^/data/local/tmp/linex-desktop-proof-[a-f0-9]{32}/[A-Za-z0-9._-]+$")
+                    data = Path(tail[1]).read_bytes()
+                    filename = Path(tail[1]).name
                     self.assertEqual(hashlib.sha256(data).hexdigest(), subject["fixtureAssets"][filename]["sha256"])
                     staged.append(filename)
                 elif tail[:3] == ["shell", "am", "instrument"]:

@@ -49,6 +49,9 @@ class VmSessionManager(private val context: Context) {
         val bootReady = CompletableDeferred<Unit>()
         val desktopReady = CompletableDeferred<Unit>()
         val cleanStop = CompletableDeferred<Unit>()
+        val browserProof = CompletableDeferred<Unit>()
+        val httpsProof = CompletableDeferred<Unit>()
+        var proofRequested = false
         @Volatile var stopping = false
     }
 
@@ -58,6 +61,20 @@ class VmSessionManager(private val context: Context) {
     suspend fun observeHost(instanceId: String): VmHostObservation? = withContext(Dispatchers.IO) {
         val session = active?.takeIf { it.request.instanceId == instanceId } ?: return@withContext null
         session.engine?.observeHost()
+    }
+    /** Instrumentation uses the factory's fixed non-root browser/TLS diagnostics. */
+    internal suspend fun proveGuestBrowser(instanceId: String): Unit = withContext(Dispatchers.IO) {
+        val session = lock.withLock {
+            val current = requireNotNull(active?.takeIf { it.request.instanceId == instanceId })
+            check(current.endpoint != null && !current.stopping && !current.proofRequested)
+            current.proofRequested = true
+            write(current, VmGuestControl.proof(current.request.sessionToken))
+            current
+        }
+        withTimeout(180000) {
+            session.browserProof.await()
+            session.httpsProof.await()
+        }
     }
     private fun setState(session: Session, value: ContainerState) {
         mutableState.value = mutableState.value + (session.request.instanceId to value)
@@ -174,6 +191,8 @@ class VmSessionManager(private val context: Context) {
                     "LINEX_VM_DESKTOP_CONTROL_READY" -> session.bootReady.complete(Unit)
                     "LINEX_VM_DESKTOP_READY session=${session.request.sessionToken}" -> session.desktopReady.complete(Unit)
                     "LINEX_VM_DESKTOP_CLEAN_STOP" -> session.cleanStop.complete(Unit)
+                    "LINEX_VM_DESKTOP_BROWSER_SCREENSHOT uid=1000" -> session.browserProof.complete(Unit)
+                    "LINEX_VM_DESKTOP_HTTPS_VERIFIED uid=1000" -> session.httpsProof.complete(Unit)
                     "LINEX_VM_DESKTOP_CONTROL_REJECTED" -> error("Guest rejected desktop control")
                 }
                 if (!session.stopping && (text.startsWith("LINEX_VM_DESKTOP_PROCESS_EXIT kind=vnc ") ||
@@ -186,6 +205,8 @@ class VmSessionManager(private val context: Context) {
             if (!session.stopping) {
                 session.bootReady.completeExceptionally(failure)
                 session.desktopReady.completeExceptionally(failure)
+                session.browserProof.completeExceptionally(failure)
+                session.httpsProof.completeExceptionally(failure)
                 log(session, "Desktop stopped: ${failure.message}")
                 scope.launch { lock.withLock { if (active === session) finish(session, graceful = false) } }
             }
@@ -205,6 +226,8 @@ class VmSessionManager(private val context: Context) {
                 session.bootReady.completeExceptionally(failure)
                 session.desktopReady.completeExceptionally(failure)
                 log(session, failure.message ?: "Virtual machine exited")
+                session.browserProof.completeExceptionally(failure)
+                session.httpsProof.completeExceptionally(failure)
                 lock.withLock { if (active === session) finish(session, graceful = false) }
                 return
             }

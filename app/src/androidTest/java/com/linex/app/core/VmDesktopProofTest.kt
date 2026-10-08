@@ -157,6 +157,9 @@ class VmDesktopProofTest {
                     try {
                         assertTrue("Authenticated private RFB produced no nonuniform desktop frame", frameReady.await(90, TimeUnit.SECONDS))
                         failure.get()?.let { throw AssertionError("Private RFB frame failure", it) }
+                        manager.proveGuestBrowser(id)
+                        launchEvidence.put("nonRootHeadlessFirefox", true).put("defaultCaHttps", true)
+                        observe()
                         // XFCE's application menu causes real framebuffer damage.
                         mutationBaseline.set(signature.get()); mutationArmed.set(true)
                         client.key(0xffe3, true); client.key(0xff1b, true)
@@ -188,6 +191,7 @@ class VmDesktopProofTest {
                         .put("diskRetained", true)
                     save()
                 }
+                evidence.put("browserRuntimeProved", true).put("browserMode", "non-root-headless")
                 evidence.put("passed", true); save()
             } catch (error: Throwable) {
                 evidence.put("failure", error.javaClass.simpleName + ": " + error.message); save()

@@ -10,11 +10,11 @@ class LinexApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // The disposable X server must not rotate journals or record its own intentional
-        // process exit as a crash of the main application.
+        // The main process owns durable diagnostics. Disposable display/VM processes
+        // must not concurrently rotate the same journal or advance its exit watermark.
         val processName = if (Build.VERSION.SDK_INT >= 28) Application.getProcessName()
             else runCatching { java.io.File("/proc/self/cmdline").readText().substringBefore('\u0000') }.getOrNull()
-        if (processName?.endsWith(":x11") == true) return
+        if (processName?.endsWith(":x11") == true || processName?.endsWith(":vm") == true) return
         AppLogger.init(applicationContext)
         val version = com.linex.app.core.AppVersion.read(applicationContext)
         AppLogger.log("LinexApp", "Linex Application initialized (installed v${version.name} code ${version.code})")
