@@ -77,9 +77,16 @@ jobs:
           JAVA_HOME="$JAVA_HOME_17_X64" "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1'
           chmod +x gradlew
       - name: Build the app and verify the actual APK and staged factory bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo '0336f591bc0ec9aa0c9988929b93ecc916b3c1d52aed202c7381db144aa0ef15  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check
           ./gradlew :app:testDebugUnitTest :vm-engine:testDebugUnitTest :vm-images:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest -PvmNativeDir=dist/vm-engine --no-daemon
+          # Exercise the exact locally signed release bytes, including the
+          # existing update certificate, rather than a runner's random debug key.
+          gh api repos/lupixele/linex/releases/assets/621779554 -H 'Accept: application/octet-stream' > app/build/outputs/apk/debug/app-debug.apk
+          gh api repos/lupixele/linex/releases/assets/621779551 -H 'Accept: application/octet-stream' > app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          printf '%s\n' 'd791f7374c2bc4f7e60acb85b014ba5ad91abd7505dcc9c3988d05a54b692e33  app/build/outputs/apk/debug/app-debug.apk' '6856b06bebf8bc95e6f3c9d23a84d7083401b5815e51ea70325bfafd7aab8509  app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk' | sha256sum --check
           python3 scripts/vm/verify-app-desktop-apk.py --apk app/build/outputs/apk/debug/app-debug.apk --test-apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk --native dist/vm-engine --fixture dist/vm-desktop-candidate --manifest-sha256 "$DESKTOP_MANIFEST_SHA" --abi arm64-v8a --abi x86_64 --checkout "$GITHUB_SHA" --evidence dist/app-desktop/subject.json
       - name: Enable CI host KVM
         run: |
