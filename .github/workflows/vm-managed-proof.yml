@@ -74,7 +74,7 @@ jobs:
           echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
           echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
-          sdkmanager 'platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1'
+          JAVA_HOME="$JAVA_HOME_17_X64" "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-34' 'build-tools;34.0.0' 'ndk;26.1.10909125' 'cmake;3.22.1'
           chmod +x gradlew
       - name: Build the app and verify the actual APK and staged factory bytes
         run: |
