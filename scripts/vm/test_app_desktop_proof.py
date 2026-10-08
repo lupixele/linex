@@ -50,7 +50,7 @@ def inputs(root):
         archive.writestr("classes.dex", b"test code identity fixture")
     return SimpleNamespace(apk=apk, test_apk=test_apk, native=native, fixture=fixture,
         manifest_sha256=guard.hash_file(fixture / "manifest.json"), abi=["x86_64"],
-        subject=root / "subject.json", evidence=root / "evidence", adb="adb", apksigner="apksigner")
+        subject=root / "subject.json", evidence=root / "evidence", adb="adb", apksigner="apksigner", checkout="b" * 40)
 
 
 def verify(args):
@@ -69,6 +69,18 @@ INSTRUMENTATION_CODE: -1
 
 
 class AppDesktopGuardTest(unittest.TestCase):
+    def test_release_source_pin_is_independent_of_workflow_but_receipt_cannot_change_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            args = inputs(Path(directory))
+            subject = verify(args)
+            args.subject.write_text(json.dumps(subject))
+            with mock.patch.dict("os.environ", {"GITHUB_SHA": "c" * 40}):
+                self.assertEqual(runner.verify_subject(args), subject)
+                changed = dict(subject, proofCheckout="c" * 40)
+                args.subject.write_text(json.dumps(changed))
+                with self.assertRaisesRegex(ValueError, "subject changed"):
+                    runner.verify_subject(args)
+
     def test_producer_rejects_other_sources_repositories_workflows_and_partial_runs(self):
         run = {"id": guard.CANDIDATE_RUN_ID, "head_sha": guard.CANDIDATE_SOURCE,
             "path": ".github/workflows/vm-engine.yml", "event": "workflow_dispatch",

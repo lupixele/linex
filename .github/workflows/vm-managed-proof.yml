@@ -113,7 +113,7 @@ jobs:
           heap-size: 512M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
-          script: python3 scripts/vm/run-app-desktop-proof.py --apk app/build/outputs/apk/debug/app-debug.apk --test-apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk --native dist/vm-engine --fixture dist/vm-desktop-candidate --subject dist/app-desktop/subject.json --manifest-sha256 "$DESKTOP_MANIFEST_SHA" --abi arm64-v8a --abi x86_64 --apksigner "$ANDROID_HOME/build-tools/34.0.0/apksigner" --evidence dist/app-desktop/device
+          script: python3 scripts/vm/run-app-desktop-proof.py --apk app/build/outputs/apk/debug/app-debug.apk --test-apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk --native dist/vm-engine --fixture dist/vm-desktop-candidate --subject dist/app-desktop/subject.json --checkout "$RELEASE_SUBJECT_SOURCE" --manifest-sha256 "$DESKTOP_MANIFEST_SHA" --abi arm64-v8a --abi x86_64 --apksigner "$ANDROID_HOME/build-tools/34.0.0/apksigner" --evidence dist/app-desktop/device
       - name: Preserve successful and failed runtime evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

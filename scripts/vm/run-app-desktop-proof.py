@@ -72,6 +72,16 @@ def verify_guest(guest, subject, evidence):
         raise ValueError("Restart did not use a fresh VM process and private console")
 
 
+def verify_subject(args):
+    # APK source and workflow source can differ when testing a signed release.
+    # Both passes must use the external APK source pin, never trust its receipt.
+    subject = guard.verify(args.apk, args.test_apk, args.native, args.fixture,
+                           args.manifest_sha256, args.abi, args.checkout)
+    if guard.read_json(args.subject) != subject:
+        raise ValueError("Downloaded app/factory subject changed after APK verification")
+    return subject
+
+
 def run(args):
     args.evidence.mkdir(parents=True, exist_ok=True)
     report = {"passed": False}
@@ -97,10 +107,7 @@ def run(args):
         allowed = True
         report["deviceSerial"] = serial
         report["bootId"] = adb("shell", "cat", "/proc/sys/kernel/random/boot_id")
-        subject = guard.verify(args.apk, args.test_apk, args.native, args.fixture,
-                               args.manifest_sha256, args.abi, os.environ.get("GITHUB_SHA"))
-        if guard.read_json(args.subject) != subject:
-            raise ValueError("Downloaded app/factory subject changed after APK verification")
+        subject = verify_subject(args)
         report["subject"] = subject
         certificates = []
         for apk in (args.apk, args.test_apk):
@@ -188,6 +195,7 @@ if __name__ == "__main__":
     for name in ("apk", "test-apk", "native", "fixture", "subject", "evidence"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--manifest-sha256", required=True)
+    parser.add_argument("--checkout", required=True)
     parser.add_argument("--abi", action="append", required=True)
     parser.add_argument("--adb", default="adb")
     parser.add_argument("--apksigner", required=True)
