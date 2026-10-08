@@ -1,11 +1,22 @@
-# Networking resume checkpoint — 2026-10-06
+# Networking checkpoint — completed 2026-10-08
+
+Rootless SLIRP, Android DNS integration and actual guest DNS/HTTPS are implemented
+and verified, including off/strict Private DNS. The new VM desktop ships in
+v0.6.0-dev, with exact signed Android proof run37780260552. See
+[release evidence](../VM-RELEASE-EVIDENCE.md) and [current progress](../PROGRESS.md).
+The former RED networking drafts are implemented and pass; they are not blockers.
+
+## Historical resume notes — 2026-10-06
+
+The following snapshot records the earlier incomplete state; its next steps and
+pending statements are historical, not the current work queue.
 
 User-approved scope: SPEC-vm-engine.md rootless SLIRP and Android resolver bridge.
 The Android serial engine gate is complete: run37421056855, source b811069,
 all6instrumentation tests pass. The full VM desktop and networking remain pending.
 
-User explicitly requested checkpoint and stop after packaging. Resume only on a
-new user request. Packaged current PRoot APK at dist/packaged-2026-10-06/
+User subsequently resumed work explicitly until a validated feature-complete APK
+release. Packaged current PRoot APK at dist/packaged-2026-10-06/
 linex-v0.5.2-dev-current.apk with checksum/build notes; no new VM release because
 VM desktop/networking are not integrated. No device/account reset was requested.
 
