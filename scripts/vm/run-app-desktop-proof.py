@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import uuid
 
 spec = importlib.util.spec_from_file_location("app_desktop_subject", Path(__file__).with_name("verify-app-desktop-apk.py"))
 guard = importlib.util.module_from_spec(spec)
@@ -33,15 +34,17 @@ def verify_guest(guest, subject, evidence):
     if guest.get("passed") is not True or guest.get("manifestSha256") != subject["manifestSha256"] or \
             guest.get("imageId") != subject["imageId"] or guest.get("installedDiskBytes") != subject["diskBytes"]:
         raise ValueError("Actual desktop proof does not match the pinned installed factory")
-    if any(guest.get(name) is not False for name in ("guestFilePersistenceProved", "browserRuntimeProved", "glesPresentationProved")):
-        raise ValueError("Minimal desktop test must not claim unimplemented browser/file/GLES proof")
+    if any(guest.get(name) is not False for name in ("guestFilePersistenceProved", "glesPresentationProved")):
+        raise ValueError("Desktop test must not claim unimplemented file/GLES proof")
+    if guest.get("browserRuntimeProved") is not True or guest.get("browserMode") != "non-root-headless":
+        raise ValueError("Actual guest non-root browser render proof is required")
     launches = guest.get("launches")
     if not isinstance(launches, list) or len(launches) != 2:
         raise ValueError("Two actual production launches are required")
     for index, launch in enumerate(launches):
         if launch.get("index") != index or type(launch.get("pid")) is not int or launch["pid"] <= 0 or \
                 not re.fullmatch(r"[a-f0-9]{32}", str(launch.get("generation", ""))) or \
-                any(launch.get(name) is not True for name in ("stopped", "nonuniformFrame", "frameMutation", "pauseResume", "diskRetained")) or \
+                any(launch.get(name) is not True for name in ("stopped", "nonuniformFrame", "frameMutation", "pauseResume", "diskRetained", "nonRootHeadlessFirefox", "defaultCaHttps")) or \
                 (launch.get("width"), launch.get("height"), launch.get("memoryMiB"), launch.get("vcpuCount"), launch.get("targetFps")) != (1280, 720, 1024, 2, 30) or \
                 type(launch.get("frames")) is not int or launch["frames"] < 2 or \
                 launch.get("transport") != "private-unix-rfb-vncauth":
@@ -67,6 +70,7 @@ def run(args):
     args.evidence.mkdir(parents=True, exist_ok=True)
     report = {"passed": False}
     allowed = False
+    staging = None
     def adb(*command, timeout=30):
         result = subprocess.run([args.adb, *command], check=True, capture_output=True, text=True, timeout=timeout)
         if len(result.stdout) > 1024 * 1024:
@@ -119,18 +123,22 @@ def run(args):
         adb("exec-out", "run-as", PACKAGE, "/system/bin/mkdir", "files")
         adb("exec-out", "run-as", PACKAGE, "/system/bin/mkdir", "files/vm-image-fixtures")
         adb("exec-out", "run-as", PACKAGE, "/system/bin/chmod", "700", "files/vm-image-fixtures")
+        staging = "/data/local/tmp/linex-desktop-proof-" + uuid.uuid4().hex
+        adb("shell", "/system/bin/mkdir", "-m", "755", staging)
         for filename, item in subject["fixtureAssets"].items():
             print(f"Staging {filename} ({item['bytes']} bytes)", flush=True)
-            with (args.fixture / filename).open("rb") as source, (args.evidence / (filename + ".stage.error")).open("wb") as errors:
-                # exec-out does not forward stdin. Shell-v2 without a PTY keeps
-                # binary input intact and waits for the actual remote exit code.
-                subprocess.run([args.adb, "shell", "-T", "run-as", PACKAGE, "/system/bin/dd",
-                                f"of=files/vm-image-fixtures/{filename}", "bs=1048576"],
-                               stdin=source, stdout=subprocess.DEVNULL, stderr=errors, check=True, timeout=600)
+            # Use adb's binary file protocol; API33 toybox dd returned EFAULT
+            # when reading a large shell-v2 stdin stream. These public factory
+            # bytes are copied as the app UID and verified again in private storage.
+            adb("push", str((args.fixture / filename).resolve()), staging + "/" + filename, timeout=600)
+            adb("shell", "/system/bin/chmod", "644", staging + "/" + filename)
+            adb("exec-out", "run-as", PACKAGE, "/system/bin/cp", staging + "/" + filename,
+                f"files/vm-image-fixtures/{filename}", timeout=600)
             adb("exec-out", "run-as", PACKAGE, "/system/bin/chmod", "600", f"files/vm-image-fixtures/{filename}")
             staged = adb("exec-out", "run-as", PACKAGE, "/system/bin/sha256sum", f"files/vm-image-fixtures/{filename}").split()[0]
             if staged != item["sha256"]:
                 raise ValueError("Staged candidate bytes differ from the pinned subject")
+            adb("shell", "/system/bin/rm", staging + "/" + filename)
         command = [args.adb, "shell", "am", "instrument", "-w", "-r", "-e", "class", "com.linex.app.core.VmDesktopProofTest",
                    "-e", "desktopManifestSha256", args.manifest_sha256,
                    "com.linex.app.test/androidx.test.runner.AndroidJUnitRunner"]
@@ -152,6 +160,11 @@ def run(args):
         raise
     finally:
         if allowed:
+            if staging:
+                # Four fixed files in this run's random directory; never recursive.
+                capture("stage-cleanup.txt", "shell", "/system/bin/rm", "-f",
+                        *(staging + "/" + name for name in ("manifest.json", *guard.FIXTURE_FILES.values())))
+                capture("stage-rmdir.txt", "shell", "/system/bin/rmdir", staging)
             capture("logcat.txt", "logcat", "-b", "all", "-d", "-v", "threadtime", "-t", "5000")
             capture("processes-after.txt", "shell", "ps", "-A")
             for filename in ("vm-desktop-proof.json", "desktop-proof-0.png", "desktop-proof-1.png"):

@@ -25,4 +25,9 @@ object VmGuestControl {
         require(session.matches(Regex("[0-9a-f]{32}"))) { "Invalid VM session" }
         return buildJsonObject { put("command", "stop"); put("session", session) }.toString() + "\n"
     }
+
+    internal fun proof(session: String): String {
+        require(session.matches(Regex("[0-9a-f]{32}"))) { "Invalid VM session" }
+        return buildJsonObject { put("command", "proof"); put("session", session) }.toString() + "\n"
+    }
 }

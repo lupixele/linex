@@ -8,6 +8,15 @@ import org.junit.Test
 
 class VmGuestControlTest {
     private val token = "abcd".repeat(8)
+    @Test fun proofHasOnlyTypedCommandAndSessionWithNoArbitraryGuestCommand() {
+        val wire = VmGuestControl.proof(token)
+        val parsed = Json.parseToJsonElement(wire).jsonObject
+        assertEquals(setOf("command", "session"), parsed.keys)
+        assertEquals("proof", parsed["command"]!!.jsonPrimitive.content)
+        assertEquals(token, parsed["session"]!!.jsonPrimitive.content)
+        assertEquals(1, wire.count { it == '\n' })
+        assertThrows(IllegalArgumentException::class.java) { VmGuestControl.proof("../session") }
+    }
     @Test fun encodesOneBoundedLineWithExactGuestFields() {
         val wire = VmGuestControl.launch(token, "Aa12_-Bb", 1280, 720, 60, 1_800_000_000)
         assertEquals(1, wire.count { it == '\n' })
