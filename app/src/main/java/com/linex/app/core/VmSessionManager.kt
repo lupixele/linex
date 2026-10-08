@@ -272,7 +272,11 @@ class VmSessionManager(private val context: Context) {
                 check(engine.awaitExit(10000)) { "Guest did not finish shutdown" }
             }.onFailure { log(session, "Clean shutdown did not complete; disk journal will recover on next boot") }
             if (engine.isAlive()) {
-                val confirmed = runCatching { engine.forceStop(); engine.awaitExit(10000) }.getOrDefault(!engine.isAlive())
+                // A rejected START_DESKTOP never supplies a client session token.
+                // The service still schedules its own exit; always observe that
+                // exit even when a force-stop command cannot be sent.
+                runCatching { engine.forceStop() }
+                val confirmed = runCatching { engine.awaitExit(10000) }.getOrDefault(!engine.isAlive())
                 if (!confirmed) {
                     log(session, "VM stop is not confirmed. Retry stopping; this disk remains owned.")
                     // Closing parent transports does not release the engine's disk lock.

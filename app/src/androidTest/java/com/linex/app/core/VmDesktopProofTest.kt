@@ -23,6 +23,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
@@ -85,6 +86,27 @@ class VmDesktopProofTest {
                 val diskInode = Os.stat(installed.diskFile.path).st_ino
                 evidence.put("installedDiskBytes", installed.diskBytes).put("installedDiskInode", diskInode)
                 save()
+                // Reject in the native service after parent validation succeeds.
+                // This real cross-process ownership lock must then release the
+                // failed session so the same manager can launch normally.
+                val rejectedToken = UUID.randomUUID().toString().replace("-", "")
+                val rejectedRequest = VmDesktopBootRequest(rejectedToken, id,
+                    installed.kernelFile.path, installed.kernelSha256,
+                    installed.initramfsFile.path, installed.initramfsSha256,
+                    installed.diskFile.path, installed.diskBytes,
+                    File(installed.diskFile.parentFile, "s${rejectedToken.take(8)}").path, 1024, 2)
+                val ownershipFile = File(installed.diskFile.parentFile, "engine.lock")
+                FileOutputStream(Os.open(ownershipFile.path,
+                    OsConstants.O_RDWR or OsConstants.O_CREAT or OsConstants.O_NOFOLLOW or OsConstants.O_CLOEXEC, 384)).use { owner ->
+                    owner.channel.lock().use {
+                        assertFalse("Service accepted a disk owned by another process", manager.launch(rejectedRequest, 1280, 720, 30))
+                        assertFalse("Rejected startup permanently retained an active session", manager.isActive())
+                        assertEquals(ContainerState.STOPPED, manager.state.value[id])
+                        assertNull(manager.getEndpoint(id))
+                        assertEquals(diskInode, Os.stat(installed.diskFile.path).st_ino)
+                    }
+                }
+                evidence.put("rejectedLaunchRecovered", true); save()
                 repeat(2) { index ->
                     val launchEvidence = JSONObject().put("index", index).put("stopped", false)
                     launches.put(launchEvidence); save()
@@ -177,8 +199,8 @@ class VmDesktopProofTest {
                         observe()
                     } finally {
                         client.close()
-                        reader.get(10, TimeUnit.SECONDS)
-                        executor.shutdownNow()
+                        try { reader.get(10, TimeUnit.SECONDS) }
+                        finally { executor.shutdownNow() }
                     }
                     assertTrue("Android did not confirm VM process exit", manager.stop())
                     assertFalse(manager.isActive())
