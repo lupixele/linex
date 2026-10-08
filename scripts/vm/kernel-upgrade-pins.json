@@ -1,0 +1,89 @@
+{
+  "version": "6.8.0-146.146",
+  "abi": "6.8.0-146-generic",
+  "architecture": "arm64",
+  "authentication": {
+    "keyFingerprint": "F6ECB3762474EDA9D21B7022871920D1991BC93C",
+    "signedRelease": "noble-updates-InRelease",
+    "signedIndex": "noble-updates-Packages.xz",
+    "selectedRecords": "upgrade-packages-selected.txt",
+    "verification": "verification.txt"
+  },
+  "artifacts": [
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux-signed/linux-image-6.8.0-146-generic_6.8.0-146.146_arm64.deb",
+      "path": "linux-image-6.8.0-146-generic_6.8.0-146.146_arm64.deb",
+      "size": 18298606,
+      "sha256": "ee35dffd32c672d6b1814c0d9c8001c1656e06e718ebd5fb15565d0b7e51e418"
+    },
+    {
+      "path": "boot_vmlinuz-6.8.0-146-generic",
+      "size": 18589606,
+      "sha256": "6001f54164a5201cd5a80e0a09bb05c43fa6e910a0abfe0f5a4e8d7d781cc737",
+      "origin": "linux-image-6.8.0-146-generic_6.8.0-146.146_arm64.deb:./boot/vmlinuz-6.8.0-146-generic"
+    },
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux/linux-modules-6.8.0-146-generic_6.8.0-146.146_arm64.deb",
+      "path": "linux-modules-6.8.0-146-generic_6.8.0-146.146_arm64.deb",
+      "size": 87060672,
+      "sha256": "37b3c96d7fc3749eca42d46fa9195de1ad133fa42f5e0462d907c2132b838c3d"
+    },
+    {
+      "path": "boot_config-6.8.0-146-generic",
+      "size": 337308,
+      "sha256": "21934d8960b1c84ab93e03fa8cb269086e7a6df8a2cf6c1a21b70bd0b3bf0ddf",
+      "origin": "linux-modules-6.8.0-146-generic_6.8.0-146.146_arm64.deb:./boot/config-6.8.0-146-generic"
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux/linux_6.8.0-146.146.diff.gz",
+      "path": "linux_6.8.0-146.146.diff.gz",
+      "size": 9183513,
+      "sha256": "02288f6e0e185f74a2c3906d585f9047045ba4f63e26361294fa7352bd6459d4"
+    },
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux/linux_6.8.0-146.146.dsc",
+      "path": "linux_6.8.0-146.146.dsc",
+      "size": 9348,
+      "sha256": "ec93843ed49ea6a7607e7b807d81aeef66734195f7c5fab6d0a6fe7c6c5cdde7"
+    },
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux-signed/linux-signed_6.8.0-146.146.tar.xz",
+      "path": "linux-signed_6.8.0-146.146.tar.xz",
+      "size": 27596,
+      "sha256": "bd475174f48b1dbdf859639f7cbf019ad30dcabdf548e6aa97d0aedb715e2ca1"
+    },
+    {
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux-signed/linux-signed_6.8.0-146.146.dsc",
+      "path": "linux-signed_6.8.0-146.146.dsc",
+      "size": 2657,
+      "sha256": "04b08b3ee0afad5c734410f8b621ade1d9c408781fc8040fa7a17d92d2639c6c"
+    }
+  ],
+  "sharedOriginalSource": "linux_6.8.0.orig.tar.gz",
+  "builtInRequirements": {
+    "CONFIG_EXT4_FS": "y",
+    "CONFIG_JBD2": "y",
+    "CONFIG_FS_MBCACHE": "y",
+    "CONFIG_VIRTIO": "y",
+    "CONFIG_VIRTIO_BLK": "y",
+    "CONFIG_VIRTIO_MMIO": "y",
+    "CONFIG_VIRTIO_PCI": "y",
+    "CONFIG_VIRTIO_NET": "y",
+    "CONFIG_FAILOVER": "y",
+    "CONFIG_NET_FAILOVER": "y",
+    "CONFIG_INET": "y",
+    "CONFIG_PACKET": "y",
+    "CONFIG_UNIX": "y",
+    "CONFIG_DEVTMPFS": "y",
+    "CONFIG_DEVTMPFS_MOUNT": "y",
+    "CONFIG_BLK_DEV_INITRD": "y",
+    "CONFIG_RD_GZIP": "y",
+    "CONFIG_EFI_PARTITION": "y",
+    "CONFIG_IPV6": "y",
+    "CONFIG_MPTCP": "y",
+    "CONFIG_BPF_SYSCALL": "y"
+  },
+  "securityConclusion": "Upgrade from142 recommended: exact source comparison confirms additional fixes in built-in code.146 runtime acceptance remains required; this is not a no-known-vulnerabilities assertion."
+}
