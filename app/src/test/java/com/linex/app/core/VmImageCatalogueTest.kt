@@ -5,7 +5,7 @@ import org.junit.Test
 
 class VmImageCatalogueTest {
     private fun manifest(extra: String = "", ready: Boolean = true, file: String = "kernel", base: String = "https://github.com/lupixele/linex/releases/download/v0.6.0-dev/") = """
-        {"schema":1,"architecture":"aarch64","releaseReady":$ready,"runtimeProofPassed":true,
+        {"schema":1,"architecture":"aarch64","releaseReady":$ready,"runtimeProofPassed":true,"kernelSecurityAuditPending":false,
         "imageId":"debian-trixie-desktop","revision":"verified1","downloadBase":"$base",
         "kernel":{"file":"$file","sha256":"${"a".repeat(64)}","bytes":10},
         "initramfs":{"file":"desktop.cpio.gz","sha256":"${"b".repeat(64)}","bytes":20},
@@ -19,6 +19,8 @@ class VmImageCatalogueTest {
         assertEquals(30L, image.download.bytes)
         assertThrows(IllegalArgumentException::class.java) { VmImageCatalogue.parse(manifest(ready = false)) }
         assertThrows(IllegalArgumentException::class.java) { VmImageCatalogue.parse(manifest().replace("\"runtimeProofPassed\":true", "\"runtimeProofPassed\":false")) }
+        assertThrows(IllegalArgumentException::class.java) { VmImageCatalogue.parse(manifest().replace("\"kernelSecurityAuditPending\":false", "\"kernelSecurityAuditPending\":true")) }
+        assertThrows(IllegalArgumentException::class.java) { VmImageCatalogue.parse(manifest().replace(",\"kernelSecurityAuditPending\":false", "")) }
     }
     @Test fun rejectsForeignDownloadsTraversalAndUnboundedMetadata() {
         for (base in listOf("http://github.com/lupixele/linex/releases/download/v1/", "https://github.com/other/repo/releases/download/v1/")) {
