@@ -13,9 +13,44 @@ import org.junit.runner.RunWith
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 @RunWith(AndroidJUnit4::class)
 class PrivateUnixRfbTransportTest {
+    @Test fun closeWakesBlockedReadWithoutPeerSendingOrClosing() = fixture { root, id, listener, _ ->
+        LocalServerSocket(listener.fileDescriptor).use { server ->
+            PrivateUnixRfbTransport(root, id).use { transport ->
+                transport.connect(1000)
+                server.accept().use { peer ->
+                    transport.setReadTimeout(0)
+                    val started = CountDownLatch(1)
+                    val executor = Executors.newSingleThreadExecutor { task ->
+                        Thread(task, "console-close-proof").apply { isDaemon = true }
+                    }
+                    val reader = executor.submit<Int> {
+                        started.countDown()
+                        try { transport.inputStream.read() } catch (_: IOException) { -1 }
+                    }
+                    try {
+                        assertTrue(started.await(1, TimeUnit.SECONDS))
+                        assertThrows(TimeoutException::class.java) { reader.get(150, TimeUnit.MILLISECONDS) }
+                        transport.close()
+                        assertEquals(-1, reader.get(2, TimeUnit.SECONDS).toInt())
+                        // The peer stayed open and silent throughout cancellation.
+                        assertTrue(peer.fileDescriptor.valid())
+                        transport.close()
+                    } finally {
+                        try { peer.shutdownOutput() } catch (_: IOException) { }
+                        executor.shutdownNow()
+                    }
+                }
+            }
+        }
+    }
+
     @Test fun acceptsAndroidManagedFilesDirectoryWithoutChangingItsMode() {
         val root = InstrumentationRegistry.getInstrumentation().targetContext.filesDir
         val originalMode = Os.lstat(root.path).st_mode

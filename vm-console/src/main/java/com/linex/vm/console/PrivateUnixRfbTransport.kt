@@ -79,6 +79,12 @@ class PrivateUnixRfbTransport(
         socket.soTimeout = timeoutMillis
     }
     override fun close() {
-        if (closed.compareAndSet(false, true)) socket.close()
+        if (!closed.compareAndSet(false, true)) return
+        // LocalSocket.close only closes the descriptor. A blocking native read
+        // can keep the Unix socket alive until data arrives from the guest.
+        // Shutdown wakes both the reader and a blocked input-event writer first.
+        try { socket.shutdownInput() } catch (_: IOException) { }
+        try { socket.shutdownOutput() } catch (_: IOException) { }
+        socket.close()
     }
 }
