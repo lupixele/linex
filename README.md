@@ -4,6 +4,12 @@ Android app for running Linux desktops in an embedded, rootless virtual machine,
 
 ## Current development build
 
+`0.6.1-dev` keeps a visible elapsed startup indicator while the VM sends black or
+cursor-only frames. A connected display server is labelled separately from visible
+desktop content. New VMs start with 720p/30 FPS defaults; saved instance settings
+are preserved. This update does not add native CPU execution or guest GPU support.
+See [the phone startup diagnosis](VM-STARTUP-AUDIT-20261009.md).
+
 `0.6.0-dev` introduces a managed full virtual machine with Debian 13, XFCE and
 Firefox ESR. New instances default to the VM; choose **New → Full virtual machine**
 and install its image. The download is about 320 MiB and expands to a 4 GiB disk;

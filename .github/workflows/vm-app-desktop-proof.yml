@@ -1,4 +1,4 @@
-name: Linex v0.6.0 signed desktop Android app proof
+name: Linex v0.6.1 signed desktop Android app proof
 on:
   workflow_dispatch:
 
@@ -17,7 +17,7 @@ jobs:
       actions: read
     env:
       DESKTOP_MANIFEST_SHA: b403701a08f2e67e5fa72f5a06e87544f30fad69c287352efe853faf864e0b32
-      RELEASE_SUBJECT_SOURCE: 87d3e6c778e7226182c708f0da3bb534f09fb02f
+      RELEASE_SUBJECT_SOURCE: 8ccbb513beae75231ce765cd5440f986cb325534
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Require exact successful native and desktop producers
@@ -90,9 +90,9 @@ jobs:
           ./gradlew :app:testDebugUnitTest :vm-engine:testDebugUnitTest :vm-images:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest -PvmNativeDir=dist/vm-engine --no-daemon
           # Exercise the exact locally signed release bytes, including the
           # existing update certificate, rather than a runner's random debug key.
-          gh api repos/lupixele/linex/releases/assets/621779554 -H 'Accept: application/octet-stream' > app/build/outputs/apk/debug/app-debug.apk
-          gh api repos/lupixele/linex/releases/assets/621779551 -H 'Accept: application/octet-stream' > app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-          printf '%s\n' 'd791f7374c2bc4f7e60acb85b014ba5ad91abd7505dcc9c3988d05a54b692e33  app/build/outputs/apk/debug/app-debug.apk' '6856b06bebf8bc95e6f3c9d23a84d7083401b5815e51ea70325bfafd7aab8509  app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk' | sha256sum --check
+          gh api repos/lupixele/linex/releases/assets/623928362 -H 'Accept: application/octet-stream' > app/build/outputs/apk/debug/app-debug.apk
+          gh api repos/lupixele/linex/releases/assets/623918208 -H 'Accept: application/octet-stream' > app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          printf '%s\n' '05ac530120cb4014174a86b771fcaa070080d866376c55833d4ca16044e1ade9  app/build/outputs/apk/debug/app-debug.apk' '6856b06bebf8bc95e6f3c9d23a84d7083401b5815e51ea70325bfafd7aab8509  app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk' | sha256sum --check
           # These APK/hash pins test this release. A future release must update
           # its immutable APK and source pins instead of claiming newer code.
           python3 scripts/vm/verify-app-desktop-apk.py --apk app/build/outputs/apk/debug/app-debug.apk --test-apk app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk --native dist/vm-engine --fixture dist/vm-desktop-candidate --manifest-sha256 "$DESKTOP_MANIFEST_SHA" --abi arm64-v8a --abi x86_64 --checkout "$RELEASE_SUBJECT_SOURCE" --evidence dist/app-desktop/subject.json
