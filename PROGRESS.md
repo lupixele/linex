@@ -1,11 +1,15 @@
 # Linex progress
 
 ## Current State
+Published [v0.6.1-dev](https://github.com/lupixele/linex/releases/tag/v0.6.1-dev) on 2026-10-09; implementation and acceptance are merged into main. Release tag6bd186ce3b777622c6aa566b53b7695783c17d85 contains code23. Startup progress now remains visible until the GLES presenter draws more than a black/cursor-only frame; logs distinguish a listening display server from visible desktop content. New VMs default to720p/30FPS. Saved settings, disks, signing certificate, Linux image and native engines are unchanged; no image redownload or reset is required.
+
 Published [v0.6.0-dev](https://github.com/lupixele/linex/releases/tag/v0.6.0-dev) on 2026-10-08 after the exact signed APK passed actual Android runtime acceptance. Implementation and evidence are merged into main; release tag points to 67c6e15134b1adbdf04b8bbd9c85ac0693b7406a. Package versionCode22 retains the development certificate. New instances default to a full Debian13/XFCE/Firefox VM. Existing Ubuntu/PRoot instances and files are preserved; creating a new Debian VM is required for process isolation.
 
 Foreground service owns installation, notifications and sessions; embedded landscape/fullscreen/custom-resolution desktop, FPS limits, RAM allocation, keyboard/mouse/touchpad and FPS/RAM/CPU text overlay are integrated. Host GLES presents frames; guest graphics/video decoding remain software. VM audio and clipboard synchronization are not implemented. All18 release assets, including corresponding sources and compact proof, have verified upload sizes/digests.
 
 ## Verification
+Patch run37886184501/source820c6cc passes the exact installed signed APK (runtime source8ccbb513), retained certificate, two fresh VMboots7034/7161, visible XFCE panel content21/20updates, headless Firefox/default-CA HTTPS, pause/resume, clean stops and retained disks. Four complete samples per boot report zero host child processes. Parent checked downloaded receipts and the first PNG. Actual EGL/content-latch run37885228252 passes7tests; local124app/10console units, APK/test builds and lint pass. All5patch release assets match GitHub upload sizes/digests. APK: dist/packaged-v0.6.1-dev/linex-v0.6.1-dev.apk,89,688,427bytes, SHA25605ac530120cb4014174a86b771fcaa070080d866376c55833d4ca16044e1ade9. See VM-STARTUP-AUDIT-20261009.md and release-proof.json. Phone log shows XFCE beginning about100seconds after premature readiness, then a user-confirmed Stop; no spontaneous crash is recorded. The exact latency bottleneck and phone composition remain unverified.
+
 Exact signed release run37780260552/sourcefb67f51 passes installed app/test APK hash and certificate checks, two real ARM64 Linux guest boots on Android13, visible XFCE/frame mutation, non-root headless Firefox/default-CA HTTPS, zero host-child observations, startup rejection recovery, pause/resume, clean stop and disk retention. Evidence: dist/vm-app-desktop-signed-run2 and dist/packaged-v0.6.0-dev/release-proof.json. Accepted APK runtime source87d3e6c matches the release runtime sources. Parent inspected screenshots and independently validated the downloaded proof.
 
 Supporting gates: native production37648306873 (both ABIs/15Android tests); actual libslirp sanitizer isolation37647791186; integrated guest DNS/HTTPS37574288473; off/strict Private DNS37646926429; Unix/EGL/cancellation37758315170 (7actual tests); image installer37753164499 (7actual tests eachAPI26/API33); four-boot storage/journal recovery37572594902; updated-kernel host desktop37756061377. Local124app/77engine/4image unit tests, packaging and lint pass; app lint0errors42warnings. See VM-RELEASE-EVIDENCE.md for scope and immutable subjects.
@@ -13,7 +17,7 @@ Supporting gates: native production37648306873 (both ABIs/15Android tests); actu
 APK: dist/packaged-v0.6.0-dev/linex-v0.6.0-dev.apk,89,684,875bytes, SHA256 d791f7374c2bc4f7e60acb85b014ba5ad91abd7505dcc9c3988d05a54b692e33. APKv2 signature, alignment, CRC, manifest, both native runtime byte hashes and bundled catalogue match. Kernel6.8.0-146.146 and factory source provenance audited; Debian/kernel/QEMU/PRoot/X11 source archives accompany the release. Signing key is retained outside Git.
 
 ## Next Steps
-1. Validate new Debian VM setup, landscape/fullscreen, input and sustained Firefox on the user's Snapdragon732G phone.
+1. Validate v0.6.1 startup feedback and eventual visible desktop on the user's Snapdragon732G phone; use720p/30FPS and1024MiB while stopped for a lower workload on the existing instance.
 2. Measure interactive scrolling/video FPS, memory pressure and OEM screen-off behavior before claiming phone stability or choosing further optimizations.
 3. Guest GPU acceleration, audio, clipboard and guest administration are future work, not shipped capabilities.
 
@@ -24,7 +28,7 @@ APK: dist/packaged-v0.6.0-dev/linex-v0.6.0-dev.apk,89,684,875bytes, SHA256 d791f
 - Existing build/generated tracked files and raw logs remain excluded. Source/engine artifacts are not public app releases.
 
 ## Last Updated
-2026-10-08
+2026-10-09
 
 ## Recent Decisions
 - [2026-09-26] Work directly in the user-specified linex checkout; replace unreliable Android tar extraction with bounded streaming JVM extraction; preserve old ready roots and scope diagnostics per instance.
@@ -79,3 +83,4 @@ APK: dist/packaged-v0.6.0-dev/linex-v0.6.0-dev.apk,89,684,875bytes, SHA256 d791f
 - [2026-10-07] Native actuallibslirp sanitizer/checksumCI37572325602 passes; integrated6ffc2c7+HTTPS5e7e6b5 committed/pushed verificationbranch, fullABI/Android37574288473 underway; main unchanged pending runtime. Storage8f2dacc/fourboots37572594902 verifies rootmetadata/nonrootpersistence/SIGKILLjournal/e2fsck/factoryimmutability; evidence dist/vm-storage-run2. Accepted Debian13 supportedbrowser provider and independent vm-console library; nativeARMprovision parser fix and productionengine/console inprogress. No newAPK releaseclaim.
 - [2026-10-07] Full integratedDNS/HTTPS37574288473 passes14Androidtests; off/strictsameAPKmatrix37646926429 passesactualvalidatedpolicies; Unix/EGLconsole37576136212 passes6. Nativeisolation/sanitizer37647791186 passesv4/v6negatives+Unixforwarding; policy6f27c71 fullABI37648306873 underway. ProductiondesktopreachedREADY; fixed1970clock andprematureVNC readiness, wholebrowser/inputproofpending. VMinstaller/UI/sessioncoordinator integrationinprogress; noAPKreleaseclaim.
 - [2026-10-08] Published v0.6.0-dev/code22 after exact signed Android run37780260552 passed installed byte/certificate identity, two visible XFCE boots, non-root Firefox/HTTPS, private console/frame mutation/control, startup rejection recovery, zero host-child snapshots and clean stop. Main/tag release source67c6e15; APK SHA256d791f7374c2bc4f7e60acb85b014ba5ad91abd7505dcc9c3988d05a54b692e33; existing key and PRoot data preserved. All18assets including Debian/kernel/native corresponding sources verified. New Debian VM required; phone/long GUI/video/OEM performance unmeasured and guest GPU/audio/clipboard absent.
+- [2026-10-09] User confirms the Debian black-screen log ends with their Stop action, not a crash. Published v0.6.1-dev/code23 after exact signed Android run37886184501 and actual EGL run37885228252 passed; preserve saved settings, disks and immutable image/native bytes. Latch visible-content readiness only after GLES draw; show elapsed startup on black/cursor-only frames; use720p/30FPS for newVMs. SoftwareCPU delay and phone completion remain unmeasured.
