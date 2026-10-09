@@ -37,6 +37,7 @@ import com.linex.app.data.LinuxInstance
 import com.linex.app.data.InstanceRuntime
 import com.linex.app.ui.hub.LogViewerDialog
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +54,9 @@ fun SessionScreen(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var showLogs by remember { mutableStateOf(false) }
+    val openedAt = remember(instance.id) { android.os.SystemClock.elapsedRealtime() }
+    var startupSeconds by remember(instance.id) { mutableLongStateOf(0L) }
+    var vmStarting by remember(instance.id) { mutableStateOf(instance.runtime == InstanceRuntime.FULL_VM) }
     var retry by remember { mutableIntStateOf(0) }
     var connected by remember(instance.id, endpoint, retry) { mutableStateOf(false) }
     var status by remember(instance.id, endpoint, retry) { mutableStateOf(if (instance.runtime == InstanceRuntime.FULL_VM)
@@ -73,6 +77,12 @@ fun SessionScreen(
             ) == SnackbarResult.ActionPerformed) showLogs = true
     }
     var fullscreen by rememberSaveable(instance.id) { mutableStateOf(true) }
+    LaunchedEffect(instance.id, connected, vmStarting) {
+        while (!connected && vmStarting) {
+            startupSeconds = (android.os.SystemClock.elapsedRealtime() - openedAt) / 1000
+            delay(1000)
+        }
+    }
     var landscape by rememberSaveable(instance.id) { mutableStateOf(true) }
     val activity = context.findActivity()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -221,6 +231,12 @@ fun SessionScreen(
                 Column(Modifier.fillMaxSize().padding(padding).imePadding()) {
                     if (!connected) {
                         Text(status, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                        if (vmStarting) {
+                            LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                            Text("Waiting for visible desktop • ${startupSeconds / 60}m ${startupSeconds % 60}s\n" +
+                                "The guest CPU runs in software; first startup can take several minutes. Open instance logs to check its progress.",
+                                Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                     if (!fullscreen || !connected) Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                         TextButton(onClick = { showLogs = true }) { Text("Instance logs") }
@@ -235,6 +251,7 @@ fun SessionScreen(
                                     EmbeddedDesktopView(context).also { view ->
                                         desktop = view
                                         view.trackpadMode = trackpad
+                                        view.onStartupWaiting = { vmStarting = it }
                                         var lastStatus = ""
                                         view.onConnection = { ready, message ->
                                             connected = ready; status = message

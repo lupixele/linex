@@ -156,7 +156,7 @@ class VmSessionManager(private val context: Context) {
                     }
                     session.endpoint = DisplayEndpoint(0, session.password, DisplayBackend.VM_RFB, console.generation, width, height)
                     setState(session, ContainerState.RUNNING)
-                    log(session, "Desktop ready at ${width}×${height}; $fps FPS target")
+                    log(session, "Display server ready at ${width}×${height}; $fps FPS target. XFCE may still be starting; the viewer waits for visible content.")
                     true
                 }
             } catch (failure: Throwable) {

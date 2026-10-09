@@ -48,11 +48,11 @@ fun CreateInstanceDialog(
     var name by remember { mutableStateOf(existingInstance?.name ?: if (vmAvailable) "My Debian Workstation" else "My Ubuntu Workstation") }
     var selectedDistro by remember { mutableStateOf(existingInstance?.distro ?: if (vmAvailable) DistroType.DEBIAN_TRIXIE_VM else DistroType.UBUNTU_JAMMY) }
     val selectedDesktop = existingInstance?.desktop ?: DesktopEnvironment.XFCE4
-    var selectedResolution by remember { mutableStateOf(existingInstance?.resolutionMode ?: DisplayResolutionMode.NATIVE_PHONE) }
+    var selectedResolution by remember { mutableStateOf(existingInstance?.resolutionMode ?: if (vmAvailable) DisplayResolutionMode.HD_720P else DisplayResolutionMode.NATIVE_PHONE) }
     var dpiScaling by remember { mutableFloatStateOf(existingInstance?.dpiScaling?.toFloat() ?: 120f) }
     var customWidth by remember { mutableStateOf((existingInstance?.customWidth ?: 1920).toString()) }
     var customHeight by remember { mutableStateOf((existingInstance?.customHeight ?: 1080).toString()) }
-    var desktopFps by remember { mutableIntStateOf(DesktopFrameRate.normalized(existingInstance?.desktopFps ?: 60)) }
+    var desktopFps by remember { mutableIntStateOf(DesktopFrameRate.normalized(existingInstance?.desktopFps ?: if (vmAvailable) 30 else 60)) }
     var fpsMenuExpanded by remember { mutableStateOf(false) }
     var displayBackend by remember { mutableStateOf(existingInstance?.displayBackend ?: DisplayBackendPreference.AUTO) }
     var displayMenuExpanded by remember { mutableStateOf(false) }

@@ -39,6 +39,7 @@ import com.linex.vm.console.RfbTransport
 /** An in-app desktop surface. All bitmap mutations and drawing stay on the UI thread. */
 class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
     var onConnection: (Boolean, String) -> Unit = { _, _ -> }
+    var onStartupWaiting: (Boolean) -> Unit = {}
     /** Controls and dialogs must never forward typing to the desktop behind them. */
     var inputEnabled = true
         set(value) { if (field && !value) releaseInput(); field = value }
@@ -51,6 +52,7 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
     private var glesView: GlesDesktopView? = null
     private var gpuWidth = 0
     private var gpuHeight = 0
+    private var vmContentReported = false
     private val refreshGpuPresentation: Runnable = Runnable {
         val count = gpuPresentations.take() ?: return@Runnable
         try {
@@ -63,7 +65,12 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
                     pointerX = gpuWidth / 2
                     pointerY = gpuHeight / 2
                     updateNativeLayout()
-                    onConnection(true, "VM desktop connected")
+                }
+                if (!vmContentReported) {
+                    vmContentReported = surface.hasPresentedContent
+                    if (vmContentReported) onStartupWaiting(false)
+                    onConnection(vmContentReported, if (vmContentReported) "VM desktop content visible"
+                        else "Linux display connected; waiting for desktop content…")
                 }
             }
         } finally { gpuPresentations.complete() }
@@ -173,6 +180,7 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
         requestFocus()
         displayVisible = windowVisibility == VISIBLE
         val presenter = if (endpoint.backend == DisplayBackend.VM_RFB) {
+            onStartupWaiting(true)
             GlesDesktopView(context).apply {
                 isFocusable = false
                 onPresented = gpuPresentations::offer
@@ -217,7 +225,10 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
                         post { if (!disposed) onConnection(false, if (failure is ConnectException) "Desktop server is not ready. First startup may still be installing packages; check instance logs, then retry." else failure.message ?: "Desktop connection failed") }
                         break
                     }
-                } finally { connection.close() }
+                } finally {
+                    connection.close()
+                    post { if (!disposed) onStartupWaiting(false) }
+                }
             }
         }, "linex-display-reader").apply { isDaemon = true; start() }
     }

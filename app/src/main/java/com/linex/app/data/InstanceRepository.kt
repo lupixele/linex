@@ -37,7 +37,7 @@ class InstanceRepository(private val context: Context) {
             return listOf(LinuxInstance(
                 id = UUID.randomUUID().toString(), name = "Debian Workstation",
                 distro = DistroType.DEBIAN_TRIXIE_VM, desktop = DesktopEnvironment.XFCE4,
-                resolutionMode = DisplayResolutionMode.HD_720P, desktopFps = 60,
+                resolutionMode = DisplayResolutionMode.HD_720P, desktopFps = 30,
                 ramAllocatedMb = 1024, memoryBudgetMode = MemoryBudgetMode.DEFAULT,
                 runtime = InstanceRuntime.FULL_VM, vmImageId = image.imageId))
         }

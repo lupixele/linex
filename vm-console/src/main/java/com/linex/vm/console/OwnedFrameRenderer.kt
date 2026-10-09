@@ -14,6 +14,8 @@ internal class OwnedFrameRenderer(
     private val onPresented: (Int, Int) -> Unit,
     private val onFailure: (String) -> Unit
 ) : GLSurfaceView.Renderer {
+        @Volatile var hasPresentedContent: Boolean = false
+            private set
         private var current: OwnedArgbFrame? = null
         private var upload: ByteBuffer? = null
         private var program = 0
@@ -122,6 +124,7 @@ internal class OwnedFrameRenderer(
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
             check(GLES20.glGetError() == GLES20.GL_NO_ERROR) { "Desktop GL presentation failed" }
             if (newFrame) {
+                if (!hasPresentedContent) hasPresentedContent = DesktopFrameContent.visible(frame.pixels, frame.width, frame.height)
                 onPresented(frame.width, frame.height)
             }
         }

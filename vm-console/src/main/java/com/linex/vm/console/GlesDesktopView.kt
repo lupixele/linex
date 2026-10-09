@@ -25,6 +25,8 @@ class GlesDesktopView(context: Context) : GLSurfaceView(context), AutoCloseable 
     var onPresented: (Long) -> Unit = {}
     /** Runs on the GL thread; report via the instance UI rather than crashing the GL worker. */
     var onFailure: (String) -> Unit = {}
+    /** Latches only after a frame containing more than a sparse cursor was drawn. */
+    val hasPresentedContent: Boolean get() = painter.hasPresentedContent
 
     init {
         setEGLContextClientVersion(2)
