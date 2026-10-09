@@ -58,4 +58,14 @@ pixels across subsequent resize/context recovery.
 source8ccbb513beae75231ce765cd5440f986cb325534, passes7 actual tests with zero
 failures/errors/skips. Downloaded XML was checked independently. This validates
 real GL pixels and the content latch, not composition or speed on the user's phone.
-The exact signed update APK proof is recorded below when complete.
+The exact signed update APK passes [Android run37886184501](https://github.com/lupixele/linex/actions/runs/37886184501),
+workflow source820c6cc3cb217b898a4f41407f3f33e0284289bd and APK source
+8ccbb513beae75231ce765cd5440f986cb325534. Installed APK SHA256 is
+05ac530120cb4014174a86b771fcaa070080d866376c55833d4ca16044e1ade9;
+the retained signing certificate and installed test APK are independently checked.
+Two fresh VM processes (7034/7161) produce visible XFCE panel content, 21/20 frame
+updates, frame mutation, non-root headless Firefox/default-CA HTTPS, pause/resume,
+clean stops and retained installed disks. Four complete process observations per
+boot report zero host child processes. Downloaded receipts and the first PNG were
+inspected locally. This does not prove final Android composition or phone speed;
+the separate EGL run proves the presenter content latch and pixels.
