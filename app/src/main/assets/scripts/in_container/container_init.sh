@@ -26,6 +26,7 @@ export TMPDIR="/tmp"
 # 9. Signal Handling & Clean Shutdown Traps
 SESSION_PID=""
 VNC_PID=""
+XWAYLAND_PID=""
 DBUS_PID=""
 
 cleanup() {
@@ -40,6 +41,12 @@ cleanup() {
         echo "[Linex:ContainerInit] Sending SIGTERM to desktop session (PID $SESSION_PID)..."
         kill -15 "$SESSION_PID" 2>/dev/null || true
         wait "$SESSION_PID" 2>/dev/null || true
+    fi
+
+    if [ -n "$XWAYLAND_PID" ] && kill -0 "$XWAYLAND_PID" 2>/dev/null; then
+        echo "[Linex:ContainerInit] Stopping Xwayland server..."
+        kill -15 "$XWAYLAND_PID" 2>/dev/null || true
+        wait "$XWAYLAND_PID" 2>/dev/null || true
     fi
 
     if [ -n "$VNC_PID" ] && kill -0 "$VNC_PID" 2>/dev/null; then
@@ -120,8 +127,35 @@ default-server = tcp:127.0.0.1:4713
 autospawn = no
 EOF
 
-# 7. Start the app's local display, or wait for an externally managed X server.
-if [ "${LINEX_EMBEDDED_DISPLAY:-0}" = "1" ]; then
+# 7. Start the app's local display, or wait for an externally managed server.
+if [ "${LINEX_DISPLAY_BACKEND:-rfb}" = "wayland" ]; then
+    echo "[Linex:ContainerInit] Verifying Wayland compositor socket at $XDG_RUNTIME_DIR/wayland-0..."
+    WAIT_COUNT=0
+    while [ ! -S "$XDG_RUNTIME_DIR/wayland-0" ] && [ $WAIT_COUNT -lt 60 ]; do
+        sleep 0.1
+        WAIT_COUNT=$((WAIT_COUNT + 1))
+    done
+    if [ -S "$XDG_RUNTIME_DIR/wayland-0" ]; then
+        echo "[Linex:ContainerInit] Connected to Wayland socket $XDG_RUNTIME_DIR/wayland-0 successfully."
+    else
+        echo "[Linex:ContainerInit] WARNING: Wayland socket not detected after 6s. Proceeding anyway..."
+    fi
+
+    # Start Xwayland to bridge X11 desktop environments (XFCE, Openbox, etc.) to Wayland
+    if command -v Xwayland >/dev/null 2>&1; then
+        echo "[Linex:ContainerInit] Starting Xwayland on :0..."
+        Xwayland :0 -ac -geometry "${LINUXDROID_WIDTH:-1920}x${LINUXDROID_HEIGHT:-1080}" &
+        XWAYLAND_PID=$!
+        WAIT_X=0
+        while [ ! -e "/tmp/.X11-unix/X0" ] && [ $WAIT_X -lt 30 ]; do
+            sleep 0.1
+            WAIT_X=$((WAIT_X + 1))
+        done
+        if [ -S "/tmp/.X11-unix/X0" ]; then
+            echo "[Linex:ContainerInit] Xwayland active on :0"
+        fi
+    fi
+elif [ "${LINEX_EMBEDDED_DISPLAY:-0}" = "1" ]; then
     . /linex/start_embedded_display.sh
     start_embedded_display
 else

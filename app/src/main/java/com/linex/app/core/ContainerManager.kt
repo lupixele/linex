@@ -167,7 +167,16 @@ class ContainerManager(
             }
 
             val backendPreference = instance.displayBackend
-            if (backendPreference != com.linex.app.data.DisplayBackendPreference.RFB) {
+            val isArm64 = android.os.Build.SUPPORTED_ABIS.any { it.startsWith("arm64") }
+            val useWayland = backendPreference == com.linex.app.data.DisplayBackendPreference.WAYLAND ||
+                    (backendPreference == com.linex.app.data.DisplayBackendPreference.AUTO && isArm64)
+
+            val runtimeRoot = File(tmpDir, "runtime-root").apply { mkdirs() }
+
+            if (useWayland) {
+                logWrapper("Wayland hardware GPU presentation active")
+                displayEndpoint = DisplayEndpoint(0, "", DisplayBackend.WAYLAND, instance.id, width, height, runtimeRoot.absolutePath)
+            } else if (backendPreference != com.linex.app.data.DisplayBackendPreference.RFB) {
                 val capability = GpuCapabilityProbe.probe()
                 val selection = GpuPresentationPolicy.select(capability, width, height)
                 logWrapper("Host GPU: ${capability.vendor} ${capability.renderer}; ${selection.reason}")
@@ -215,9 +224,10 @@ class ContainerManager(
             env["TERM"] = "xterm-256color"
             env["HOME"] = "/root"
             env["SHELL"] = "/bin/bash"
+            val waylandDisplay = displayEndpoint?.backend == DisplayBackend.WAYLAND
             val nativeDisplay = displayEndpoint?.backend == DisplayBackend.NATIVE_X11
-            env["LINEX_DISPLAY_BACKEND"] = if (nativeDisplay) "native_x11" else "rfb"
-            env["LINEX_EMBEDDED_DISPLAY"] = if (nativeDisplay) "0" else "1"
+            env["LINEX_DISPLAY_BACKEND"] = if (waylandDisplay) "wayland" else if (nativeDisplay) "native_x11" else "rfb"
+            env["LINEX_EMBEDDED_DISPLAY"] = if (waylandDisplay || nativeDisplay) "0" else "1"
             env["LINEX_VNC_PORT"] = port.toString()
             env["LINEX_DESKTOP_FPS"] = DesktopFrameRate.normalized(instance.desktopFps).toString()
             pb.redirectErrorStream(true)

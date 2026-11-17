@@ -17,8 +17,8 @@ android {
         applicationId = "com.linex.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 23
-        versionName = "0.6.1-dev"
+        versionCode = 24
+        versionName = "0.7.0-dev"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {

@@ -138,7 +138,23 @@ export TMPDIR="/tmp"
 export MOZ_FAKE_NO_SANDBOX="1"
 export CHROME_DEVEL_SANDBOX=""
 export QT_X11_NO_MITSHM="1"
-export LIBGL_ALWAYS_SOFTWARE="1"
+
+if [ "${LINEX_DISPLAY_BACKEND:-rfb}" = "wayland" ]; then
+    export WAYLAND_DISPLAY="wayland-0"
+    export XDG_SESSION_TYPE="wayland"
+    export MESA_LOADER_DRIVER_OVERRIDE="zink"
+    export GALLIUM_DRIVER="zink"
+    export LIBGL_KOPPER_DRI2="true"
+    export TU_DEBUG="sysmem"
+    export MOZ_ENABLE_WAYLAND="1"
+    export GDK_BACKEND="wayland,x11"
+    export QT_QPA_PLATFORM="wayland;xcb"
+    export SDL_VIDEODRIVER="wayland,x11"
+    export CLUTTER_BACKEND="wayland"
+    unset LIBGL_ALWAYS_SOFTWARE
+else
+    export LIBGL_ALWAYS_SOFTWARE="1"
+fi
 export LINUXDROID_WIDTH="$DISPLAY_WIDTH"
 export LINUXDROID_HEIGHT="$DISPLAY_HEIGHT"
 export LINUXDROID_DPI="$DPI_SCALING"
@@ -157,4 +173,10 @@ HOST_LIB_DIR="$TMP_PATH/host-libs"
 export LD_LIBRARY_PATH="$HOST_LIB_DIR:$APP_LIB_DIR"
 export PROOT_LOADER="$APP_LIB_DIR/libloader.so"
 export PROOT_LOADER_32="$APP_LIB_DIR/libloader32.so"
-exec "$PROOT_BIN" $PROOT_ARGS /linex/container_init.sh
+
+DDEXEC_BIN="$APP_LIB_DIR/libddexec.so"
+if [ -f "$DDEXEC_BIN" ] && [ -x "$DDEXEC_BIN" ]; then
+    exec "$DDEXEC_BIN" "$PROOT_BIN" $PROOT_ARGS /linex/container_init.sh
+else
+    exec "$PROOT_BIN" $PROOT_ARGS /linex/container_init.sh
+fi

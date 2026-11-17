@@ -268,6 +268,8 @@ fun CreateInstanceDialog(
                         Text("Desktop display", style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold)
                         fun label(mode: DisplayBackendPreference) = when (mode) {
+                            DisplayBackendPreference.WAYLAND -> "Wayland - Hardware GPU acceleration (Turnip/Zink)"
+
                             DisplayBackendPreference.AUTO -> "Automatic · native with compatibility fallback"
                             DisplayBackendPreference.NATIVE_X11 -> "Native X11 · experimental GPU presentation"
                             DisplayBackendPreference.RFB -> "Compatibility · VNC display"

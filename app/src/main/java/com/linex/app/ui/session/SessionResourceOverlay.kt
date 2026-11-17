@@ -59,6 +59,8 @@ internal fun SessionResourceOverlay(
     if (enabled && sessionVisible && view != null) {
         val text = buildList {
             displayBackend?.let { add(when (it) {
+                DisplayBackend.WAYLAND -> "Wayland GPU"
+
                 DisplayBackend.NATIVE_X11 -> "Native X11"
                 DisplayBackend.RFB -> "RFB compatibility"
                 DisplayBackend.VM_RFB -> "VM desktop"

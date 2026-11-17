@@ -90,7 +90,7 @@ echo "[Linex:Entrypoint] PRoot binary resolved: $PROOT_BIN"
 
 # 6. Initialize X11 Socket Environment
 DISPLAY_NUM="${DISPLAY_NUM:-0}"
-if [ "${LINEX_DISPLAY_BACKEND:-rfb}" != "native_x11" ] && [ -f "$BOOTSTRAP_DIR/x11_socket_setup.sh" ]; then
+if [ "${LINEX_DISPLAY_BACKEND:-rfb}" = "rfb" ] && [ -f "$BOOTSTRAP_DIR/x11_socket_setup.sh" ]; then
     echo "[Linex:Entrypoint] Calling x11_socket_setup.sh on display :${DISPLAY_NUM}..."
     sh "$BOOTSTRAP_DIR/x11_socket_setup.sh" "$TMP_PATH" "$DISPLAY_NUM" || {
         echo "[Linex:Entrypoint] WARNING: x11_socket_setup.sh returned non-zero status"

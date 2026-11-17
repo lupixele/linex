@@ -12,6 +12,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.view.Gravity
 import com.termux.x11.LorieView
+import com.linex.app.ui.wayland.WaylandDesktopView
 import com.linex.app.core.DisplayBackend
 import com.linex.app.core.EmbeddedX11Server
 import kotlinx.coroutines.runBlocking
@@ -42,7 +43,11 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
     var onStartupWaiting: (Boolean) -> Unit = {}
     /** Controls and dialogs must never forward typing to the desktop behind them. */
     var inputEnabled = true
-        set(value) { if (field && !value) releaseInput(); field = value }
+        set(value) {
+        if (field && !value) releaseInput()
+        field = value
+        waylandView?.inputEnabled = value
+    }
     @Volatile private var disposed = false
     @Volatile private var client: RfbClient? = null
     private var worker: Thread? = null
@@ -50,6 +55,7 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
     private var bitmap: Bitmap? = null
     private var nativeView: LorieView? = null
     private var glesView: GlesDesktopView? = null
+    private var waylandView: WaylandDesktopView? = null
     private var gpuWidth = 0
     private var gpuHeight = 0
     private var vmContentReported = false
@@ -96,7 +102,7 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
             postDelayed(this, 1000)
         }
     }
-    val frameMetricsAvailable: Boolean get() = nativeView == null
+    val frameMetricsAvailable: Boolean get() = nativeView == null && waylandView == null
     private val frameWidth: Int get() = glesView?.frameWidth ?: bitmap?.width ?: nativeWidth
     private val frameHeight: Int get() = glesView?.frameHeight ?: bitmap?.height ?: nativeHeight
     var presentedFrameCount: Long = 0
@@ -168,6 +174,10 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
     }
     fun connect(endpoint: DisplayEndpoint, targetFps: Int = 15) {
         if (worker != null || disposed) return
+        if (endpoint.backend == DisplayBackend.WAYLAND) {
+            connectWayland(endpoint, targetFps)
+            return
+        }
         if (endpoint.backend == DisplayBackend.NATIVE_X11) {
             connectNative(endpoint, targetFps)
             return
@@ -271,6 +281,27 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
         }, "linex-native-display-connect").apply { isDaemon = true; start() }
     }
 
+    private fun connectWayland(endpoint: DisplayEndpoint, fps: Int) {
+        requestFocus()
+        onStartupWaiting(true)
+        val runtimeDir = endpoint.xdgRuntimeDir ?: java.io.File(context.filesDir, "runtime").absolutePath
+        val surface = WaylandDesktopView(
+            context = context,
+            xdgRuntimeDir = runtimeDir,
+            outputWidth = endpoint.width,
+            outputHeight = endpoint.height,
+            targetFps = fps
+        ).apply {
+            this.inputEnabled = this@EmbeddedDesktopView.inputEnabled
+            onFirstFrame = {
+                onStartupWaiting(false)
+                onConnection(true, "Wayland GPU desktop connected")
+            }
+            waylandView = this
+            addView(this, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT, Gravity.CENTER))
+        }
+    }
+
     private fun updateNativeLayout() {
         if (frameWidth <= 0 || frameHeight <= 0 || width <= 0 || height <= 0) return
         val scale = minOf(width.toFloat() / frameWidth, height.toFloat() / frameHeight)
@@ -289,7 +320,10 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
         if (nativeView != null || glesView != null) updateNativeLayout()
     }
 
-    override fun onInterceptTouchEvent(event: MotionEvent): Boolean = inputEnabled
+    override fun onInterceptTouchEvent(event: MotionEvent): Boolean {
+        if (waylandView != null) return false
+        return inputEnabled
+    }
 
     private fun sendPointer(x: Int, y: Int, mask: Int) {
         val surface = nativeView
@@ -320,6 +354,9 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
         glesView?.close()
         glesView?.let { removeView(it) }
         glesView = null
+        waylandView?.release()
+        waylandView?.let { removeView(it) }
+        waylandView = null
         nativeWidth = 0; nativeHeight = 0
         nativeButtons = 0
         bitmap = null
@@ -383,11 +420,13 @@ class EmbeddedDesktopView(context: Context) : FrameLayout(context) {
         (context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(windowToken, 0)
     }
-    fun toggleKeyboard() = showKeyboard()
+    fun toggleKeyboard() {
+        if (waylandView != null) waylandView?.showKeyboard() else showKeyboard()
+    }
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         canvas.drawColor(android.graphics.Color.BLACK)
-        if (nativeView != null || glesView != null) return
+        if (nativeView != null || glesView != null || waylandView != null) return
         val image = bitmap ?: return
         val scale = minOf(width.toFloat() / image.width, height.toFloat() / image.height)
         val w = image.width * scale

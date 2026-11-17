@@ -92,7 +92,7 @@ enum class ContainerState {
 enum class MemoryBudgetMode { DEFAULT, RECOMMENDED, CUSTOM }
 
 @Serializable
-enum class DisplayBackendPreference { AUTO, NATIVE_X11, RFB }
+enum class DisplayBackendPreference { AUTO, WAYLAND, NATIVE_X11, RFB }
 
 @Serializable
 enum class InstanceRuntime { PROOT, FULL_VM }

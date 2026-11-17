@@ -1,6 +1,8 @@
 # Linex progress
 
 ## Current State
+Published [v0.7.0-dev](https://github.com/lupixele/linex/releases/tag/v0.7.0-dev) on 2026-11-17; integrated DroidDeck hardware-accelerated Wayland desktop compositor, AdrenoTools GPU hooks, Turnip Vulkan and Zink OpenGL pipeline, and Xwayland compatibility bridge into Linex. Package versionCode 24, versionName "0.7.0-dev", retaining the development certificate SHA256 `3e4f665b952b7a741053bb9db6299687d92f444257b6a0c302b3d5c41dc96ecc`. Existing instances, saved settings, and disks are preserved.
+
 Published [v0.6.1-dev](https://github.com/lupixele/linex/releases/tag/v0.6.1-dev) on 2026-10-09; implementation and acceptance are merged into main. Release tag6bd186ce3b777622c6aa566b53b7695783c17d85 contains code23. Startup progress now remains visible until the GLES presenter draws more than a black/cursor-only frame; logs distinguish a listening display server from visible desktop content. New VMs default to720p/30FPS. Saved settings, disks, signing certificate, Linux image and native engines are unchanged; no image redownload or reset is required.
 
 Published [v0.6.0-dev](https://github.com/lupixele/linex/releases/tag/v0.6.0-dev) on 2026-10-08 after the exact signed APK passed actual Android runtime acceptance. Implementation and evidence are merged into main; release tag points to 67c6e15134b1adbdf04b8bbd9c85ac0693b7406a. Package versionCode22 retains the development certificate. New instances default to a full Debian13/XFCE/Firefox VM. Existing Ubuntu/PRoot instances and files are preserved; creating a new Debian VM is required for process isolation.
@@ -31,6 +33,8 @@ APK: dist/packaged-v0.6.0-dev/linex-v0.6.0-dev.apk,89,684,875bytes, SHA256 d791f
 2026-10-09
 
 ## Recent Decisions
+- [2026-11-17] Adapted DroidDeck hardware-accelerated Wayland architecture into Linex: ported droiddeckwayland compositor, adrenotools GPU hooks, and ddexec static loader to app/src/main/cpp. Added WaylandDesktopView SurfaceView with CompositorHost, InputSpace coordinate scaling, EvdevKeys, and SessionClipboard. Extended DisplayBackend and DisplayBackendPreference with WAYLAND; configured container init for wayland-0, Turnip (TU_DEBUG=sysmem) over /dev/kgsl-3d0, and Zink OpenGL. Built and validated assembleDebug APK.
+- [2026-10-09] Published v0.6.1-dev with visible nonblack frame progress latching, 720p/30 default, and startup audit.
 - [2026-09-26] Work directly in the user-specified linex checkout; replace unreliable Android tar extraction with bounded streaming JVM extraction; preserve old ready roots and scope diagnostics per instance.
 - [2026-09-26] Confirmed upstream archive entry /usr/bin/X11 -> . was converted to an empty symlink target. Preserve literal dot and report symlink target/type on failures; retain download cache and user instance data.
 - [2026-09-26] Updated device log confirms X11 fix works. Preserve literal backslashes in POSIX archive filenames and link targets; do not decode systemd escapes or weaken root containment.

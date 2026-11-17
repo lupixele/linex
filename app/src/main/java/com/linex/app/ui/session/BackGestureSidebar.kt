@@ -88,6 +88,8 @@ fun BackGestureSidebar(
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = when (displayBackend) {
+                    DisplayBackend.WAYLAND -> "Display: Wayland - Hardware GPU"
+
                     DisplayBackend.NATIVE_X11 -> "Display: Native X11"
                     DisplayBackend.RFB -> "Display: RFB compatibility"
                     DisplayBackend.VM_RFB -> "Display: VM desktop · GPU presentation"
@@ -97,8 +99,12 @@ fun BackGestureSidebar(
             )
             Text("Frame target: ${DesktopFrameRate.normalized(instance.desktopFps)} FPS",
                 style = MaterialTheme.typography.bodySmall)
-            Text("Linux apps: software graphics", style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = if (displayBackend == DisplayBackend.WAYLAND) "Linux apps: Hardware GPU (Turnip / Zink)"
+                       else "Linux apps: software graphics",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outline)
             Spacer(modifier = Modifier.height(16.dp))
