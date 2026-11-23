@@ -142,6 +142,15 @@ if [ "${LINEX_DISPLAY_BACKEND:-rfb}" = "wayland" ]; then
     fi
 
     # Start Xwayland to bridge X11 desktop environments (XFCE, Openbox, etc.) to Wayland
+    if ! command -v Xwayland >/dev/null 2>&1; then
+        if command -v apt-get >/dev/null 2>&1; then
+            echo "[Linex:ContainerInit] Installing xwayland for hardware GPU desktop bridge..."
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -o Acquire::Retries=1 -o Acquire::http::Timeout=15 -y 2>/dev/null || true
+            apt-get install -y --no-install-recommends xwayland 2>/dev/null || true
+        fi
+    fi
+
     if command -v Xwayland >/dev/null 2>&1; then
         echo "[Linex:ContainerInit] Starting Xwayland on :0..."
         Xwayland :0 -ac -geometry "${LINUXDROID_WIDTH:-1920}x${LINUXDROID_HEIGHT:-1080}" &

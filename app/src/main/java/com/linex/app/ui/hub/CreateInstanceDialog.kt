@@ -42,20 +42,19 @@ fun CreateInstanceDialog(
     existingInstance: LinuxInstance? = null,
     availableVmImageId: String? = null
 ) {
-    val vmAvailable = !availableVmImageId.isNullOrBlank()
-    var runtime by remember { mutableStateOf(existingInstance?.runtime ?: if (vmAvailable) InstanceRuntime.FULL_VM else InstanceRuntime.PROOT) }
-    val isVm = runtime == InstanceRuntime.FULL_VM
-    var name by remember { mutableStateOf(existingInstance?.name ?: if (vmAvailable) "My Debian Workstation" else "My Ubuntu Workstation") }
-    var selectedDistro by remember { mutableStateOf(existingInstance?.distro ?: if (vmAvailable) DistroType.DEBIAN_TRIXIE_VM else DistroType.UBUNTU_JAMMY) }
+    var name by remember { mutableStateOf(existingInstance?.name ?: "Ubuntu Workstation") }
+    var selectedDistro by remember {
+        mutableStateOf(
+            existingInstance?.distro?.takeIf { it != DistroType.DEBIAN_TRIXIE_VM } ?: DistroType.UBUNTU_JAMMY
+        )
+    }
     val selectedDesktop = existingInstance?.desktop ?: DesktopEnvironment.XFCE4
-    var selectedResolution by remember { mutableStateOf(existingInstance?.resolutionMode ?: if (vmAvailable) DisplayResolutionMode.HD_720P else DisplayResolutionMode.NATIVE_PHONE) }
+    var selectedResolution by remember { mutableStateOf(existingInstance?.resolutionMode ?: DisplayResolutionMode.NATIVE_PHONE) }
     var dpiScaling by remember { mutableFloatStateOf(existingInstance?.dpiScaling?.toFloat() ?: 120f) }
     var customWidth by remember { mutableStateOf((existingInstance?.customWidth ?: 1920).toString()) }
     var customHeight by remember { mutableStateOf((existingInstance?.customHeight ?: 1080).toString()) }
-    var desktopFps by remember { mutableIntStateOf(DesktopFrameRate.normalized(existingInstance?.desktopFps ?: if (vmAvailable) 30 else 60)) }
+    var desktopFps by remember { mutableIntStateOf(DesktopFrameRate.normalized(existingInstance?.desktopFps ?: 60)) }
     var fpsMenuExpanded by remember { mutableStateOf(false) }
-    var displayBackend by remember { mutableStateOf(existingInstance?.displayBackend ?: DisplayBackendPreference.AUTO) }
-    var displayMenuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val totalRamMb = remember(context) {
         val memory = ActivityManager.MemoryInfo()
@@ -65,8 +64,8 @@ fun CreateInstanceDialog(
     var memoryMode by remember { mutableStateOf(existingInstance?.let(MemoryBudget::mode) ?: MemoryBudgetMode.DEFAULT) }
     var customRam by remember { mutableStateOf((existingInstance?.ramAllocatedMb ?: MemoryBudget.DEFAULT_MB).toString()) }
     var memoryMenuExpanded by remember { mutableStateOf(false) }
-    val memoryError = if (memoryMode == MemoryBudgetMode.CUSTOM) MemoryBudget.error(customRam, totalRamMb, runtime) else null
-    val memoryInstance = LinuxInstance("memory-preview", "", selectedDistro, selectedDesktop, selectedResolution, runtime = runtime)
+    val memoryError = if (memoryMode == MemoryBudgetMode.CUSTOM) MemoryBudget.error(customRam, totalRamMb, InstanceRuntime.PROOT) else null
+    val memoryInstance = LinuxInstance("memory-preview", "", selectedDistro, selectedDesktop, selectedResolution, runtime = InstanceRuntime.PROOT)
     val defaultRam = MemoryBudget.resolveMb(memoryInstance.copy(memoryBudgetMode = MemoryBudgetMode.DEFAULT), totalRamMb)
     val recommendedRam = MemoryBudget.resolveMb(memoryInstance.copy(memoryBudgetMode = MemoryBudgetMode.RECOMMENDED), totalRamMb)
     val resolutionError = if (selectedResolution == DisplayResolutionMode.CUSTOM)
@@ -97,12 +96,12 @@ fun CreateInstanceDialog(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            text = if (existingInstance == null) "New Linux instance" else "Instance settings",
+                            text = if (existingInstance == null) "New Linux Desktop" else "Desktop Settings",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Configure your isolated rootless Linux environment",
+                            text = "Hardware-accelerated Linux desktop powered by Wayland",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.secondary
                         )
@@ -123,6 +122,24 @@ fun CreateInstanceDialog(
                         .padding(vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(18.dp)
                 ) {
+                    // GPU Pipeline Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text("⚡ Hardware GPU Accelerated (Wayland)",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Spacer(Modifier.height(4.dp))
+                            Text("Direct Qualcomm Adreno GPU rendering via Mesa Turnip (Vulkan) and Zink (OpenGL) drivers. Zero-copy presentation on Android.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
+
                     // Instance Name
                     OutlinedTextField(
                         value = name,
@@ -133,30 +150,8 @@ fun CreateInstanceDialog(
                         shape = RoundedCornerShape(10.dp)
                     )
 
-                    Text("Linux runtime", style = MaterialTheme.typography.titleSmall)
-                    InstanceRuntime.values().forEach { choice ->
-                        val choiceEnabled = existingInstance == null && (choice != InstanceRuntime.FULL_VM || vmAvailable)
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = runtime == choice, enabled = choiceEnabled, onClick = {
-                                if (choiceEnabled) {
-                                    runtime = choice
-                                    selectedDistro = if (choice == InstanceRuntime.FULL_VM) DistroType.DEBIAN_TRIXIE_VM else DistroType.UBUNTU_JAMMY
-                                }
-                            })
-                            Column(Modifier.weight(1f)) {
-                                Text(if (choice == InstanceRuntime.FULL_VM) "Full virtual machine · recommended" else "PRoot · legacy", style = MaterialTheme.typography.bodyMedium)
-                                Text(if (choice == InstanceRuntime.FULL_VM) {
-                                    if (vmAvailable || isVm) "Complete Linux kernel and allocated guest RAM. May run slower on older phones."
-                                    else "Available when a verified VM image is included in this release."
-                                } else "Native CPU execution; Android may limit Linux background processes.",
-                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                    if (existingInstance != null) Text("The runtime and system image stay fixed for this instance.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("System image", style = MaterialTheme.typography.titleSmall)
-                    DistroType.values().filter { (it == DistroType.DEBIAN_TRIXIE_VM) == isVm }.forEach { distro ->
+                    Text("System image", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    DistroType.values().filter { it != DistroType.DEBIAN_TRIXIE_VM }.forEach { distro ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                             RadioButton(
                                 selected = selectedDistro == distro,
@@ -164,23 +159,15 @@ fun CreateInstanceDialog(
                                 onClick = { selectedDistro = distro }
                             )
                             Column(Modifier.weight(1f).padding(top = 12.dp)) {
-                                Text(distro.displayName, style = MaterialTheme.typography.bodyMedium)
-                                Text(if (isVm) "XFCE, Firefox ESR and a 4 GiB Linux disk" else "Download: about ${distro.estimatedSizeMb} MB", style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(distro.displayName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text(distro.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
-                    Text(
-                        if (isVm) "An embedded desktop with an isolated Linux kernel. Setup progress continues in the background."
-                        else if (selectedDistro == DistroType.UBUNTU_JAMMY)
-                            "Includes XFCE and an embedded desktop display."
-                        else "Minimal base image. A desktop is not included; install one before using a desktop session.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text("Desktop preset: ${if (isVm) "XFCE" else selectedDesktop.displayName}", style = MaterialTheme.typography.bodyMedium)
-                    Text("New instances use XFCE. Additional desktop presets are not yet supported.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    Text("Desktop Environment: XFCE4 (Pre-installed & Optimized)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium)
 
                     // Resolution Profile
                     Text(
@@ -231,8 +218,6 @@ fun CreateInstanceDialog(
                             style = MaterialTheme.typography.bodySmall,
                             color = if (resolutionError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("Resolution changes apply on the next session start. Match your screen's aspect ratio to avoid black borders.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Desktop frame rate", style = MaterialTheme.typography.titleSmall,
@@ -250,7 +235,7 @@ fun CreateInstanceDialog(
                             ) {
                                 DesktopFrameRate.options.forEach { fps ->
                                     DropdownMenuItem(
-                                        text = { Text(if (fps == 15) "$fps FPS · Battery saver" else "$fps FPS") },
+                                        text = { Text(if (fps == 60) "$fps FPS · Smooth (Recommended)" else "$fps FPS") },
                                         leadingIcon = { RadioButton(selected = desktopFps == fps, onClick = null) },
                                         onClick = { desktopFps = fps; fpsMenuExpanded = false }
                                     )
@@ -258,49 +243,21 @@ fun CreateInstanceDialog(
                             }
                         }
                         Text(
-                            "Sets a frame-rate cap, not guaranteed FPS. Actual smoothness depends on your display, resolution and Linux workload. Higher rates use more CPU and battery. Applies on the next session start.",
+                            "Framerate target for Wayland compositor VSync. Higher rates take full advantage of 90Hz/120Hz displays.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    if (!isVm) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Desktop display", style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold)
-                        fun label(mode: DisplayBackendPreference) = when (mode) {
-                            DisplayBackendPreference.WAYLAND -> "Wayland - Hardware GPU acceleration (Turnip/Zink)"
-
-                            DisplayBackendPreference.AUTO -> "Automatic · native with compatibility fallback"
-                            DisplayBackendPreference.NATIVE_X11 -> "Native X11 · experimental GPU presentation"
-                            DisplayBackendPreference.RFB -> "Compatibility · VNC display"
-                        }
-                        Box {
-                            OutlinedButton(onClick = { displayMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                                Text(label(displayBackend))
-                            }
-                            DropdownMenu(expanded = displayMenuExpanded, onDismissRequest = { displayMenuExpanded = false }) {
-                                DisplayBackendPreference.values().forEach { mode ->
-                                    DropdownMenuItem(text = { Text(label(mode)) },
-                                        leadingIcon = { RadioButton(selected = displayBackend == mode, onClick = null) },
-                                        onClick = { displayBackend = mode; displayMenuExpanded = false })
-                                }
-                            }
-                        }
-                        Text("Native display uses the phone GPU to present the desktop. Linux application graphics and video decoding are separate. Stop and start the instance to apply changes.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    if (isVm) Text("Embedded desktop · GPU presentation. Linux applications use software graphics.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(if (isVm) "Guest RAM allocation" else "RAM budget", style = MaterialTheme.typography.titleSmall,
+                        Text("RAM Budget", style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold)
                         Box {
                             OutlinedButton(onClick = { memoryMenuExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                                 Text(when (memoryMode) {
                                     MemoryBudgetMode.DEFAULT -> "Default · $defaultRam MiB"
                                     MemoryBudgetMode.RECOMMENDED -> "Recommended · $recommendedRam MiB"
-                                    MemoryBudgetMode.CUSTOM -> if (isVm) "Custom allocation" else "Custom budget"
+                                    MemoryBudgetMode.CUSTOM -> "Custom budget"
                                 })
                             }
                             DropdownMenu(expanded = memoryMenuExpanded, onDismissRequest = { memoryMenuExpanded = false }) {
@@ -309,7 +266,7 @@ fun CreateInstanceDialog(
                                         text = { Text(when (mode) {
                                             MemoryBudgetMode.DEFAULT -> "Default · $defaultRam MiB"
                                             MemoryBudgetMode.RECOMMENDED -> "Recommended · $recommendedRam MiB"
-                                            MemoryBudgetMode.CUSTOM -> "Custom…"
+                                            MemoryBudgetMode.CUSTOM -> "Custom budget"
                                         }) },
                                         leadingIcon = { RadioButton(selected = memoryMode == mode, onClick = null) },
                                         onClick = { memoryMode = mode; memoryMenuExpanded = false }
@@ -318,39 +275,19 @@ fun CreateInstanceDialog(
                             }
                         }
                         if (memoryMode == MemoryBudgetMode.CUSTOM) {
-                            OutlinedTextField(value = customRam, onValueChange = { customRam = it.take(10) },
-                                label = { Text(if (isVm) "Custom guest RAM (MiB)" else "Custom RAM budget (MiB)") },
+                            OutlinedTextField(
+                                value = customRam,
+                                onValueChange = { customRam = it.take(8) },
+                                label = { Text("RAM budget (MiB)") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true, isError = memoryError != null,
-                                modifier = Modifier.fillMaxWidth())
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
-                        if (memoryError != null) Text(memoryError, color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall)
-                        Text(if (isVm) "Sets the VM's real guest RAM limit, up to 4096 MiB. Linex checks available memory again before starting to leave room for Android. Changes apply after restarting."
-                            else "Planning target only. Android shares RAM with Linux; Linex cannot reserve memory or enforce a guest RAM limit. Recommended considers your desktop and device RAM, up to 4096 MiB, leaving room for Android.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (totalRamMb > 0) Text("Device RAM: $totalRamMb MiB", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(memoryError ?: "Guides memory usage and system cache limits.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (memoryError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-
-                    // DPI Scaling Slider
-                    if (!isVm) Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Interface scaling", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                            Text("${dpiScaling.toInt()} DPI", fontWeight = FontWeight.Bold)
-                        }
-                        Slider(
-                            value = dpiScaling,
-                            onValueChange = { dpiScaling = it },
-                            valueRange = 96f..240f,
-                            steps = 5
-                        )
-                    }
-
-
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline)
@@ -367,7 +304,7 @@ fun CreateInstanceDialog(
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Button(
-                        enabled = name.isNotBlank() && resolutionError == null && memoryError == null && (!isVm || existingInstance != null || vmAvailable),
+                        enabled = name.isNotBlank() && resolutionError == null && memoryError == null,
                         onClick = {
                             val base = existingInstance ?: LinuxInstance(
                                 id = UUID.randomUUID().toString(),
@@ -375,17 +312,21 @@ fun CreateInstanceDialog(
                                 distro = selectedDistro,
                                 desktop = selectedDesktop,
                                 resolutionMode = selectedResolution,
-                                runtime = runtime,
-                                vmImageId = if (isVm) availableVmImageId else null
+                                runtime = InstanceRuntime.PROOT,
+                                displayBackend = DisplayBackendPreference.WAYLAND,
+                                vmImageId = null
                             )
                             val newInstance = base.copy(
                                 name = name.trim(),
+                                distro = selectedDistro,
                                 resolutionMode = selectedResolution,
                                 customWidth = if (selectedResolution == DisplayResolutionMode.CUSTOM) customWidth.toInt() else base.customWidth,
                                 customHeight = if (selectedResolution == DisplayResolutionMode.CUSTOM) customHeight.toInt() else base.customHeight,
                                 dpiScaling = dpiScaling.toInt(),
                                 desktopFps = desktopFps,
-                                displayBackend = displayBackend,
+                                displayBackend = DisplayBackendPreference.WAYLAND,
+                                runtime = InstanceRuntime.PROOT,
+                                vmImageId = null,
                                 memoryBudgetMode = memoryMode,
                                 ramAllocatedMb = when (memoryMode) {
                                     MemoryBudgetMode.DEFAULT -> defaultRam
@@ -401,7 +342,7 @@ fun CreateInstanceDialog(
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text(if (existingInstance == null) "Create" else "Save changes", fontWeight = FontWeight.Bold)
+                        Text(if (existingInstance == null) "Create Desktop" else "Save changes", fontWeight = FontWeight.Bold)
                     }
                 }
             }

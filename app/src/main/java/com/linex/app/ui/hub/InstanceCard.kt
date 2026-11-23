@@ -76,8 +76,8 @@ fun InstanceCard(
             }
             Text(status, style = MaterialTheme.typography.labelLarge,
                 color = if (setupError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
-            Text(if (instance.runtime == InstanceRuntime.FULL_VM) "Full virtual machine" else "PRoot · legacy",
-                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (instance.runtime == InstanceRuntime.FULL_VM) "Virtual Machine (CPU Emulation)" else "Hardware GPU Accelerated (Wayland)",
+                style = MaterialTheme.typography.labelMedium, color = if (instance.runtime == InstanceRuntime.FULL_VM) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)
             Text("${instance.desktop.displayName}\n${instance.resolutionMode.displayName} · ${instance.dpiScaling} DPI",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (setupError != null) {

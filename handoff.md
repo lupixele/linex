@@ -82,3 +82,19 @@ The user requested research and integration of the GPU-accelerated Wayland deskt
    - APK packaged as `dist/packaged-v0.7.0-dev/linex-v0.7.0-dev.apk` (90,052,173 bytes, SHA256 `c0c440ccd9374f6939c31991d74ea896df266b185e4511d05eea205656e9de88`).
    - Retained development certificate SHA256 `3e4f665b952b7a741053bb9db6299687d92f444257b6a0c302b3d5c41dc96ecc` (`versionCode = 24`, `versionName = "0.7.0-dev"`).
    - Tagged and published as GitHub release `v0.7.0-dev`.
+
+## Streamlined Hardware GPU Architecture (November 23, 2026)
+
+In response to user feedback, Linex v0.7.1-dev unifies the runtime architecture into a single, straightforward, hardware-accelerated system:
+1. **Removed Dual-Runtime & Display Complexity**:
+   - Eliminated the confusing "Virtual Machine vs PRoot" choice and multiple display backend toggles.
+   - Defaulted directly to the high-performance rootless container engine with direct Qualcomm Adreno GPU access (`/dev/kgsl-3d0`).
+   - Wayland is the sole, unified display engine with Turnip Vulkan and Zink OpenGL drivers.
+2. **Revamped Setup**:
+   - Streamlined `CreateInstanceDialog` to only configure desktop name, resolution mode, target FPS, and RAM budget.
+   - Default instance set to `Ubuntu Workstation` (Ubuntu 22.04 LTS Jammy XFCE4).
+   - `InstanceRepository` auto-provisions `Ubuntu Workstation` if only legacy VM instances exist.
+3. **Packaging & Verification**:
+   - `.\gradlew.bat assembleDebug` passed cleanly.
+   - Verified signing certificate `3e4f665b952b7a741053bb9db6299687d92f444257b6a0c302b3d5c41dc96ecc` (`versionCode = 25`, `versionName = "0.7.1-dev"`).
+   - Packaged as `dist/packaged-v0.7.1-dev/linex-v0.7.1-dev.apk` (90,044,085 bytes, SHA256 `7265094d37d28c1b50503cbd387b97155a9b84a5836f7d1c1adbfa091897580e`).

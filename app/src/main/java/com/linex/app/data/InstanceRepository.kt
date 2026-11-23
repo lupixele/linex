@@ -33,14 +33,6 @@ class InstanceRepository(private val context: Context) {
         get() = File(context.filesDir, FILE_NAME)
 
     fun getDefaultInstances(): List<LinuxInstance> {
-        com.linex.app.core.VmImageCatalogue.current(context)?.let { image ->
-            return listOf(LinuxInstance(
-                id = UUID.randomUUID().toString(), name = "Debian Workstation",
-                distro = DistroType.DEBIAN_TRIXIE_VM, desktop = DesktopEnvironment.XFCE4,
-                resolutionMode = DisplayResolutionMode.HD_720P, desktopFps = 30,
-                ramAllocatedMb = 1024, memoryBudgetMode = MemoryBudgetMode.DEFAULT,
-                runtime = InstanceRuntime.FULL_VM, vmImageId = image.imageId))
-        }
         return listOf(
             LinuxInstance(
                 id = UUID.randomUUID().toString(),
@@ -48,18 +40,11 @@ class InstanceRepository(private val context: Context) {
                 distro = DistroType.UBUNTU_JAMMY,
                 desktop = DesktopEnvironment.XFCE4,
                 resolutionMode = DisplayResolutionMode.NATIVE_PHONE,
+                desktopFps = 60,
                 dpiScaling = 120,
                 ramAllocatedMb = 2048,
-                state = ContainerState.STOPPED
-            ),
-            LinuxInstance(
-                id = UUID.randomUUID().toString(),
-                name = "Ubuntu Touch Mobile",
-                distro = DistroType.UBUNTU_JAMMY,
-                desktop = DesktopEnvironment.UBUNTU_TOUCH_PHOSH,
-                resolutionMode = DisplayResolutionMode.NATIVE_PHONE,
-                dpiScaling = 140,
-                ramAllocatedMb = 1536,
+                runtime = InstanceRuntime.PROOT,
+                displayBackend = DisplayBackendPreference.WAYLAND,
                 state = ContainerState.STOPPED
             )
         )
@@ -80,15 +65,21 @@ class InstanceRepository(private val context: Context) {
                 } else {
                     val saved = json.decodeFromString<List<LinuxInstance>>(content)
                     // Synchronize latest distro URLs and metadata from code into persisted instances
-                    saved.map { inst ->
+                    var instances = saved.map { inst ->
                         // Re-align with current DistroType values in case URLs or specs updated
                         val currentDistro = try {
                             DistroType.valueOf(inst.distro.name)
                         } catch (e: Exception) {
                             inst.distro
                         }
-                        inst.copy(distro = currentDistro, state = ContainerState.STOPPED)
+                        val backend = if (inst.runtime == InstanceRuntime.PROOT) DisplayBackendPreference.WAYLAND else inst.displayBackend
+                        inst.copy(distro = currentDistro, displayBackend = backend, state = ContainerState.STOPPED)
                     }
+                    if (instances.none { it.runtime == InstanceRuntime.PROOT }) {
+                        instances = instances + getDefaultInstances()
+                        saveInstancesSync(instances)
+                    }
+                    instances
                 }
             }
         } catch (e: Exception) {

@@ -1,6 +1,8 @@
 # Linex progress
 
 ## Current State
+Published [v0.7.1-dev](https://github.com/lupixele/linex/releases/tag/v0.7.1-dev) on 2026-11-23; unified runtime architecture into a single, high-performance rootless container engine with hardware-accelerated Wayland and Turnip/Zink GPU pipeline. Removed confusing dual-runtime (VM vs PRoot) and multi-backend toggles. Revamped instance creation and auto-provisioning for Ubuntu 22.04 LTS (Jammy XFCE4). Package versionCode 25, versionName "0.7.1-dev", retaining development certificate SHA256 `3e4f665b952b7a741053bb9db6299687d92f444257b6a0c302b3d5c41dc96ecc`. Existing instances, saved settings, and disks are preserved.
+
 Published [v0.7.0-dev](https://github.com/lupixele/linex/releases/tag/v0.7.0-dev) on 2026-11-17; integrated DroidDeck hardware-accelerated Wayland desktop compositor, AdrenoTools GPU hooks, Turnip Vulkan and Zink OpenGL pipeline, and Xwayland compatibility bridge into Linex. Package versionCode 24, versionName "0.7.0-dev", retaining the development certificate SHA256 `3e4f665b952b7a741053bb9db6299687d92f444257b6a0c302b3d5c41dc96ecc`. Existing instances, saved settings, and disks are preserved.
 
 Published [v0.6.1-dev](https://github.com/lupixele/linex/releases/tag/v0.6.1-dev) on 2026-10-09; implementation and acceptance are merged into main. Release tag6bd186ce3b777622c6aa566b53b7695783c17d85 contains code23. Startup progress now remains visible until the GLES presenter draws more than a black/cursor-only frame; logs distinguish a listening display server from visible desktop content. New VMs default to720p/30FPS. Saved settings, disks, signing certificate, Linux image and native engines are unchanged; no image redownload or reset is required.

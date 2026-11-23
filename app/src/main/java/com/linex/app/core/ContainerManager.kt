@@ -168,8 +168,7 @@ class ContainerManager(
 
             val backendPreference = instance.displayBackend
             val isArm64 = android.os.Build.SUPPORTED_ABIS.any { it.startsWith("arm64") }
-            val useWayland = backendPreference == com.linex.app.data.DisplayBackendPreference.WAYLAND ||
-                    (backendPreference == com.linex.app.data.DisplayBackendPreference.AUTO && isArm64)
+            val useWayland = isArm64 || backendPreference == com.linex.app.data.DisplayBackendPreference.WAYLAND
 
             val runtimeRoot = File(tmpDir, "runtime-root").apply { mkdirs() }
 
